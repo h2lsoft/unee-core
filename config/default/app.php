@@ -235,4 +235,13 @@ return [
 				// 'auth.frontend' => CORE_PATH.'/core/module/core/auth/middleware/frontend.php', # enable in instance config
 	],
 
+	// COMMANDS ********************************************************************************************************
+	/**
+	 * console commands: php vendor/bin/unee <name> [--instance=name]
+	 * keyed: a project or an instance can override a key, add a new one, or set it to null to disable it
+	 */
+	'commands' => [
+		'migrate' => \Command\Core\Migrate::class,
+	],
+
 ];

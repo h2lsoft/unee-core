@@ -32,11 +32,18 @@ Rules for any AI agent or developer working on this repository. Read them before
 
 - Merge order: `core config/default/app.php` < `config/app.php` (project) < `config/app_<env>.php` < `instances/<x>/config/app.php`.
 - Merge is recursive: a key overrides, a new key adds.
-- Lists (`middlewares`, `routes`, `events`) are keyed arrays: same key overrides, new key adds, `null` disables.
+- Lists (`middlewares`, `routes`, `events`, `commands`) are keyed arrays: same key overrides, new key adds, `null` disables.
 - Middleware paths are absolute (`CORE_PATH.'/core/...'`).
 - `db` is a flat array (`host`, `database`, `username`...), no package notion.
 - Credentials never go in the core: use `config/app_<env>.php` (not versioned) or the instance config.
 - Config keys are read with `\Core\Config::get('path/to/key', $default)` (separator `/`).
+
+## Console and migrations
+
+- Console: `php vendor/bin/unee <command> [--instance=name]` (Symfony Console). A command is a class `Command\<Package>\<Name>` in `core/command/<Package>/<Name>.php` (overridable in `instances/<x>/command/`), registered in config `commands`.
+- Migrations: `php vendor/bin/unee migrate [--instance=name] [--status]`. Every instance is migrated when `--instance` is omitted.
+- Files: `migrations/YYYYMMDDHHMMSS_description.sql` in the core, the project and `instances/<x>/`, applied in this order and recorded in `xcore_migration` as `<scope>/<name>`.
+- Never modify an applied migration: a change is a new file. Write re-runnable SQL (`IF NOT EXISTS`): mysql ddl is not transactional. Back up before deploying.
 
 ## Routes
 

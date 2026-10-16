@@ -1,0 +1,38 @@
+#!/usr/bin/env php
+<?php
+/**
+ * unee console, from the project root: php vendor/bin/unee <command> [--instance=name]
+ * commands are listed in config `commands` (keyed: a project or an instance can add, override, or disable with null)
+ */
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\InputOption;
+
+// project root: given by the composer bin proxy, otherwise the current directory
+$app_path = isset($_composer_autoload_path) ? dirname(realpath($_composer_autoload_path), 2) : getcwd();
+require $app_path.'/vendor/autoload.php';
+
+// the instance is read before the bootstrap: APP_DIR and the config are defined once per process
+$input = new ArgvInput();
+$instance = (string)$input->getParameterOption('--instance', '');
+
+if($instance !== '' && (!preg_match('/^[\w\-]+$/', $instance) || !is_dir("{$app_path}/instances/{$instance}")))
+{
+	fwrite(STDERR, "instance not found: {$instance}\n");
+	exit(1);
+}
+
+putenv("APP_DIR={$instance}");
+define('APP_PATH', $app_path);
+require APP_PATH.'/vendor/h2lsoft/unee-core/core/bootstrap.php';
+
+$console = new Application('unee');
+$console->getDefinition()->addOption(new InputOption('instance', null, InputOption::VALUE_REQUIRED, 'instance name (folder instances/<name>)'));
+
+foreach(\Core\Config::get('commands', []) as $command_class)
+{
+	$console->addCommand(new $command_class());
+}
+
+exit($console->run($input));

@@ -47,7 +47,7 @@ if(file_exists(APP_PATH."/config/app_".APP_ENV.".php"))
 }
 
 // load instance config: overrides existing keys and adds new ones
-// lists (middlewares, routes, events) are keyed: same key overrides, new key adds, null disables
+// lists (middlewares, routes, events, commands) are keyed: same key overrides, new key adds, null disables
 if(APP_DIR != '' && file_exists(APP_PATH."/instances/".APP_DIR."/config/app.php"))
 {
 	$tmp = require APP_PATH."/instances/".APP_DIR."/config/app.php";
@@ -55,7 +55,7 @@ if(APP_DIR != '' && file_exists(APP_PATH."/instances/".APP_DIR."/config/app.php"
 }
 
 // remove disabled entries
-foreach(['middlewares', 'routes', 'events'] as $key)
+foreach(['middlewares', 'routes', 'events', 'commands'] as $key)
 {
 	$config[$key] = array_filter($config[$key]);
 }
