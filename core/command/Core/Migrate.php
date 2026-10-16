@@ -63,20 +63,8 @@ class Migrate extends Command
 		$label = ($instance === '') ? '[project]' : "[{$instance}]";
 		$error_output = ($output instanceof ConsoleOutputInterface) ? $output->getErrorOutput() : $output;
 
-		// connection: same config and cli overrides as core/run.php
-		$db_cfg = \Core\Config::get('db');
-		foreach(['host', 'port', 'username', 'password', 'database', 'pdo_options', 'init_queries'] as $key)
-		{
-			$value = \Core\Config::get("cli/db/{$key}");
-			if(!empty($value))$db_cfg[$key] = $value;
-		}
-
-		$db = new \Core\DB();
-		$pdo = $db->connect($db_cfg['driver'], $db_cfg['host'], $db_cfg['username'], $db_cfg['password'], $db_cfg['database'], $db_cfg['port'], $db_cfg['pdo_options']);
-		foreach($db_cfg['init_queries'] as $sql)
-		{
-			$pdo->exec($sql);
-		}
+		$db = \Core\DB::connectFromConfig();
+		$pdo = $db->getConnectionLink();
 
 		// migration table (also part of the core schema)
 		$pdo->exec("CREATE TABLE IF NOT EXISTS `xcore_migration` (

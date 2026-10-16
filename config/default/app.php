@@ -243,6 +243,7 @@ return [
 	 */
 	'commands' => [
 		'migrate' => \Command\Core\Migrate::class,
+		'user:create' => \Command\Core\UserCreate::class,
 	],
 
 ];

@@ -44,6 +44,7 @@ Rules for any AI agent or developer working on this repository. Read them before
 - Migrations: `php vendor/bin/unee migrate [--instance=name] [--status]`. Every instance is migrated when `--instance` is omitted.
 - Files: `migrations/YYYYMMDDHHMMSS_description.sql` in the core, the project and `instances/<x>/`, applied in this order and recorded in `xcore_migration` as `<scope>/<name>`.
 - Never modify an applied migration: a change is a new file. Write re-runnable SQL (`IF NOT EXISTS`): mysql ddl is not transactional. Back up before deploying.
+- Users: `php vendor/bin/unee user:create --instance=name [--group=id]`, the password is always asked hidden. Fixed ids: group 1 superadmin (rights not checked), group 2 system, user 1 system (inactive, no login, used as `created_by` by console and cron). Client groups are created by the superadmin.
 
 ## Routes
 

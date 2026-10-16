@@ -64,31 +64,8 @@ else
 }
 
 // db ******************************************************************************************************************
-$DB = new \Core\DB();
-$db_cfg = \Core\Config::get('db');
-
-// cli overrides, ex: a cron reaching the database through another host
-if(APP_CLI_MODE)
-{
-	foreach(['host', 'port', 'username', 'password', 'database', 'pdo_options', 'init_queries'] as $key)
-	{
-		$value = \Core\Config::get("cli/db/{$key}");
-		if(!empty($value))$db_cfg[$key] = $value;
-	}
-}
-
-$PDO = $DB->connect(
-	$db_cfg['driver'],
-	$db_cfg['host'],
-	$db_cfg['username'],
-	$db_cfg['password'],
-	$db_cfg['database'],
-	$db_cfg['port'],
-	$db_cfg['pdo_options']
-);
-
-foreach($db_cfg['init_queries'] as $sql)
-	$DB->query($sql);
+$DB = \Core\DB::connectFromConfig();
+$PDO = $DB->getConnectionLink();
 
 // url redirect firewall ***********************************************************************************************
 if(!APP_CLI_MODE)
