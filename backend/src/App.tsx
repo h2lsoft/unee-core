@@ -1,18 +1,40 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { Box, CircularProgress, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+// latin subsets only (french, english, european languages)
+import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-ext-400.css'
+import '@fontsource/ibm-plex-sans/latin-500.css'
+import '@fontsource/ibm-plex-sans/latin-ext-500.css'
+import '@fontsource/ibm-plex-sans/latin-600.css'
+import '@fontsource/ibm-plex-sans/latin-ext-600.css'
 import { AuthProvider, useAuth } from './auth'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 
-// primary color from the unee logo gradient
+// corporate theme: primary color from the unee logo gradient, compact controls (40px), ibm plex sans
 const theme = createTheme({
 	palette: {
 		primary: {main: '#6d4aff'},
+		text: {primary: '#1f2335', secondary: '#5b6178'},
 	},
-	shape: {borderRadius: 10},
+	typography: {
+		fontFamily: '"IBM Plex Sans", system-ui, sans-serif',
+		fontSize: 14,
+	},
+	shape: {borderRadius: 8},
 	components: {
-		MuiButton: {styleOverrides: {root: {textTransform: 'none', fontWeight: 600}}},
+		MuiButton: {
+			defaultProps: {disableElevation: true},
+			styleOverrides: {root: {textTransform: 'none', fontWeight: 600, height: 40}},
+		},
+		MuiOutlinedInput: {
+			styleOverrides: {
+				root: {height: 40, fontSize: 14},
+				notchedOutline: {borderColor: '#d5d8e3'},
+			},
+		},
+		MuiAlert: {styleOverrides: {root: {fontSize: 13, borderRadius: 8}}},
 	},
 })
 

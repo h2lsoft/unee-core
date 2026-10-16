@@ -74,7 +74,6 @@ export type LoginConfig = {
 		image: string | null
 		title: string | null
 		subtitle: string | null
-		notice: string | null
-		notice_severity: 'info' | 'warning' | 'error' | 'success'
 	}
+	maintenance_message: string | null
 }

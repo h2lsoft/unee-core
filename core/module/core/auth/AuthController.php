@@ -66,14 +66,13 @@ class AuthController extends \Core\Controller
 	 *
 	 * @route /api/auth/config/ {name: "api.auth.config"}
 	 *
-	 * @return \Core\JsonResponse {"login_key", "logo", "login": {"image", "title", "subtitle", "notice", "notice_severity"}}, null = default of the backend
+	 * @return \Core\JsonResponse {"login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message"}, null = default of the backend
 	 */
 	public function config():\Core\JsonResponse
 	{
 
 		$globals = App()->globals;
 		$get = fn(string $name) => (isset($globals[$name]) && trim((string)$globals[$name]) !== '') ? (string)$globals[$name] : null;
-		$severity = $get('backend.login.notice_severity');
 
 		return new \Core\JsonResponse([
 			'login_key' => (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email',
@@ -82,9 +81,8 @@ class AuthController extends \Core\Controller
 				'image' => $get('backend.login.image'),
 				'title' => $get('backend.login.title'),
 				'subtitle' => $get('backend.login.subtitle'),
-				'notice' => $get('backend.login.notice'),
-				'notice_severity' => in_array($severity, ['info', 'warning', 'error', 'success'], true) ? $severity : 'info',
 			],
+			'maintenance_message' => $get('backend.maintenance.message'),
 		]);
 
 	}

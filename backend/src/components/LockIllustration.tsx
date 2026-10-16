@@ -3,7 +3,7 @@ export default function LockIllustration()
 {
 
 	return (
-		<svg viewBox="0 0 200 240" width="200" height="240" role="img" aria-label="lock">
+		<svg viewBox="0 0 200 240" width="150" height="180" role="img" aria-label="lock">
 			<defs>
 				<linearGradient id="unee-lock" x1="0" y1="0" x2="1" y2="1">
 					<stop offset="0" stopColor="#1a8cff" />
