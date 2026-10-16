@@ -175,7 +175,7 @@ $matcher = new UrlMatcher($all_routes, new RequestContext());
 $request_stack = new RequestStack();
 $dispatcher = new EventDispatcher();
 
-foreach(['Middleware', 'Debugbar', 'Controller', 'I18n'] as $event_file)
+foreach(['Middleware', 'Api', 'Debugbar', 'Controller', 'I18n'] as $event_file)
 {
 	$event_path = CORE_PATH."/core/event/{$event_file}.php";
 	if(file_exists($event_path))
