@@ -53,6 +53,17 @@ return [
 		],
 	],
 
+	// PROXY ***********************************************************************************************************
+	/**
+	 * visitor ip is read from ip_header only when the request comes from a trusted proxy
+	 * trusted: ips or cidr ranges, ipv4 and ipv6, empty = REMOTE_ADDR only
+	 * ex: behind cloudflare, trusted = its ranges (https://www.cloudflare.com/ips) and ip_header = CF-Connecting-IP
+	 */
+	'proxy' => [
+		'trusted' => [],
+		'ip_header' => 'X-Forwarded-For', # standard header of reverse proxies and load balancers
+	],
+
 	// DB - override in instance config ***********************************************************************
 	'db' => [
 		'driver'    => 'mysql',
