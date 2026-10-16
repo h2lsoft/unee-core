@@ -90,13 +90,13 @@ class Html
 		$ext = file_get_extension($file_url);
 
 		$icon = 'file-earmark text-muted';
-		if(in_array($ext, \Core\Config::get('file_manager.filters.pdf')))$icon = 'file-earmark-pdf-fill text-danger';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.image')))$icon = 'file-earmark-image-fill';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.audio')))$icon = 'file-earmark-music-fill text-info';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.video')))$icon = 'file-earmark-play-fill text-danger';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.word')))$icon = 'file-earmark-word-fill';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.excel')))$icon = 'file-earmark-excel-fill text-success';
-		elseif(in_array($ext, \Core\Config::get('file_manager.filters.archive')))$icon = 'file-earmark-zip-fill text-warning';
+		if(in_array($ext, \Core\Config::get('file_manager/filters/pdf', [])))$icon = 'file-earmark-pdf-fill text-danger';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/image', [])))$icon = 'file-earmark-image-fill';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/audio', [])))$icon = 'file-earmark-music-fill text-info';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/video', [])))$icon = 'file-earmark-play-fill text-danger';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/word', [])))$icon = 'file-earmark-word-fill';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/excel', [])))$icon = 'file-earmark-excel-fill text-success';
+		elseif(in_array($ext, \Core\Config::get('file_manager/filters/archive', [])))$icon = 'file-earmark-zip-fill text-warning';
 
 
 		$str = trim("{$icon} {$class_added}");

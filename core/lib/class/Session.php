@@ -58,27 +58,29 @@ class Session
 	 */
 	public static function destroy(string $key=""):void
 	{
-		// joker key found
-		if(!empty($key) && $key[-1] == '*')
+		// no key: clear the whole session
+		if($key === '')
 		{
-			$index = substr($key, 0, -1);
-			foreach($_SESSION as $s_key => $s_val)
+			$_SESSION = [];
+			return;
+		}
+
+		// joker key, ex: SHOPPING_CART_*
+		if($key[-1] == '*')
+		{
+			$prefix = substr($key, 0, -1);
+			foreach(array_keys($_SESSION) as $s_key)
 			{
-				if(preg_match("#^{$index}#", $s_key))
+				if(str_starts_with((string)$s_key, $prefix))
 				{
 					unset($_SESSION[$s_key]);
 				}
 			}
+
+			return;
 		}
-		
-		if(isset($key))
-		{
-			unset($_SESSION[$key]);
-		}
-		else
-		{
-			$_SESSION = [];
-		}
+
+		unset($_SESSION[$key]);
 	}
 	
 	

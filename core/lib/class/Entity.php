@@ -10,15 +10,10 @@ class Entity
 
 	public static function _setAutoTableName()
 	{
-		if(empty($table))
+		// an entity must declare its own static $table (or inherit it from a model that does), otherwise it shares Entity::$table with every other entity
+		if(static::class !== self::class && (new \ReflectionProperty(static::class, 'table'))->class === self::class)
 		{
-			$parent_class = get_parent_class(static::class);
-			if (!empty($parent_class))
-			{
-				$parts = explode('\\', $parent_class);
-				$parent_class_name = end($parts);
-				self::$table = strtolower($parent_class_name); // assign lowercase parent class name
-			}
+			throw new \LogicException(static::class.' must declare: public static string $table');
 		}
 	}
 

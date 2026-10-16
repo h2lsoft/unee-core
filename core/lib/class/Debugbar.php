@@ -16,7 +16,8 @@ class Debugbar
 	{
 		global $app;
 		
-		// if(!is_object($app->debugbar))return;
+		// debugbar disabled (production, api, cli): nothing to do
+		if(!is_object($app->debugbar))return;
 		$app->debugbar["messages"]->addMessage($message, $type);
 		
 	}
@@ -69,7 +70,7 @@ class Debugbar
 	public static function stopMeasure(string $operation_name):void
 	{
 		if(!is_object(App()->debugbar))return;
-		App()->debugbar['time']->startMeasure($operation_name);
+		App()->debugbar['time']->stopMeasure($operation_name);
 	}
 	
 	/**

@@ -111,7 +111,20 @@ return [
 		'dir' => [
 			'root' => APP_PATH."/instances/".APP_DIR."/public/www",
 			'cache' => APP_PATH."/instances/".APP_DIR."/public/www/.thumbs",
-		]
+		],
+
+		/**
+		 * file extensions by type (lowercase), used for icons
+		 */
+		'filters' => [
+			'pdf' => ['pdf'],
+			'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'],
+			'audio' => ['mp3', 'wav', 'ogg', 'm4a', 'flac'],
+			'video' => ['mp4', 'webm', 'mov', 'avi', 'mkv'],
+			'word' => ['doc', 'docx', 'odt', 'rtf'],
+			'excel' => ['xls', 'xlsx', 'ods', 'csv'],
+			'archive' => ['zip', 'rar', '7z', 'tar', 'gz'],
+		],
 
 	],
 	

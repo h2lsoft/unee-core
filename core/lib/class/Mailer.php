@@ -169,7 +169,7 @@ class Mailer
 			$to = $options['bcc'];
 			if(!is_array($to))
 			{
-				$to = str_erase(' ', str_replace(',', ';', trim($options['cc'])));
+				$to = str_erase(' ', str_replace(',', ';', trim($options['bcc'])));
 				$to = explode(';', $to);
 				$to = array_map('trim', $to);
 			}

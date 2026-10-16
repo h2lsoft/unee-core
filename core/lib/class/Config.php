@@ -20,20 +20,14 @@ class Config
 		global $config;
 
 		if(empty($path))return $config;
-		if(isset(self::$cached[$path]) && $cache)return self::$cached[$path];
+		if($cache && array_key_exists($path, self::$cached))return self::$cached[$path];
 
-		$cur = $config;
-		$tmp = explode('/', trim($path, '/'));
-		foreach($tmp as $key)
+		$value = $config;
+		foreach(explode('/', trim($path, '/')) as $key)
 		{
-			if(!isset($cur[$key]))
-			{
-				$value = $default;
-				break;
-			}
-
-			$cur = &$cur[$key];
-			$value = $cur;
+			// missing key: return the default without caching it (another call may pass another default)
+			if(!is_array($value) || !array_key_exists($key, $value))return $default;
+			$value = $value[$key];
 		}
 
 		self::$cached[$path] = $value;
