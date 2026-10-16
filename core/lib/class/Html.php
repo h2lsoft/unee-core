@@ -4,16 +4,39 @@ namespace Core;
 
 class Html
 {
-	
-	
-	public static function Image(string $src="", array $attributes=[]): string
+	/**
+	 * escape a value for an html attribute
+	 * @param mixed $value
+	 * @return string
+	 */
+	private static function _escape(mixed $value):string
+	{
+		return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+	}
+
+	/**
+	 * build escaped html attributes
+	 * attributes are always escaped, tag content ($text, $label) is raw html: escape user data before passing it
+	 * @param array $attributes
+	 * @return string
+	 */
+	private static function _attributes(array $attributes):string
 	{
 		$attrs = "";
 		foreach($attributes as $key => $val)
 		{
-			$attrs .= " {$key}=\"{$val}\" ";
+			$attrs .= " ".self::_escape($key)."=\"".self::_escape($val)."\" ";
 		}
+
+		return $attrs;
+	}
+	
+	
+	public static function Image(string $src="", array $attributes=[]): string
+	{
+		$attrs = self::_attributes($attributes);
 		
+		$src = self::_escape($src);
 		$str = "<img src=\"{$src}\" {$attrs}>";
 		return $str;
 	}
@@ -23,12 +46,9 @@ class Html
 		$class = "{$content} ".@$attributes['class'];
 		
 		unset($attributes['class']);
-		$attrs = "";
-		foreach($attributes as $key => $val)
-		{
-			$attrs .= " {$key}=\"{$val}\" ";
-		}
+		$attrs = self::_attributes($attributes);
 		
+		$class = self::_escape($class);
 		$str = "<i class=\"{$class}\" {$attrs}></i>";
 		return $str;
 	}
@@ -40,12 +60,9 @@ class Html
 		$class = @$attributes['class'];
 		
 		unset($attributes['class']);
-		$attrs = "";
-		foreach($attributes as $key => $val)
-		{
-			$attrs .= " {$key}=\"{$val}\" ";
-		}
+		$attrs = self::_attributes($attributes);
 		
+		[$name, $class, $type] = [self::_escape($name), self::_escape($class), self::_escape($type)];
 		$str = "<button id=\"{$name}\" class=\"btn btn-default {$class}\" type=\"{$type}\" {$attrs}>{$label}</button>";
 		return $str;
 	}
@@ -64,22 +81,20 @@ class Html
 		elseif($type == 'info')$type = 'text-bg-info';
 		
 		unset($attributes['class']);
-		$attrs = "";
-		foreach($attributes as $key => $val)
-			$attrs .= " {$key}=\"{$val}\" ";
+		$attrs = self::_attributes($attributes);
 		
 		
 		
+		[$type, $class] = [self::_escape($type), self::_escape($class)];
 		$str = "<span class=\"badge {$type} {$class}\" {$attrs}>{$text}</span>";
 		return $str;
 	}
 	
 	public static function A(string $text, string $url, array $attributes=[]): string
 	{
-		$attrs = "";
-		foreach($attributes as $key => $val)
-			$attrs .= " {$key}=\"{$val}\" ";
+		$attrs = self::_attributes($attributes);
 		
+		$url = self::_escape($url);
 		$str = "<a href=\"{$url}\" {$attrs}>{$text}</a>";
 		return $str;
 	}
