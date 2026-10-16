@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentProps, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router'
-import { Alert, Box, Button, CircularProgress, FormHelperText, IconButton, InputAdornment, InputLabel, OutlinedInput, Typography } from '@mui/material'
+import { Link as RouterLink, Navigate, useNavigate } from 'react-router'
+import { Alert, Box, Button, CircularProgress, FormHelperText, IconButton, InputAdornment, InputLabel, Link, OutlinedInput, Typography } from '@mui/material'
 import { VisibilityOutlined, VisibilityOffOutlined } from '@mui/icons-material'
 import { api, ApiException, type LoginConfig } from '../api'
 import { useAuth } from '../auth'
@@ -128,9 +128,12 @@ export default function Login()
 							/>
 						</Box>
 
-						<Button type="submit" variant="contained" fullWidth disabled={submitting}>
-							{submitting ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
-						</Button>
+						<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
+							<Button type="submit" variant="contained" fullWidth disabled={submitting}>
+								{submitting ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
+							</Button>
+							<Link component={RouterLink} to="/password/forgot/" underline="hover" sx={{alignSelf: 'center', fontSize: 13, fontWeight: 500}}>Forgot password?</Link>
+						</Box>
 
 						{/* maintenance information, globals backend.maintenance.message (plain text) */}
 						{config?.maintenance_message && <Alert severity="warning" sx={{whiteSpace: 'pre-line'}}>{config.maintenance_message}</Alert>}
