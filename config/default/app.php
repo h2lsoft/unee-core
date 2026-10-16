@@ -10,12 +10,13 @@ return [
 
 	// generics
 	'name' => 'UNEE',
-	'url' => "https://{$_SERVER['HTTP_HOST']}".(($_SERVER['SERVER_PORT'] != 443) ? ":{$_SERVER['SERVER_PORT']}" : ""),
+	// HTTP_HOST already holds the port when it is not the default one (set url in the instance config in production)
+	'url' => "https://{$_SERVER['HTTP_HOST']}",
 	'timezone' => "", # empty = default timezone
 	'backend.dirname' => 'backend',
 	'upload_dir' => APP_PATH."/instances/".APP_DIR."/public/upload",
 	'tmp_dir' => (APP_DIR != '' && APP_DIR != '_default') ? APP_PATH."/instances/".APP_DIR."/.tmp" : APP_PATH."/.tmp",
-	'noreply_email' => "noreply@{$_SERVER['HTTP_HOST']}",
+	'noreply_email' => "noreply@".explode(':', $_SERVER['HTTP_HOST'])[0],
 
 	// DEBUG ***********************************************************************************************
 	'debug' => false,
