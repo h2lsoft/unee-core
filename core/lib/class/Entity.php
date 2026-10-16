@@ -99,7 +99,8 @@ class Entity
 				if(!in_array($key, $exclude_from_update))
 					$row2[$key] = $val;
 			}
-			return DB(static::$table)->update($row2, $where, 1, $by);
+			// keep the bind parameters of the where clause
+			return DB(static::$table)->update($row2, (count($params)) ? [$where, $params] : $where, 1, $by);
 		}
 		else
 		{

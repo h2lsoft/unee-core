@@ -23,8 +23,8 @@ class AuthController extends \Core\Controller
 	public function login(Request $request):\Core\JsonResponse
 	{
 
-		$this->validator->input('login')->required();
-		$this->validator->input('password')->required();
+		$this->validator->input('login')->required('required');
+		$this->validator->input('password')->required('required');
 
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
@@ -58,6 +58,68 @@ class AuthController extends \Core\Controller
 
 		\Model\User::logout();
 		return new \Core\JsonResponse(null, 204);
+
+	}
+
+	/**
+	 * password recovery, json body: {"login": "..."}, always the same answer whether the account exists or not
+	 *
+	 * @route /api/auth/password/forgot/ {name: "api.auth.password.forgot", method: "POST"}
+	 *
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"message"}
+	 */
+	public function passwordForgot(Request $request):\Core\JsonResponse
+	{
+
+		$this->validator->input('login')->required('required');
+
+		if($this->validator->fails())
+			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
+
+		$login = (string)$request->request->get('login');
+
+		if(\Model\User::isThrottled('password_forgot', $login))
+		{
+
+			$retry_after = \Core\Config::get('auth/logon_throttle/window_seconds');
+			return \Core\JsonResponse::error(429, 'too many requests, retry later', [], ['Retry-After' => $retry_after]);
+
+		}
+
+		\Model\User::passwordForgot($login);
+
+		return new \Core\JsonResponse(['message' => 'If an account exists for this email address, a recovery link has been sent.']);
+
+	}
+
+	/**
+	 * password reset, json body: {"token": "...", "password": "...", "password_confirmation": "..."}
+	 *
+	 * @route /api/auth/password/reset/ {name: "api.auth.password.reset", method: "POST"}
+	 *
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"message"}, 400 when the link is invalid or expired
+	 */
+	public function passwordReset(Request $request):\Core\JsonResponse
+	{
+
+		$password_cfg = \Core\Config::get('auth/security/password');
+
+		// short messages: they are shown under the fields
+		$this->validator->input('token')->required('required');
+		$this->validator->input('password')->required('required')->regex($password_cfg['regex'], "{$password_cfg['min_length']} to {$password_cfg['max_length']} characters");
+		$this->validator->input('password_confirmation')->required('required')->sameAs('password', 'passwords do not match');
+
+		if($this->validator->fails())
+			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
+
+		if(!\Model\User::passwordReset((string)$request->request->get('token'), (string)$request->request->get('password')))
+			return \Core\JsonResponse::error(400, 'this link is invalid or has expired, ask for a new one');
+
+		return new \Core\JsonResponse(['message' => 'Your password has been changed, you can sign in.']);
 
 	}
 

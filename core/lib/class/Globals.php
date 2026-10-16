@@ -55,6 +55,7 @@ class Globals
 			$value = json_encode($value, JSON_PRETTY_PRINT);
 
 		$f = [];
+		$f['category'] = explode('.', $name)[0];
 		$f['name'] = $name;
 		$f['type'] = $type;
 		$f['value'] = $value;
@@ -64,7 +65,7 @@ class Globals
 		$where[] = "name = :name";
 		$where[] = [':name' => $name];
 
-		\Core\Entity::replace($f, $where);
+		\Core\Entity::replace($f, $where, ['category']);
 
 	}
 

@@ -34,6 +34,16 @@ class Mailer
 
 		$column = (is_int($template_name)) ? 'id' : 'name';
 		$template = \Model\Mail_Template::findOne("{$column} = :value", [':value' => $template_name], '*');
+		if(!$template)
+		{
+
+			self::$last_error = "mail template not found: {$template_name}";
+			return false;
+
+		}
+
+		// templates hold en and fr columns: other languages fall back to en
+		if(!array_key_exists("body_{$locale}", $template))$locale = 'en';
 
 		$from = $template["sender_{$locale}"];
 
@@ -41,8 +51,15 @@ class Mailer
 		$body = $template["body_{$locale}"];
 		$body = str_replace(['[[ ', ' ]]'], ['[[', ']]'], $body);
 
+		// vars are escaped in an html body (user data), the subject is plain text on one line
+		$html_mode = (isset($options['html'])) ? $options['html'] : true;
 		foreach($vars as $var => $val)
-			$body = str_replace("[[{$var}]]", $val, $body);
+		{
+
+			$body = str_replace("[[{$var}]]", ($html_mode) ? htmlspecialchars((string)$val, ENT_QUOTES) : (string)$val, $body);
+			$subject = str_replace("[[{$var}]]", str_replace(["\r", "\n"], ' ', (string)$val), $subject);
+
+		}
 
 		// add layout
 		if($template['xcore_layout_id'])
@@ -80,17 +97,29 @@ class Mailer
 
 		$mail = new PHPMailer(true);
 
-		if((bool)\Core\Globals::get('mailer.smtp.is_secure', '0', true, 'boolean', "smtp is secure"))
+		// transport from globals: smtp when mailer.smtp.host is set, otherwise php mail()
+		$smtp_host = trim((string)\Core\Globals::get('mailer.smtp.host', 'localhost', true, 'text', 'smtp host, empty = php mail()'));
+		if($smtp_host !== '')
 		{
-			$mail->isSMTP();
-			$mail->SMTPSecure = \Core\Globals::get('mailer.smtp.security_type', false, true, 'text', "smtp security");
-		}
 
-		$mail->Host = \Core\Globals::get('mailer.smtp.host', 'localhost');
-		$mail->Port = \Core\Globals::get('mailer.smtp.port', '');
-		$mail->SMTPAuth = \Core\Globals::get('mailer.smtp.auth', '');
-		$mail->Username = \Core\Globals::get('mailer.smtp.auth.username', '');
-		$mail->Password = \Core\Globals::get('mailer.smtp.auth.password', '');
+			$mail->isSMTP();
+			$mail->Host = $smtp_host;
+			$mail->Port = (int)\Core\Globals::get('mailer.smtp.port', '25', true, 'int', 'smtp port');
+
+			$security = (string)\Core\Globals::get('mailer.smtp.security', '', true, 'text', 'smtp encryption: empty, tls or ssl');
+			$mail->SMTPSecure = (in_array($security, ['tls', 'ssl'], true)) ? $security : '';
+
+			$username = (string)\Core\Globals::get('mailer.smtp.username', '', true, 'text', 'smtp user, empty = no authentication');
+			if($username !== '')
+			{
+
+				$mail->SMTPAuth = true;
+				$mail->Username = $username;
+				$mail->Password = (string)\Core\Globals::get('mailer.smtp.password', '', true, 'text', 'smtp password');
+
+			}
+
+		}
 
 		if(!isset($options['charset']))$options['charset'] = 'utf-8';
 		$mail->CharSet = $options['charset'];

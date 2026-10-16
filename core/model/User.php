@@ -131,6 +131,99 @@ class User extends \Core\Entity
 	}
 
 	/**
+	 * too many requests of an action in the window of auth/logon_throttle, counted per author (login typed) and per ip
+	 *
+	 * @param string $action xcore_log action, ex: logon_failed, password_forgot
+	 * @param string $login
+	 *
+	 * @return bool
+	 */
+	public static function isThrottled(string $action, string $login):bool
+	{
+
+		$throttle = \Core\Config::get('auth/logon_throttle');
+		$since = date('Y-m-d H:i:s', time() - $throttle['window_seconds']);
+		$count = DB()->query("SELECT COUNT(*) FROM xcore_log WHERE action = :action AND deleted = 'no' AND date >= :since AND (author = :login OR ip = :ip)", ['action' => $action, 'since' => $since, 'login' => $login, 'ip' => getVisitorIp()])->fetchOne();
+
+		return ($count >= $throttle['max_attempts']);
+
+	}
+
+	/**
+	 * password recovery: stores the hash of a one-time token and mails the reset link
+	 * silent whatever happens (unknown account, mail error): the caller always gives the same answer (no account enumeration)
+	 * the link is built from config url: set it in the instance config in production (HTTP_HOST comes from the client)
+	 *
+	 * @param string $login email or login, depending on auth/backend/key
+	 *
+	 * @return void
+	 */
+	public static function passwordForgot(string $login):void
+	{
+
+		$key = (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email';
+		$user = DB()->query("SELECT u.id, u.login, u.email, u.firstname, u.language
+							 FROM xcore_user u
+							 INNER JOIN xcore_group g ON g.id = u.xcore_group_id AND g.deleted = 'no' AND g.active = 'yes' AND g.access_backend = 'yes'
+							 WHERE u.deleted = 'no' AND u.active = 'yes' AND u.{$key} = :login
+							 LIMIT 1", ['login' => $login])->fetch();
+
+		\Core\Log::write('password_forgot', 'password recovery requested', [], (int)($user['id'] ?? 0), 'info', 'auth', mb_substr($login, 0, 255));
+		if(!$user)return;
+
+		// only the hash is stored: a database leak gives no usable link
+		$token = bin2hex(random_bytes(32));
+		$hours = (int)\Core\Config::get('auth/password_reset_token_expiration_hours', 12);
+
+		$row = [];
+		$row['password_token'] = hash('sha256', $token);
+		$row['password_token_date'] = now();
+		$row['password_token_expiration_date'] = date('Y-m-d H:i:s', time() + $hours * 3600);
+		DB(self::$table)->update($row, (int)$user['id'], 1, 'system');
+
+		$link = rtrim(\Core\Config::get('url'), '/').'/'.\Core\Config::get('backend.dirname').'/password/reset/?token='.$token;
+		$sent = \Core\Mailer::sendTemplate('core.password.forgot', $user['email'], ['firstname' => $user['firstname'], 'link' => $link, 'hours' => $hours], (string)$user['language']);
+
+		if(!$sent)
+			\Core\Log::write('password_forgot_mail', \Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
+
+	}
+
+	/**
+	 * password reset with the token of the recovery link: one-time, expires after auth/password_reset_token_expiration_hours
+	 *
+	 * @param string $token token of the link (64 hex characters)
+	 * @param string $password new password, already validated by the caller
+	 *
+	 * @return bool false when the token is unknown, used or expired
+	 */
+	public static function passwordReset(string $token, string $password):bool
+	{
+
+		if(!preg_match('/^[a-f0-9]{64}$/', $token))return false;
+
+		$user = DB()->query("SELECT id, login
+							 FROM xcore_user
+							 WHERE deleted = 'no' AND active = 'yes' AND password_token = :token AND password_token_expiration_date >= :now
+							 LIMIT 1", ['token' => hash('sha256', $token), 'now' => now()])->fetch();
+		if(!$user)return false;
+
+		$password_cfg = \Core\Config::get('auth/security/password');
+
+		$row = [];
+		$row['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
+		$row['password_token'] = null;
+		$row['password_token_date'] = null;
+		$row['password_token_expiration_date'] = null;
+		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+
+		\Core\Log::write('password_reset', 'password reset', [], (int)$user['id'], 'info', 'auth', $user['login']);
+
+		return true;
+
+	}
+
+	/**
 	 * logout: clears the session and gives a new session id
 	 *
 	 * @return void

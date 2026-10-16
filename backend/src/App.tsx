@@ -10,6 +10,8 @@ import '@fontsource/ibm-plex-sans/latin-600.css'
 import '@fontsource/ibm-plex-sans/latin-ext-600.css'
 import { AuthProvider, useAuth } from './auth'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 
 // corporate theme: primary color from the unee logo gradient, compact controls (40px), ibm plex sans
@@ -53,6 +55,8 @@ function RequireAuth({children}: {children: React.ReactNode})
 const router = createBrowserRouter([
 	{path: '/', element: <RequireAuth><Dashboard /></RequireAuth>},
 	{path: '/login/', element: <Login />},
+	{path: '/password/forgot/', element: <ForgotPassword />},
+	{path: '/password/reset/', element: <ResetPassword />},
 	{path: '*', element: <Navigate to="/" replace />},
 ], {basename: '/backend/'})
 
