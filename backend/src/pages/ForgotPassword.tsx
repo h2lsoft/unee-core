@@ -56,7 +56,7 @@ export default function ForgotPassword()
 	const is_login_key = (config?.login_key === 'login')
 
 	return (
-		<AuthLayout config={config} title="Forgot password" subtitle="Enter your email address and we will send you a recovery link.">
+		<AuthLayout config={config} title="Forgot password" documentTitle="Forgot Password" subtitle="Enter your email address and we will send you a recovery link.">
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 				{sent && <Alert severity="success">{sent}</Alert>}

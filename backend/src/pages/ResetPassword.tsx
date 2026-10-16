@@ -56,7 +56,7 @@ export default function ResetPassword()
 	}
 
 	return (
-		<AuthLayout config={config} title="Reset password" subtitle="Choose a new password for your account.">
+		<AuthLayout config={config} title="Reset password" documentTitle="Reset Password" subtitle="Choose a new password for your account.">
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 

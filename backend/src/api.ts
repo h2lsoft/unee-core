@@ -68,6 +68,7 @@ export async function api<T>(path: string, options: {method?: string, body?: unk
 
 // public settings of the login page (GET /api/auth/config/), null = default of the backend
 export type LoginConfig = {
+	name: string
 	login_key: 'email' | 'login'
 	logo: string | null
 	login: {

@@ -58,7 +58,7 @@ export default function Login()
 	const is_login_key = (config?.login_key === 'login')
 
 	return (
-		<AuthLayout config={config} title="Sign in" subtitle="Enter your credentials to access the back office.">
+		<AuthLayout config={config} title="Sign in" documentTitle="Sign In" subtitle="Enter your credentials to access the back office.">
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 				{!error && notice && <Alert severity="success">{notice}</Alert>}

@@ -38,19 +38,34 @@ export function BackToSignIn()
 }
 
 /**
+ * browser title: "<application name> - <page>", the name comes from config `name`
+ */
+export function useDocumentTitle(page: string, name?: string | null)
+{
+
+	useEffect(() => {
+
+		document.title = `${name || 'Unee'} - ${page}`
+
+	}, [page, name])
+
+}
+
+/**
  * layout of the auth pages: form column (logo, title, content, maintenance message) and brand panel (hidden under 900px)
  */
-export default function AuthLayout({config, title, subtitle, children}: {config: LoginConfig | null, title: string, subtitle: string, children: ReactNode})
+export default function AuthLayout({config, title, subtitle, documentTitle, children}: {config: LoginConfig | null, title: string, subtitle: string, documentTitle: string, children: ReactNode})
 {
 
 	const logo = config?.logo || DEFAULT_LOGO
+	useDocumentTitle(documentTitle, config?.name)
 
 	return (
 		<Box sx={{minHeight: '100vh', display: 'flex', bgcolor: '#fff', color: 'text.primary'}}>
 
 			<Box sx={{flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', px: {xs: 4, md: 3}, py: {xs: 3, md: 2.5}}}>
 				{/* desktop: logo in the corner */}
-				<Box component="img" src={logo} alt="logo" sx={{display: {xs: 'none', md: 'block'}, height: 26, width: 'auto', alignSelf: 'flex-start'}} />
+				<Box component="img" src={logo} alt="logo" sx={{display: {xs: 'none', md: 'block'}, height: 34, width: 'auto', alignSelf: 'flex-start'}} />
 
 				<Box sx={{flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: {md: 6}}}>
 					<Box sx={{width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>

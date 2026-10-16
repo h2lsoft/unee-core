@@ -1,10 +1,12 @@
 import { AppBar, Box, Button, Toolbar, Typography } from '@mui/material'
 import { useAuth } from '../auth'
+import { useDocumentTitle } from '../components/AuthLayout'
 
 export default function Dashboard()
 {
 
 	const {user, logout} = useAuth()
+	useDocumentTitle('Dashboard')
 
 	return (
 		<Box>

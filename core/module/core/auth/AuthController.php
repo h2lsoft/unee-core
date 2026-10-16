@@ -128,7 +128,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @route /api/auth/config/ {name: "api.auth.config"}
 	 *
-	 * @return \Core\JsonResponse {"login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message"}, null = default of the backend
+	 * @return \Core\JsonResponse {"name", "login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message"}, null = default of the backend
 	 */
 	public function config():\Core\JsonResponse
 	{
@@ -137,6 +137,7 @@ class AuthController extends \Core\Controller
 		$get = fn(string $name) => (isset($globals[$name]) && trim((string)$globals[$name]) !== '') ? (string)$globals[$name] : null;
 
 		return new \Core\JsonResponse([
+			'name' => (string)\Core\Config::get('name'),
 			'login_key' => (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email',
 			'logo' => $get('backend.logo'),
 			'login' => [

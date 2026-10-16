@@ -4,7 +4,7 @@ namespace Model;
 
 /**
  * user, authentication by session
- * session keys: auth.id, auth.login, auth.email, auth.firstname, auth.lastname, auth.language, auth.group_id, auth.last_activity
+ * session keys: auth.id, auth.login, auth.email, auth.firstname, auth.lastname, auth.language, auth.group_id, auth.last_activity, auth.password_check
  * failed attempts are logged in xcore_log (action logon_failed), counted per login and per ip for the throttle
  */
 class User extends \Core\Entity
@@ -124,9 +124,24 @@ class User extends \Core\Entity
 			$row['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
 
 		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+		\Core\Session::set('auth.password_check', self::passwordCheck($row['password'] ?? (string)$user['password']));
 		\Core\Log::write('logon', 'logon', [], (int)$user['id'], 'info', 'auth', $user['login']);
 
 		return '';
+
+	}
+
+	/**
+	 * fingerprint of the stored password hash, kept in the session: a password change invalidates every open session (auth.api middleware)
+	 *
+	 * @param string $password_hash value of xcore_user.password
+	 *
+	 * @return string
+	 */
+	public static function passwordCheck(string $password_hash):string
+	{
+
+		return hash('sha256', $password_hash);
 
 	}
 
@@ -202,7 +217,7 @@ class User extends \Core\Entity
 
 		if(!preg_match('/^[a-f0-9]{64}$/', $token))return false;
 
-		$user = DB()->query("SELECT id, login
+		$user = DB()->query("SELECT id, login, email, firstname, language
 							 FROM xcore_user
 							 WHERE deleted = 'no' AND active = 'yes' AND password_token = :token AND password_token_expiration_date >= :now
 							 LIMIT 1", ['token' => hash('sha256', $token), 'now' => now()])->fetch();
@@ -218,6 +233,11 @@ class User extends \Core\Entity
 		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
 
 		\Core\Log::write('password_reset', 'password reset', [], (int)$user['id'], 'info', 'auth', $user['login']);
+
+		// confirmation to the owner of the account: an unexpected change is noticed at once
+		$sent = \Core\Mailer::sendTemplate('core.password.changed', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => getVisitorIp()], (string)$user['language']);
+		if(!$sent)
+			\Core\Log::write('password_changed_mail', \Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
 
 		return true;
 
