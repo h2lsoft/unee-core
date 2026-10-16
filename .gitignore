@@ -6,6 +6,9 @@
 .tmp/
 *.log
 
+# working documents (mcd, notes), not versioned
+/.elements/
+
 # local env
 .env
 .env.*
