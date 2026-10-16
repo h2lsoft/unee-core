@@ -3,7 +3,7 @@ import {
 	ArticleOutlined, BadgeOutlined, BarChartOutlined, BookmarkBorderOutlined, CampaignOutlined, DashboardOutlined, DescriptionOutlined,
 	EventOutlined, ExtensionOutlined, FolderOutlined, GroupOutlined, HistoryOutlined, ImageOutlined, Inventory2Outlined, LinkOutlined,
 	ListOutlined, LockOutlined, MailOutlined, PeopleOutlined, ReceiptOutlined, ScheduleOutlined, SettingsOutlined, ShoppingCartOutlined,
-	StickyNote2Outlined, StorageOutlined, SupportAgentOutlined, TranslateOutlined, TuneOutlined, WebOutlined,
+	SpeedOutlined, StickyNote2Outlined, StorageOutlined, SupportAgentOutlined, TranslateOutlined, TuneOutlined, WebOutlined,
 } from '@mui/icons-material'
 
 // icon names usable in xcore_menu.icon and xcore_plugin.icon (material symbols names), unknown = extension
@@ -31,6 +31,7 @@ const ICONS: Record<string, SvgIconComponent> = {
 	schedule: ScheduleOutlined,
 	settings: SettingsOutlined,
 	shopping_cart: ShoppingCartOutlined,
+	speed: SpeedOutlined,
 	note: StickyNote2Outlined,
 	storage: StorageOutlined,
 	support: SupportAgentOutlined,

@@ -35,6 +35,8 @@ const fr: Record<string, string> = {
 	'Main menu': 'Menu principal',
 	'User menu': 'Menu utilisateur',
 	'Language': 'Langue',
+	'Calendar': 'Calendrier',
+	'Bookmarks': 'Favoris',
 	'Sign out': 'Se déconnecter',
 	'Page not found': 'Page introuvable',
 	'This page does not exist or you do not have access to it.': "Cette page n'existe pas ou vous n'y avez pas accès.",
