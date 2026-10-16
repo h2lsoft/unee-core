@@ -8,6 +8,7 @@ export type User = {
 	lastname: string
 	language: string
 	group_id: number
+	group_name: string
 }
 
 export type ApiError = {
@@ -77,4 +78,81 @@ export type LoginConfig = {
 		subtitle: string | null
 	}
 	maintenance_message: string | null
+	languages: Record<string, string>
+}
+
+// menu of the logged user (GET /api/backend/menu/), names translated
+export type MenuItem = {
+	name: string
+	icon: string
+	route: string
+	url: string | null
+	rights: string[]
+}
+
+export type MenuCategory = {
+	name: string
+	icon: string
+	items: MenuItem[]
+}
+
+// grid of a module (GET /api/<module>/), see \Component\DataGrid
+export type Option = {value: string, label: string}
+
+export type GridColumn = {
+	name: string
+	label: string
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number'
+	sortable: boolean
+	width?: number
+	align?: 'left' | 'right'
+	colors?: Record<string, string>
+	toggle?: boolean
+}
+
+export type GridFilter = {
+	name: string
+	label: string
+	type: 'text' | 'number' | 'date' | 'select' | 'boolean'
+	operators: string[]
+	options: Option[]
+}
+
+export type Row = {id: number} & Record<string, unknown>
+
+export type Grid = {
+	title: string
+	label: string
+	rights: string[]
+	columns: GridColumn[]
+	filters: GridFilter[]
+	active_filters: Record<string, {value: string, operator: string}>
+	chips: {name: string, options: Option[]} | null
+	search: {placeholder: string} | null
+	sort: {column: string, dir: 'asc' | 'desc'}
+	rows: Row[]
+	pagination: {total: number, page: number, per_page: number, last_page: number}
+	per_page_options: number[]
+	batch: boolean
+	mobile: {title: string, subtitle: string}
+}
+
+// form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
+export type FormField = {
+	name: string
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select'
+	label: string
+	required: boolean
+	width: number
+	help?: string
+	placeholder?: string
+	max_length?: number
+	rows?: number
+	options?: Option[]
+	readonly?: boolean
+}
+
+export type FormPayload = {
+	form: {fields: FormField[]}
+	record: Record<string, string>
 }

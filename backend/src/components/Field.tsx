@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from 'react'
 import { Box, FormHelperText, IconButton, InputAdornment, InputLabel, OutlinedInput } from '@mui/material'
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import { t } from '../i18n'
 
 type FieldProps = {id: string, label: string, errors?: string[]} & Omit<ComponentProps<typeof OutlinedInput>, 'error'>
 
@@ -30,7 +31,7 @@ export function PasswordField(props: Omit<FieldProps, 'type' | 'endAdornment'>)
 			type={visible ? 'text' : 'password'}
 			endAdornment={
 				<InputAdornment position="end">
-					<IconButton size="small" aria-label={visible ? 'hide password' : 'show password'} onClick={() => setVisible(!visible)} edge="end">
+					<IconButton size="small" aria-label={visible ? t('hide password') : t('show password')} onClick={() => setVisible(!visible)} edge="end">
 						{visible ? <VisibilityOffOutlined fontSize="small" /> : <VisibilityOutlined fontSize="small" />}
 					</IconButton>
 				</InputAdornment>

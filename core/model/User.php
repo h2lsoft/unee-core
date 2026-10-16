@@ -55,6 +55,48 @@ class User extends \Core\Entity
 	}
 
 	/**
+	 * actions of a plugin allowed to the logged user, fail closed: unknown or inactive plugin = no right
+	 * superadmin and core plugins: every action declared by the plugin, normal plugins: rights of the group (xcore_group_right)
+	 *
+	 * @param string $plugin route_prefix_name of xcore_plugin (folder of the module)
+	 *
+	 * @return array ex: ['list', 'edit']
+	 */
+	public static function getRights(string $plugin):array
+	{
+
+		static $cache = [];
+		if(!self::isLogon())return [];
+		if(isset($cache[$plugin]))return $cache[$plugin];
+
+		$rec = \Model\Plugin::findActive($plugin);
+		if(!$rec)return $cache[$plugin] = [];
+
+		$actions = \Model\Plugin::actions($rec);
+		if(self::isSuperAdmin() || $rec['type'] === 'core')return $cache[$plugin] = $actions;
+
+		$granted = DB()->query("SELECT action FROM xcore_group_right WHERE deleted = 'no' AND xcore_group_id = :group_id AND xcore_plugin_id = :plugin_id", ['group_id' => (int)\Core\Session::get('auth.group_id', 0), 'plugin_id' => (int)$rec['id']])->fetchAllOne();
+
+		return $cache[$plugin] = array_values(array_intersect($actions, (array)$granted));
+
+	}
+
+	/**
+	 * the logged user has the right of an action on a plugin
+	 *
+	 * @param string $plugin route_prefix_name of xcore_plugin
+	 * @param string $action ex: list, add, edit, delete
+	 *
+	 * @return bool
+	 */
+	public static function hasRight(string $plugin, string $action='list'):bool
+	{
+
+		return in_array($action, self::getRights($plugin), true);
+
+	}
+
+	/**
 	 * logon with config auth/backend/key (email or login)
 	 * unknown user, wrong password, inactive user or group without backend access give the same error (no account enumeration)
 	 *
@@ -261,7 +303,7 @@ class User extends \Core\Entity
 	/**
 	 * logged user, read from the session
 	 *
-	 * @return array id, login, email, firstname, lastname, language, group_id (null values when nobody is logged)
+	 * @return array id, login, email, firstname, lastname, language, group_id, group_name (null values when nobody is logged)
 	 */
 	public static function getCurrent():array
 	{
@@ -273,6 +315,8 @@ class User extends \Core\Entity
 			$user[$field] = \Core\Session::get("auth.{$field}");
 
 		}
+
+		$user['group_name'] = (string)DB()->query("SELECT name FROM xcore_group WHERE id = :id", ['id' => (int)$user['group_id']])->fetchOne();
 
 		return $user;
 

@@ -5,6 +5,7 @@ import { ApiException } from '../api'
 import { useAuth } from '../auth'
 import AuthLayout, { useLoginConfig } from '../components/AuthLayout'
 import { Field, PasswordField } from '../components/Field'
+import { t } from '../i18n'
 
 export default function Login()
 {
@@ -41,7 +42,7 @@ export default function Login()
 		{
 
 			const api_error = (err instanceof ApiException) ? err.error : null
-			setError(api_error?.message ?? 'network error, please retry')
+			setError(api_error?.message ?? t('network error, please retry'))
 			setFields(api_error?.fields ?? {})
 			if(api_error?.fields)setError('')
 
@@ -58,7 +59,7 @@ export default function Login()
 	const is_login_key = (config?.login_key === 'login')
 
 	return (
-		<AuthLayout config={config} title="Sign in" documentTitle="Sign In" subtitle="Enter your credentials to access the back office.">
+		<AuthLayout config={config} title={t('Sign in')} documentTitle={t('Sign In')} subtitle={t('Enter your credentials to access the back office.')}>
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 				{!error && notice && <Alert severity="success">{notice}</Alert>}
@@ -66,7 +67,7 @@ export default function Login()
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 2.25}}>
 					<Field
 						id="login"
-						label={is_login_key ? 'Login' : 'Email address'}
+						label={is_login_key ? t('Login') : t('Email address')}
 						type={is_login_key ? 'text' : 'email'}
 						autoComplete="username"
 						placeholder={is_login_key ? '' : 'name@company.com'}
@@ -77,7 +78,7 @@ export default function Login()
 					/>
 					<PasswordField
 						id="password"
-						label="Password"
+						label={t('Password')}
 						autoComplete="current-password"
 						value={form.password}
 						onChange={(e) => setForm({...form, password: e.target.value})}
@@ -87,9 +88,9 @@ export default function Login()
 
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
 					<Button type="submit" variant="contained" fullWidth disabled={submitting}>
-						{submitting ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
+						{submitting ? <CircularProgress size={20} color="inherit" /> : t('Sign in')}
 					</Button>
-					<Link component={RouterLink} to="/password/forgot/" underline="hover" sx={{alignSelf: 'flex-end', fontSize: 13, fontWeight: 500}}>Forgot password?</Link>
+					<Link component={RouterLink} to="/password/forgot/" underline="hover" sx={{alignSelf: 'flex-end', fontSize: 13, fontWeight: 500}}>{t('Forgot password?')}</Link>
 				</Box>
 			</Box>
 		</AuthLayout>

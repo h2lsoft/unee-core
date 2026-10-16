@@ -2,110 +2,27 @@
 
 namespace Core;
 
-use h2lsoft\Data\Validator;
-use Symfony\Component\HttpFoundation\JsonResponse;
+class Controller
+{
 
-class Controller {
+	public \Core\Validator $validator;
 
-	public Validator $validator;
-	public string $object_label = 'record';
-	public string $table = '';
-	public int $id;
-	
-	
+	/**
+	 * folder of the module (ex: globals), also the route_prefix_name of its xcore_plugin row (rights)
+	 */
+	public string $module = '';
+
 	public function __construct()
 	{
-		// load locale
-		$this->validator = new Validator(App()->locale);
 
-		// translations: core first, then the instance adds or overrides its own keys
-		$core_i18n = CORE_PATH."/core/i18n/".App()->locale.".php";
-		if(file_exists($core_i18n))
-			$this->validator->addLocaleMessages(App()->locale, require($core_i18n));
+		$this->module = basename(dirname((new \ReflectionClass($this))->getFileName()));
 
-		$instance_i18n = APP_PATH."/instances/".APP_DIR."/i18n/".App()->locale.".php";
-		if(file_exists($instance_i18n))
-			$this->validator->addLocaleMessages(App()->locale, require($instance_i18n));
-		
-		// init user logon timestamp
+		// validator messages: core i18n then instance i18n (\Core\I18n)
+		$this->validator = new \Core\Validator(App()->locale);
+		$this->validator->addLocaleMessages(App()->locale, \Core\I18n::messages());
+
 		\Core\EventManager::emit('core.controller.init', []);
-	}
-	
-	
-	public function getForm(int $id=0){}
 
-	public function add(){
-		$data = [];
-		$data['content'] = $this->getForm();
-		return View('@plugin-content', $data);
-	}
-
-	public function edit(int $id){
-		$data = [];
-		$data['content'] = $this->getForm($id);
-		return View('@plugin-content', $data);
-	}
-
-	public function delete(int $id)
-	{
-		$this->id = $id;
-		$this->onDeleteBefore();
-		
-		if($this->validator->success())
-		{
-			$this->onDeleteDatabaseBefore();
-			DB($this->table)->delete($id, 1, \Core\Session::get('auth.login'));
-			$this->onDeleteDatabaseAfter();
-		}
-		
-		$this->onDeleteAfter();
-		
-		// return json_encode();
-		return new JsonResponse($this->validator->result());
-		
-	}
-
-
-	
-	public function loadAssetsJs(array $scripts, bool $inside_body=true):void
-	{
-		global $config;
-		
-		foreach($scripts as $js)
-		{
-			if(basename($js) == $js)
-			{
-				$caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[0]['file'];
-				$js = str_erase(APP_PATH, dirname($caller)."/assets/js/{$js}");
-			}
-			
-			$section = ($inside_body) ? 'js_body' : 'js_head';
-			// $config['backend']['assets'][$section][] = $js;
-
-			//$current = \Core\Globals::get("backend.{$section}_files", "");
-			//$current = trim($current."\n{$js}");
-			//\Core\Globals::set("backend.{$section}_files", $current);
-			
-		}
-	}
-	public function loadAssetsCss(array $scripts):void
-	{
-		global $config;
-		
-		foreach($scripts as $css)
-		{
-			if(basename($css) == $css)
-			{
-				$caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[0]['file'];
-				$css = str_erase(APP_PATH, dirname($caller)."/assets/css/{$css}");
-			}
-			
-			// $config['backend']['assets']['css'][] = $css;
-
-			//$current = \Core\Globals::get("backend.assets_files", "");
-			//$current = trim($current."\n{$css}");
-			//\Core\Globals::set("backend.assets_files", $current);
-		}
 	}
 
 	/**
@@ -170,17 +87,4 @@ class Controller {
 		return $info;
 	}
 
-	// event
-	public function onSaveDatabaseBefore(array $f):array{return $f;}
-	public function onSaveDatabaseAddBefore(array $f):array{return $f;}
-	public function onSaveDatabaseEditBefore(array $f):array{return $f;}
-	public function onSaveDatabaseAfter(array $f):array{return $f;}
-	public function onSaveDatabaseAddAfter(array $f):array{return $f;}
-	public function onSaveDatabaseEditAfter(array $f):array{return $f;}
-	public function onSaveAfter(array $f):array{return $f;}
-	public function onDeleteBefore():void{}
-	public function onDeleteAfter():void{}
-	public function onDeleteDatabaseBefore():void{}
-	public function onDeleteDatabaseAfter():void{}
-	
 }

@@ -48,14 +48,15 @@ $dispatcher->addListener(KernelEvents::REQUEST, function(RequestEvent $event){
 
 }, 64);
 
-// json errors, 5xx details only in debug mode
+// json errors, 5xx details only in debug mode, 5xx logged (xcore_log) for every url
 $dispatcher->addListener(KernelEvents::EXCEPTION, function(ExceptionEvent $event){
-
-	if(!str_starts_with($event->getRequest()->getPathInfo(), '/api/'))return;
 
 	$e = $event->getThrowable();
 	$is_http = ($e instanceof HttpExceptionInterface);
 	$code = ($is_http) ? $e->getStatusCode() : 500;
+
+	if($code >= 500)\Core\ErrorHandler::logThrowable($e);
+	if(!str_starts_with($event->getRequest()->getPathInfo(), '/api/'))return;
 	$message = ($code < 500 || \Core\Config::isDebug()) ? $e->getMessage() : 'internal server error';
 
 	$event->setResponse(\Core\JsonResponse::error($code, $message, [], ($is_http) ? $e->getHeaders() : []));

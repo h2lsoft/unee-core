@@ -5,6 +5,7 @@ import { api, ApiException } from '../api'
 import { useAuth } from '../auth'
 import AuthLayout, { BackToSignIn, useLoginConfig } from '../components/AuthLayout'
 import { Field } from '../components/Field'
+import { t } from '../i18n'
 
 export default function ForgotPassword()
 {
@@ -39,7 +40,7 @@ export default function ForgotPassword()
 		{
 
 			const api_error = (err instanceof ApiException) ? err.error : null
-			setError(api_error?.message ?? 'network error, please retry')
+			setError(api_error?.message ?? t('network error, please retry'))
 			setFields(api_error?.fields ?? {})
 			if(api_error?.fields)setError('')
 
@@ -56,14 +57,14 @@ export default function ForgotPassword()
 	const is_login_key = (config?.login_key === 'login')
 
 	return (
-		<AuthLayout config={config} title="Forgot password" documentTitle="Forgot Password" subtitle="Enter your email address and we will send you a recovery link.">
+		<AuthLayout config={config} title={t('Forgot password')} documentTitle={t('Forgot Password')} subtitle={t('Enter your email address and we will send you a recovery link.')}>
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 				{sent && <Alert severity="success">{sent}</Alert>}
 
 				<Field
 					id="login"
-					label={is_login_key ? 'Login' : 'Email address'}
+					label={is_login_key ? t('Login') : t('Email address')}
 					type={is_login_key ? 'text' : 'email'}
 					autoComplete="username"
 					placeholder={is_login_key ? '' : 'name@company.com'}
@@ -75,7 +76,7 @@ export default function ForgotPassword()
 
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
 					<Button type="submit" variant="contained" fullWidth disabled={submitting}>
-						{submitting ? <CircularProgress size={20} color="inherit" /> : 'Send me recovery link'}
+						{submitting ? <CircularProgress size={20} color="inherit" /> : t('Send me recovery link')}
 					</Button>
 					<BackToSignIn />
 				</Box>

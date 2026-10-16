@@ -20,12 +20,6 @@ class Log
 	 */
 	public static function write(string $action, string $message="", array $values=[], int $record_id=0, string $level='info', string $plugin='', string $author="", string $application='backend'):void
 	{
-		if(App()->is_backend)
-		{
-			if(empty($plugin) && isset(App()->plugin['route_prefix_name'])) $plugin = App()->plugin['route_prefix_name'];
-			if(empty($action) && isset(App()->plugin['current_action'])) $action = App()->plugin['current_action'];
-		}
-		
 		if(empty($author))$author = \Core\Session::get('auth.login');
 		
 		$f = [];

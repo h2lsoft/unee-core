@@ -1,23 +1,34 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, UNAUTHORIZED_EVENT, type User } from './api'
+import { setLanguage } from './i18n'
 
 type Auth = {
 	user: User | null
 	loading: boolean
 	login: (login: string, password: string) => Promise<void>
 	logout: () => Promise<void>
+	changeLanguage: (language: string) => Promise<void>
 }
 
 const AuthContext = createContext<Auth | null>(null)
+const BROWSER_LANGUAGE = (navigator.language || 'en').slice(0, 2).toLowerCase()
 
 /**
- * logged user, loaded from /api/auth/me/ at startup
+ * logged user, loaded from /api/auth/me/ at startup, its language drives the interface
  */
 export function AuthProvider({children}: {children: ReactNode})
 {
 
-	const [user, setUser] = useState<User | null>(null)
+	const [user, setUserState] = useState<User | null>(null)
 	const [loading, setLoading] = useState(true)
+
+	// language set before the render that uses it
+	const setUser = (value: User | null) => {
+
+		setLanguage(value?.language || BROWSER_LANGUAGE)
+		setUserState(value)
+
+	}
 
 	useEffect(() => {
 
@@ -47,7 +58,14 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	}
 
-	return <AuthContext.Provider value={{user, loading, login, logout}}>{children}</AuthContext.Provider>
+	const changeLanguage = async (language: string) => {
+
+		const data = await api<{user: User}>('auth/me/', {method: 'PATCH', body: {language}})
+		setUser(data.user)
+
+	}
+
+	return <AuthContext.Provider value={{user, loading, login, logout, changeLanguage}}>{children}</AuthContext.Provider>
 
 }
 

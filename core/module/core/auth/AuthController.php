@@ -14,12 +14,11 @@ class AuthController extends \Core\Controller
 	/**
 	 * logon, json body: {"login": "...", "password": "..."}, login is the email or the login (config auth/backend/key)
 	 *
-	 * @route /api/auth/login/ {name: "api.auth.login", method: "POST"}
-	 *
 	 * @param Request $request
 	 *
 	 * @return \Core\JsonResponse {"user": {...}}
 	 */
+	#[\Core\Route('/api/auth/login/', methods: 'POST', name: 'api.auth.login')]
 	public function login(Request $request):\Core\JsonResponse
 	{
 
@@ -49,10 +48,9 @@ class AuthController extends \Core\Controller
 	/**
 	 * logout
 	 *
-	 * @route /api/auth/logout/ {name: "api.auth.logout", method: "POST"}
-	 *
 	 * @return \Core\JsonResponse 204 no content
 	 */
+	#[\Core\Route('/api/auth/logout/', methods: 'POST', name: 'api.auth.logout')]
 	public function logout():\Core\JsonResponse
 	{
 
@@ -64,12 +62,11 @@ class AuthController extends \Core\Controller
 	/**
 	 * password recovery, json body: {"login": "..."}, always the same answer whether the account exists or not
 	 *
-	 * @route /api/auth/password/forgot/ {name: "api.auth.password.forgot", method: "POST"}
-	 *
 	 * @param Request $request
 	 *
 	 * @return \Core\JsonResponse {"message"}
 	 */
+	#[\Core\Route('/api/auth/password/forgot/', methods: 'POST', name: 'api.auth.password.forgot')]
 	public function passwordForgot(Request $request):\Core\JsonResponse
 	{
 
@@ -97,12 +94,11 @@ class AuthController extends \Core\Controller
 	/**
 	 * password reset, json body: {"token": "...", "password": "...", "password_confirmation": "..."}
 	 *
-	 * @route /api/auth/password/reset/ {name: "api.auth.password.reset", method: "POST"}
-	 *
 	 * @param Request $request
 	 *
 	 * @return \Core\JsonResponse {"message"}, 400 when the link is invalid or expired
 	 */
+	#[\Core\Route('/api/auth/password/reset/', methods: 'POST', name: 'api.auth.password.reset')]
 	public function passwordReset(Request $request):\Core\JsonResponse
 	{
 
@@ -110,7 +106,7 @@ class AuthController extends \Core\Controller
 
 		// short messages: they are shown under the fields
 		$this->validator->input('token')->required('required');
-		$this->validator->input('password')->required('required')->regex($password_cfg['regex'], "{$password_cfg['min_length']} to {$password_cfg['max_length']} characters");
+		$this->validator->input('password')->required('required')->regex($password_cfg['regex'], ts('[MIN] to [MAX] characters', ['MIN' => $password_cfg['min_length'], 'MAX' => $password_cfg['max_length']]));
 		$this->validator->input('password_confirmation')->required('required')->sameAs('password', 'passwords do not match');
 
 		if($this->validator->fails())
@@ -126,10 +122,9 @@ class AuthController extends \Core\Controller
 	/**
 	 * public settings of the login page: whitelist of globals, the other globals are never exposed
 	 *
-	 * @route /api/auth/config/ {name: "api.auth.config"}
-	 *
-	 * @return \Core\JsonResponse {"name", "login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message"}, null = default of the backend
+	 * @return \Core\JsonResponse {"name", "login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
 	 */
+	#[\Core\Route('/api/auth/config/', name: 'api.auth.config')]
 	public function config():\Core\JsonResponse
 	{
 
@@ -146,6 +141,7 @@ class AuthController extends \Core\Controller
 				'subtitle' => $get('backend.login.subtitle'),
 			],
 			'maintenance_message' => $get('backend.maintenance.message'),
+			'languages' => \Core\Config::get('backend.languages'),
 		]);
 
 	}
@@ -153,12 +149,35 @@ class AuthController extends \Core\Controller
 	/**
 	 * logged user, called by the react backend at startup (401 from the auth.api middleware when nobody is logged)
 	 *
-	 * @route /api/auth/me/ {name: "api.auth.me"}
+	 * @return \Core\JsonResponse {"user": {...}}
+	 */
+	#[\Core\Route('/api/auth/me/', name: 'api.auth.me')]
+	public function me():\Core\JsonResponse
+	{
+
+		return new \Core\JsonResponse(['user' => \Model\User::getCurrent()]);
+
+	}
+
+	/**
+	 * preferences of the logged user, json body: {"language": "fr"} (key of config backend.languages)
+	 *
+	 * @param Request $request
 	 *
 	 * @return \Core\JsonResponse {"user": {...}}
 	 */
-	public function me():\Core\JsonResponse
+	#[\Core\Route('/api/auth/me/', methods: 'PATCH', name: 'api.auth.me.update')]
+	public function meUpdate(Request $request):\Core\JsonResponse
 	{
+
+		$this->validator->input('language')->required('required')->in(array_keys(\Core\Config::get('backend.languages')), 'invalid value');
+
+		if($this->validator->fails())
+			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
+
+		$language = (string)$request->request->get('language');
+		\Model\User::update(['language' => $language], \Model\User::getUID(), 1, (string)\Core\Session::get('auth.login'));
+		\Core\Session::set('auth.language', $language);
 
 		return new \Core\JsonResponse(['user' => \Model\User::getCurrent()]);
 

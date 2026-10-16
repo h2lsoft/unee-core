@@ -21,7 +21,6 @@ class Kernel extends HttpKernel {
 	public $db;
 	public $pdo;
 	public $twig;
-	public $plugin;
 	public mixed $debugbar = false;
 	
 	public $validator;
@@ -83,19 +82,12 @@ class Kernel extends HttpKernel {
 		}
 
 
-		if($this->is_backend)
+		// backend and api: language of the user, or of the browser before logon (config backend.languages)
+		if($this->is_backend || str_starts_with($cur_uri, '/api/'))
 		{
-			if(!\Model\User::isLogon())
-			{
-				$browser_lang = @trim(substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2));
-				if(ctype_alpha($browser_lang) && strlen($browser_lang) == 2 && (file_exists(CORE_PATH."/core/i18n/{$browser_lang}.php") || file_exists(APP_PATH."/instances/".APP_DIR."/i18n/{$browser_lang}.php")))
-					$this->locale = $browser_lang;
-			}
-			else
-			{
-				$this->locale = \Core\Session::get('auth.language', 'en');
-				if(empty(trim($this->locale)))$this->locale = 'en';
-			}
+			$languages = array_keys((array)\Core\Config::get('backend.languages'));
+			$locale = (\Model\User::isLogon()) ? (string)\Core\Session::get('auth.language', '') : strtolower(substr((string)$request->headers->get('Accept-Language'), 0, 2));
+			$this->locale = (in_array($locale, $languages, true)) ? $locale : 'en';
 		}
 		else
 		{
@@ -204,64 +196,6 @@ class Kernel extends HttpKernel {
 			// $app->debugbar->addCollector(new \DebugBar\DataCollector\ExceptionsCollector());
 			$this->debugbar->addCollector(new \DebugBar\DataCollector\TimeDataCollector());
 			$this->debugbar->addCollector(new \DebugBar\DataCollector\MessagesCollector());
-		}
-
-		// backend plugin **********************************************************************************************
-		if($this->is_backend && \Model\User::isLogon())
-		{
-			// @todo> user has right plugin_name/plugin_action ?
-			$plugin_name = \Model\Plugin::extractName($cur_uri);
-
-			if(!in_array($plugin_name, ['@error', 'logout', 'login', 'password', 'password-reset']))
-			{
-				$rec = $this->db->table(\Model\Plugin::$table)
-					->select("
-								*,
-								(SELECT name FROM xcore_menu WHERE id = xcore_menu_id) AS category_name
-							")
-					->where('route_prefix_name = :route_prefix_name')
-					->executeSQL([':route_prefix_name' => $plugin_name])
-					->limit(1)
-					->fetch();
-
-
-				$bookmarks = $this->db->select('xcore_plugin_id')
-					->from(\Model\User_Bookmark::$table)
-					->where("xcore_user_id = :xcore_user_id")
-					->executeSQL([':xcore_user_id' => \Model\User::getUID()])
-					->fetchAllOne();
-
-				$tmp = [];
-				if($rec)
-				{
-					$rec['bookmarked'] = (in_array($rec['id'], $bookmarks));
-
-					// breadcrumbs
-
-					if($rec['name'] != 'Dashboard')
-					{
-						// category
-						$tmp[] = [
-							'name' => $rec['category_name'],
-							'url' => "/@backend/{$rec['route_prefix_name']}/"
-						];
-
-						// @todo> add parent plugin
-
-						// plugin
-						$tmp[] = [
-							'name' => $rec['name'],
-							'url' => "/@backend/{$rec['route_prefix_name']}/"
-						];
-					}
-				}
-
-				@$rec['breadcrumbs'] = $tmp;
-
-				$this->plugin = $rec;
-			}
-
-
 		}
 	}
 }

@@ -13,6 +13,10 @@ import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
+import ModulePage from './pages/ModulePage'
+import NotFound from './pages/NotFound'
+import BackendLayout from './components/BackendLayout'
+import { ToastProvider } from './components/Toast'
 
 // corporate theme: primary color from the unee logo gradient, compact controls (40px), ibm plex sans
 const theme = createTheme({
@@ -51,14 +55,29 @@ function RequireAuth({children}: {children: React.ReactNode})
 
 }
 
-// routes end with a slash (rule), basename = the url of the backend
+// routes end with a slash (rule), basename = the url of the backend, a module page = /<module>/ (folder of the module)
 const router = createBrowserRouter([
-	{path: '/', element: <RequireAuth><Dashboard /></RequireAuth>},
 	{path: '/login/', element: <Login />},
 	{path: '/password/forgot/', element: <ForgotPassword />},
 	{path: '/password/reset/', element: <ResetPassword />},
-	{path: '*', element: <Navigate to="/" replace />},
+	{
+		element: <RequireAuth><BackendLayout /></RequireAuth>,
+		children: [
+			{path: '/', element: <Dashboard />},
+			{path: '/:module/', element: <ModulePage />},
+			{path: '*', element: <NotFound />},
+		],
+	},
 ], {basename: '/backend/'})
+
+// remounted when the language changes: every page renders again with the new translations
+function Root()
+{
+
+	const {user} = useAuth()
+	return <RouterProvider key={user?.language ?? ''} router={router} />
+
+}
 
 export default function App()
 {
@@ -66,9 +85,11 @@ export default function App()
 	return (
 		<ThemeProvider theme={theme}>
 			<CssBaseline />
-			<AuthProvider>
-				<RouterProvider router={router} />
-			</AuthProvider>
+			<ToastProvider>
+				<AuthProvider>
+					<Root />
+				</AuthProvider>
+			</ToastProvider>
 		</ThemeProvider>
 	)
 

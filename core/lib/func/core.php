@@ -41,6 +41,19 @@ function App(string $key=''):mixed
 }
 
 /**
+ * translate a text in the locale of the request (core/i18n, instance i18n)
+ *
+ * @param string $text english text
+ * @param array $params [KEY] replaced, ex: ['COUNT' => 3]
+ *
+ * @return string
+ */
+function ts(string $text, array $params=[]):string
+{
+	return \Core\I18n::t($text, $params);
+}
+
+/**
  * return global db manager
  * @param string $table (optionnal init table)
  *
@@ -117,10 +130,6 @@ function View(string $template='', array $data=[], int $status=200, array $heade
 
 	// twig loader roots are APP_PATH and CORE_PATH: template name is relative to one of them
 	$tpl_path = str_erase([APP_PATH, CORE_PATH], $tpl_path);
-	if($app->is_backend)
-	{
-		$data['plugin'] = $app->plugin;
-	}
 
 	$content = $app->twig->render($tpl_path, $data);
 	

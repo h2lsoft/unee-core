@@ -4,6 +4,7 @@ import { Alert, Box, Link, Typography } from '@mui/material'
 import { ArrowBack } from '@mui/icons-material'
 import { api, type LoginConfig } from '../api'
 import LockIllustration from './LockIllustration'
+import { t } from '../i18n'
 
 const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
 
@@ -31,7 +32,7 @@ export function BackToSignIn()
 
 	return (
 		<Link component={RouterLink} to="/login/" underline="hover" sx={{alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: 13, fontWeight: 500}}>
-			<ArrowBack sx={{fontSize: 14}} />Back to sign in
+			<ArrowBack sx={{fontSize: 14}} />{t('Back to sign in')}
 		</Link>
 	)
 
@@ -89,8 +90,8 @@ export default function AuthLayout({config, title, subtitle, documentTitle, chil
 
 			<Box sx={{flex: '1 1 0', minWidth: 0, display: {xs: 'none', md: 'flex'}, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, p: 6, bgcolor: '#0e1328', color: '#fff', textAlign: 'center'}}>
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.25, maxWidth: 420}}>
-					<Typography component="p" sx={{fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em'}}>{config?.login.title ?? 'Welcome to Unee'}</Typography>
-					<Typography sx={{fontSize: 15, lineHeight: 1.5, color: '#c4c8db'}}>{config?.login.subtitle ?? 'Sign in to manage your application.'}</Typography>
+					<Typography component="p" sx={{fontSize: 28, fontWeight: 600, letterSpacing: '-0.01em'}}>{config?.login.title ?? t('Welcome to Unee')}</Typography>
+					<Typography sx={{fontSize: 15, lineHeight: 1.5, color: '#c4c8db'}}>{config?.login.subtitle ?? t('Sign in to manage your application.')}</Typography>
 				</Box>
 				{config?.login.image ? <Box component="img" src={config.login.image} alt="" sx={{maxWidth: '70%', maxHeight: 360}} /> : <LockIllustration />}
 			</Box>

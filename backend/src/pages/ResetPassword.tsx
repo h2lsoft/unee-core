@@ -5,7 +5,9 @@ import { api, ApiException } from '../api'
 import { useAuth } from '../auth'
 import AuthLayout, { BackToSignIn, useLoginConfig } from '../components/AuthLayout'
 import { PasswordField } from '../components/Field'
+import { t } from '../i18n'
 
+// translated when used: the language is known after the first render
 const INVALID_LINK = 'This link is invalid or has expired, ask for a new one.'
 
 export default function ResetPassword()
@@ -17,7 +19,7 @@ export default function ResetPassword()
 	const [search] = useSearchParams()
 	const token = search.get('token') ?? ''
 	const [form, setForm] = useState({password: '', password_confirmation: ''})
-	const [error, setError] = useState(/^[a-f0-9]{64}$/.test(token) ? '' : INVALID_LINK)
+	const [error, setError] = useState(/^[a-f0-9]{64}$/.test(token) ? '' : t(INVALID_LINK))
 	const [fields, setFields] = useState<Record<string, string[]>>({})
 	const [submitting, setSubmitting] = useState(false)
 
@@ -41,7 +43,7 @@ export default function ResetPassword()
 		{
 
 			const api_error = (err instanceof ApiException) ? err.error : null
-			setError((api_error?.code === 400) ? INVALID_LINK : (api_error?.message ?? 'network error, please retry'))
+			setError((api_error?.code === 400) ? t(INVALID_LINK) : (api_error?.message ?? t('network error, please retry')))
 			setFields(api_error?.fields ?? {})
 			if(api_error?.fields)setError('')
 
@@ -56,14 +58,14 @@ export default function ResetPassword()
 	}
 
 	return (
-		<AuthLayout config={config} title="Reset password" documentTitle="Reset Password" subtitle="Choose a new password for your account.">
+		<AuthLayout config={config} title={t('Reset password')} documentTitle={t('Reset Password')} subtitle={t('Choose a new password for your account.')}>
 			<Box component="form" onSubmit={onSubmit} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 				{error && <Alert severity="error">{error}</Alert>}
 
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 2.25}}>
 					<PasswordField
 						id="password"
-						label="New password"
+						label={t('New password')}
 						autoComplete="new-password"
 						autoFocus
 						value={form.password}
@@ -72,7 +74,7 @@ export default function ResetPassword()
 					/>
 					<PasswordField
 						id="password-confirmation"
-						label="Confirm password"
+						label={t('Confirm password')}
 						autoComplete="new-password"
 						value={form.password_confirmation}
 						onChange={(e) => setForm({...form, password_confirmation: e.target.value})}
@@ -82,7 +84,7 @@ export default function ResetPassword()
 
 				<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
 					<Button type="submit" variant="contained" fullWidth disabled={submitting}>
-						{submitting ? <CircularProgress size={20} color="inherit" /> : 'Reset password'}
+						{submitting ? <CircularProgress size={20} color="inherit" /> : t('Reset password')}
 					</Button>
 					<BackToSignIn />
 				</Box>

@@ -14,6 +14,7 @@ return [
 	'url' => "https://{$_SERVER['HTTP_HOST']}",
 	'timezone' => "", # empty = default timezone
 	'backend.dirname' => 'backend',
+	'backend.languages' => ['en' => 'English', 'fr' => 'Français'], # languages of the backend, the user picks one in the user menu
 	'upload_dir' => APP_PATH."/instances/".APP_DIR."/public/upload",
 	'tmp_dir' => (APP_DIR != '' && APP_DIR != '_default') ? APP_PATH."/instances/".APP_DIR."/.tmp" : APP_PATH."/.tmp",
 	'noreply_email' => "noreply@".explode(':', $_SERVER['HTTP_HOST'])[0],
@@ -129,6 +130,21 @@ return [
 
 	],
 	
+	// SANITIZER *******************************************************************************************************
+	// html fields: allowed tags and their attributes by profile (\Core\Sanitizer), javascript: links are always removed
+	'sanitizer' => [
+		'basic' => [
+			'p' => [], 'br' => [], 'b' => [], 'strong' => [], 'i' => [], 'em' => [], 'u' => [],
+			'ul' => [], 'ol' => [], 'li' => [], 'a' => ['href', 'title', 'target'],
+		],
+	],
+
+	// ERRORS **********************************************************************************************************
+	// php errors and uncaught exceptions are written in xcore_log (\Core\ErrorHandler), file fallback when the db is down
+	'error_log' => [
+		'level' => 'warning', # all, warning (warnings, errors), error (errors only), off
+	],
+
 	// ROUTES **********************************************************************************************************
 	'routes' => [
 		# add your custom routes file path here, ex: APP_PATH.'/route/my_routes.php';

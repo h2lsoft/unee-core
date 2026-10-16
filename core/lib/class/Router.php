@@ -42,6 +42,7 @@ class Router {
 	public static function any(string $path, string|callable $callback, string $name=''):void
 	{
 		if(!empty(self::$route_prefix))$path = self::$route_prefix.$path;
+		if(empty($name))$name = slugify($path).'__ANY';
 		self::$routes[] = ['path' => $path, 'callback' => $callback, 'verbs' => ['ANY'], 'name' => $name];
 	}
 	
@@ -68,7 +69,8 @@ class Router {
 			}
 			else
 			{
-				$name2 = $name;
+				// one route per verb: a shared name would keep the last verb only
+				$name2 = (count($verbs) > 1) ? "{$name}.".strtolower($verb) : $name;
 			}
 
 			self::$routes[] = [

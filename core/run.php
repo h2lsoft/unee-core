@@ -41,6 +41,9 @@ else
 		\Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer::setTemplate($error_template);
 }
 
+// log in xcore_log, chained to the symfony handler
+\Core\ErrorHandler::register();
+
 // request *************************************************************************************************************
 if(!APP_CLI_MODE)
 {
@@ -106,56 +109,28 @@ $routes = new RouteCollection();
 foreach(\Core\Config::get('routes', []) as $route_file)
 	include $route_file;
 
-// controller routes from @route annotations
+// controller routes from #[\Core\Route] attributes (inherited methods included)
 foreach(\Core\Controller::getAll() as $c_controller)
 {
 	$info = \Core\Controller::getInfo($c_controller);
-	$paths = $info['paths'];
+	$module = $info['paths'][1];
 
 	$class = new ReflectionClass($info['class_path']);
-	foreach($class->getMethods() as $method)
+	if($class->isAbstract())continue;
+
+	foreach($class->getMethods(ReflectionMethod::IS_PUBLIC) as $method)
 	{
-		$doclet = $method->getDocComment();
-		if(!$doclet)continue;
-
-		preg_match_all("/@route(.*)$/m", $doclet, $matches);
-		foreach($matches[1] as $route)
+		foreach($method->getAttributes(\Core\Route::class) as $attribute)
 		{
-			$route = trim(str_replace("\t", "    ", $route));
+			$route = $attribute->newInstance();
+			$uri = str_replace('/@module/', "/{$module}/", $route->path);
+			$name = str_replace('@module', $module, $route->name);
+			$method_name = ($route->controller !== '') ? $route->controller : $method->getName();
 
-			$tmp = explode(' {', $route, 2);
-			$verbs = ['GET'];
-			$route_name = "";
-			$uri = str_replace('/@module/', "/{$paths[1]}/", trim($tmp[0]));
-			$method_name = $method->getName();
-
-			// parameters: {name: "x", method: "GET|POST", controller: "method"}
-			if(count($tmp) == 2)
-			{
-				$params = explode(", ", rtrim($tmp[1], "}"));
-				foreach($params as $param)
-				{
-					$line = explode(':', $param);
-					if($line[0] == 'name')
-					{
-						$route_name = trim(str_erase(['"', "'"], $line[1]));
-					}
-					elseif($line[0] == 'method')
-					{
-						$verbs = explode("|", trim(str_erase(['"', "'"], $line[1])));
-					}
-					elseif($line[0] == 'controller')
-					{
-						$method_name = trim(str_erase(['"', "'"], $line[1]));
-					}
-					else
-					{
-						throw new Exception("`{$line[0]}` not correct for route `{$uri}` in `{$c_controller}`");
-					}
-				}
-			}
-
-			\Core\Router::match($verbs, $uri, $class->getName()."::{$method_name}", $route_name);
+			if($route->methods == ['ANY'])
+				\Core\Router::any($uri, $class->getName()."::{$method_name}", $name);
+			else
+				\Core\Router::match($route->methods, $uri, $class->getName()."::{$method_name}", $name);
 		}
 	}
 }
