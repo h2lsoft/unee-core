@@ -132,7 +132,7 @@ export default function Login()
 							<Button type="submit" variant="contained" fullWidth disabled={submitting}>
 								{submitting ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
 							</Button>
-							<Link component={RouterLink} to="/password/forgot/" underline="hover" sx={{alignSelf: 'center', fontSize: 13, fontWeight: 500}}>Forgot password?</Link>
+							<Link component={RouterLink} to="/password/forgot/" underline="hover" sx={{alignSelf: 'flex-end', fontSize: 13, fontWeight: 500}}>Forgot password?</Link>
 						</Box>
 
 						{/* maintenance information, globals backend.maintenance.message (plain text) */}
