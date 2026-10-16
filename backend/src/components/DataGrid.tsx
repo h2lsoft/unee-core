@@ -49,6 +49,14 @@ const chip_sx = (on: boolean) => ({
 	fontSize: 13,
 })
 
+// rows of a chip, with the search and the filters applied
+function ChipCount({value, on}: {value: number, on: boolean})
+{
+
+	return <Box component="span" sx={{ml: 0.75, minWidth: 18, px: 0.6, borderRadius: 999, fontSize: 11, fontWeight: 600, lineHeight: '18px', textAlign: 'center', bgcolor: on ? '#e2d9ff' : '#f2f3f7', color: on ? '#4b2fd6' : '#5b6178'}}>{value}</Box>
+
+}
+
 export function Badge({value, color}: {value: string, color?: string})
 {
 
@@ -479,8 +487,8 @@ export default function DataGrid({module, version, onAdd, onEdit, onTitle}: {mod
 					{grid.filters.length > 0 && <FiltersButton filters={grid.filters} active={grid.active_filters} onApply={applyFilters} />}
 					{grid.chips && (
 						<>
-							<ButtonBase sx={chip_sx(chip === '')} onClick={() => update({chip: '', page: ''})}>{t('All')}</ButtonBase>
-							{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={chip_sx(chip === o.value)} onClick={() => update({chip: o.value, page: ''})}>{o.label}</ButtonBase>)}
+							<ButtonBase sx={chip_sx(chip === '')} onClick={() => update({chip: '', page: ''})}>{t('All')}<ChipCount value={grid.chips.total} on={chip === ''} /></ButtonBase>
+							{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={chip_sx(chip === o.value)} onClick={() => update({chip: o.value, page: ''})}>{o.label}<ChipCount value={o.count} on={chip === o.value} /></ButtonBase>)}
 						</>
 					)}
 					{!is_mobile && <Box component="span" sx={{ml: 'auto', fontSize: 13, color: '#5b6178'}}>{loading ? <CircularProgress size={14} /> : t('[FROM] to [TO] of [TOTAL]', {FROM: from, TO: to, TOTAL: p.total})}</Box>}

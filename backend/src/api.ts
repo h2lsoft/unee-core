@@ -127,7 +127,7 @@ export type Grid = {
 	columns: GridColumn[]
 	filters: GridFilter[]
 	active_filters: Record<string, {value: string, operator: string}>
-	chips: {name: string, options: Option[]} | null
+	chips: {name: string, total: number, options: (Option & {count: number})[]} | null
 	search: {placeholder: string} | null
 	sort: {column: string, dir: 'asc' | 'desc'}
 	rows: Row[]

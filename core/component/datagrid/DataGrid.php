@@ -327,16 +327,6 @@ class DataGrid
 
 		}
 
-		// chips
-		$chip = (string)$request->query->get('chip', '');
-		if($this->chips && $chip !== '')
-		{
-
-			$wheres[] = "{$this->quote($this->chips['name'])} = :_chip";
-			$binds['_chip'] = $chip;
-
-		}
-
 		// filters
 		$values = $request->query->all('f');
 		$operators = $request->query->all('o');
@@ -354,6 +344,24 @@ class DataGrid
 
 			$wheres[] = $this->filterSql($filter['sql'], $operator, $value, $binds, '_f'.($i++));
 			$active_filters[$name] = ['value' => $value, 'operator' => $operator];
+
+		}
+
+		// chips, counted with the search and the filters but without the chip itself
+		$chips = null;
+		if($this->chips)
+		{
+
+			$chips = ['name' => $this->chips['name']] + $this->chipOptions(implode(' AND ', $wheres), $binds);
+
+			$chip = (string)$request->query->get('chip', '');
+			if($chip !== '')
+			{
+
+				$wheres[] = "{$this->quote($this->chips['name'])} = :_chip";
+				$binds['_chip'] = $chip;
+
+			}
 
 		}
 
@@ -404,7 +412,7 @@ class DataGrid
 				'options' => $this->options($f['options']),
 			], $this->filters)),
 			'active_filters' => (object)$active_filters,
-			'chips' => ($this->chips) ? ['name' => $this->chips['name'], 'options' => $this->chipOptions()] : null,
+			'chips' => $chips,
 			'search' => ($this->search_columns) ? ['placeholder' => ts($this->search_placeholder)] : null,
 			'sort' => ['column' => $sort, 'dir' => $dir],
 			'rows' => $rows,
@@ -468,25 +476,38 @@ class DataGrid
 	}
 
 	/**
-	 * chip options, distinct values of the column when not declared
+	 * chip options with their count, distinct values of the column when not declared (kept while searching, count 0)
 	 *
-	 * @return array
+	 * @param string $where conditions of the list without the chip
+	 * @param array $binds
+	 *
+	 * @return array {options: [{value, label, count}], total: rows of every value (all)}
 	 */
-	private function chipOptions():array
+	private function chipOptions(string $where, array $binds):array
 	{
+
+		$table = $this->quote($this->table);
+		$column = $this->quote($this->chips['name']);
 
 		$options = $this->chips['options'];
 		if(!$options)
 		{
 
-			$where = "deleted = 'no'".(($this->where !== '') ? " AND {$this->where}" : '');
-			$column = $this->quote($this->chips['name']);
-			$values = DB()->query("SELECT DISTINCT {$column} FROM {$this->quote($this->table)} WHERE {$where} AND {$column} IS NOT NULL AND {$column} != '' ORDER BY 1 LIMIT 50", $this->binds)->fetchAllOne();
+			$base = "deleted = 'no'".(($this->where !== '') ? " AND {$this->where}" : '');
+			$values = DB()->query("SELECT DISTINCT {$column} FROM {$table} WHERE {$base} AND {$column} IS NOT NULL AND {$column} != '' ORDER BY 1 LIMIT 50", $this->binds)->fetchAllOne();
 			$options = array_combine($values, $values);
 
 		}
 
-		return $this->options($options);
+		$counts = [];
+		foreach(DB()->query("SELECT {$column} AS v, COUNT(*) AS n FROM {$table} WHERE {$where} GROUP BY {$column}", $binds)->fetchAll() as $rec)
+			$counts[(string)$rec['v']] = (int)$rec['n'];
+
+		$list = $this->options($options);
+		foreach($list as $k => $option)
+			$list[$k]['count'] = $counts[$option['value']] ?? 0;
+
+		return ['options' => $list, 'total' => array_sum($counts)];
 
 	}
 
