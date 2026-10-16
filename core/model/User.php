@@ -4,7 +4,7 @@ namespace Model;
 
 /**
  * user, authentication by session
- * session keys: auth.id, auth.login, auth.email, auth.firstname, auth.lastname, auth.language, auth.group_id
+ * session keys: auth.id, auth.login, auth.email, auth.firstname, auth.lastname, auth.language, auth.group_id, auth.last_activity
  * failed attempts are logged in xcore_log (action logon_failed), counted per login and per ip for the throttle
  */
 class User extends \Core\Entity
@@ -115,6 +115,7 @@ class User extends \Core\Entity
 
 		}
 		\Core\Session::set('auth.group_id', (int)$user['xcore_group_id']);
+		\Core\Session::set('auth.last_activity', time());
 
 		$row = ['last_connection_date' => now(), 'last_connection_application' => 'backend', 'last_connection_ip' => $ip];
 

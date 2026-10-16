@@ -221,7 +221,13 @@ return [
 
 		'frontend' => [
 			'key' => 'email', # choose between email or login
-		]
+		],
+
+		// api (react backend) ************************************************************************************
+		'api' => [
+			'public_routes' => ['api.auth.login'], # route names reachable without logon
+			'idle_timeout_seconds' => 60*60*2, # logout after 2 hours without request, 0 = disabled
+		],
 	],
 
 	// EVENTS **********************************************************************************************************
@@ -232,7 +238,7 @@ return [
 	// MIDDLEWARES *****************************************************************************************************
 	// keyed absolute paths: an instance can override a key, add a new one, or set it to null to disable it
 	'middlewares' => [
-				// 'auth.api' => CORE_PATH.'/core/module/core/auth/middleware/api.php', # added with the api auth (step 5)
+				'auth.api' => CORE_PATH.'/core/module/core/auth/middleware/api.php',
 	],
 
 	// COMMANDS ********************************************************************************************************
