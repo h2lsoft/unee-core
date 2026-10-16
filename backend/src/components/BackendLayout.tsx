@@ -282,8 +282,8 @@ export default function BackendLayout()
 					{/* calendar and bookmarks: placeholders until the agenda and the bookmarks modules */}
 					{!is_mobile && (
 						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 36, height: 36, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 20}} /></IconButton></Tooltip>
-							<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} sx={{width: 36, height: 36, borderRadius: 2, color: '#5b6178'}}><BookmarkBorderOutlined sx={{fontSize: 20}} /></IconButton></Tooltip>
+							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
+							<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><BookmarkBorderOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
 							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
 						</Box>
 					)}
