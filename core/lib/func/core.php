@@ -10,7 +10,7 @@
  */
 function x(mixed $var, bool $exit=true):void
 {
-	!Kint::dump($var);
+	\Symfony\Component\VarDumper\VarDumper::dump($var);
 	if($exit)die();
 }
 
@@ -22,7 +22,7 @@ function x(mixed $var, bool $exit=true):void
  */
 function _x(mixed $var):void
 {
-	!Kint::dump($var);
+	\Symfony\Component\VarDumper\VarDumper::dump($var);
 }
 
 
