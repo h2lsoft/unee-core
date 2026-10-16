@@ -1,0 +1,26 @@
+# dependencies
+/vendor/
+/node_modules/
+
+# runtime
+.tmp/
+*.log
+
+# local env overrides (may contain credentials)
+.env
+.env.*
+/config/default/app_*.php
+
+# client instances: only the default template is versioned
+/instances/*
+!/instances/_default/
+
+# user uploads (keep placeholders)
+/instances/_default/public/upload/*/*
+!/instances/_default/public/upload/*/0.png
+
+# ide / os
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
