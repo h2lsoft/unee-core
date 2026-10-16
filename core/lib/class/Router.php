@@ -195,6 +195,10 @@ class Router {
 
 				$r['path'] = str_replace('/@backend/', "/{$backend_path}/", $r['path']);
 
+				// rule: a route ends with a slash (files like /robots.txt excepted)
+				if(!str_ends_with($r['path'], '/') && !str_contains(basename($r['path']), '.'))
+					throw new \LogicException("Route \"{$r['path']}\" must end with a slash");
+
 				if($r['verbs'] == ['ANY'])$r['verbs'] = [];
 				
 				$requirements = [];
