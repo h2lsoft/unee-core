@@ -6,18 +6,9 @@
 .tmp/
 *.log
 
-# local env overrides (may contain credentials)
+# local env
 .env
 .env.*
-/config/default/app_*.php
-
-# client instances: only the default template is versioned
-/instances/*
-!/instances/_default/
-
-# user uploads (keep placeholders)
-/instances/_default/public/upload/*/*
-!/instances/_default/public/upload/*/0.png
 
 # ide / os
 .idea/

@@ -205,10 +205,10 @@ return [
 	],
 
 	// MIDDLEWARES *****************************************************************************************************
-	// keyed: an instance can override a key, add a new one, or set it to null to disable it
+	// keyed absolute paths: an instance can override a key, add a new one, or set it to null to disable it
 	'middlewares' => [
-				'auth.backend' => 'core/module/core/auth/middleware/backend.php',
-				// 'auth.frontend' => 'core/module/core/auth/middleware/frontend.php', # enable in instance config
+				'auth.backend' => CORE_PATH.'/core/module/core/auth/middleware/backend.php',
+				// 'auth.frontend' => CORE_PATH.'/core/module/core/auth/middleware/frontend.php', # enable in instance config
 	],
 
 ];

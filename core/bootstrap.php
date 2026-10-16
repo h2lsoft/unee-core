@@ -1,6 +1,12 @@
 <?php
 
-define('APP_PATH', dirname(__DIR__));
+// APP_PATH (project root) is defined by the project front controller before this file is required
+if(!defined('APP_PATH'))
+{
+	throw new RuntimeException("APP_PATH must be defined before requiring the unee core bootstrap");
+}
+
+define('CORE_PATH', dirname(__DIR__));
 define('APP_CLI_MODE', (strtolower(php_sapi_name()) == 'cli'));
 define('APP_ENV', !getenv('APP_ENV') ? 'production' : getenv('APP_ENV'));
 define('APP_DIR', !getenv('APP_DIR') ? '' : getenv('APP_DIR'));
@@ -16,14 +22,21 @@ const CHARLIST_LATIN_DASHES = CHARLIST_LATIN.CHARLIST_DASHES;
 const CHARLIST_LATIN_DASHES_SPACE = CHARLIST_LATIN.CHARLIST_DASHES.CHARLIST_SPACE;
 const CHARLIST_LATIN_DASHES_SPACE_QUOTE = CHARLIST_LATIN.CHARLIST_DASHES.CHARLIST_SPACE."'";
 
-// load config *********************************************************************************************************
+// load config: core defaults < project < project env < instance *****************************************************
 
-$config = require APP_PATH."/config/default/app.php";
+$config = require CORE_PATH."/config/default/app.php";
 
-// load default other than production env
-if(APP_ENV != 'production' && file_exists(APP_PATH."/config/default/app_".APP_ENV.".php"))
+// project config
+if(file_exists(APP_PATH."/config/app.php"))
 {
-	$tmp = require APP_PATH."/config/default/app_".APP_ENV.".php";
+	$tmp = require APP_PATH."/config/app.php";
+	$config = array_replace_recursive($config, $tmp);
+}
+
+// project env config, ex: config/app_dev.php (not versioned, may hold credentials)
+if(file_exists(APP_PATH."/config/app_".APP_ENV.".php"))
+{
+	$tmp = require APP_PATH."/config/app_".APP_ENV.".php";
 	$config = array_replace_recursive($config, $tmp);
 }
 
@@ -60,7 +73,7 @@ spl_autoload_register(function($class){
 	{
 		$class2 = str_replace('\\', '/', $class);
 		$class2 = str_erase('Core/', $class2);
-		$class_path = APP_PATH."/core/lib/class/{$class2}.php";
+		$class_path = CORE_PATH."/core/lib/class/{$class2}.php";
 
 		if(file_exists($class_path))
 		{
@@ -75,7 +88,7 @@ spl_autoload_register(function($class){
 	{
 		$package = strtolower($path[1]);
 		$class_path = APP_PATH."/instances/".APP_DIR."/model/{$path[1]}.php";
-		$core_class_path = APP_PATH . "/core/model/{$path[1]}.php";
+		$core_class_path = CORE_PATH."/core/model/{$path[1]}.php";
 
 		if(file_exists($class_path))
 		{
@@ -99,7 +112,7 @@ spl_autoload_register(function($class){
 		$controller_dir = str_replace('_', '-', $controller_dir);
 		$controller = $path[2];
 		$class_path = APP_PATH."/instances/".APP_DIR."/module/{$package}/{$controller_dir}/{$controller}.php";
-		$core_class_path = APP_PATH."/core/module/{$package}/{$controller_dir}/{$controller}.php";
+		$core_class_path = CORE_PATH."/core/module/{$package}/{$controller_dir}/{$controller}.php";
 
 		if(file_exists($class_path))
 		{
@@ -121,7 +134,7 @@ spl_autoload_register(function($class){
 		$package = str_replace('_', '-', $package);
 		$file = $path[1];
 
-		$core_class_path = APP_PATH."/core/component/{$package}/{$file}.php";
+		$core_class_path = CORE_PATH."/core/component/{$package}/{$file}.php";
 		if(file_exists($core_class_path))
 		{
 			include_once($core_class_path);
@@ -135,7 +148,7 @@ spl_autoload_register(function($class){
 	{
 		$package = strtolower($path[1]);
 		$class_path = APP_PATH."/instances/".APP_DIR."/command/{$path[1]}/{$path[2]}.php";
-		$core_class_path = APP_PATH . "/core/command/{$path[1]}/{$path[2]}.php";
+		$core_class_path = CORE_PATH."/core/command/{$path[1]}/{$path[2]}.php";
 
 		if(file_exists($class_path))
 		{

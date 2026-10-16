@@ -1,4 +1,8 @@
 {
+    "name": "h2lsoft/unee-core",
+    "description": "Unee framework core",
+    "type": "library",
+    "license": "MIT",
     "require": {
         "php": ">=8.4",
         "ext-fileinfo": "*",
