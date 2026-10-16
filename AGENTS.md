@@ -52,6 +52,21 @@ Rules for any AI agent or developer working on this repository. Read them before
 - Routes are declared in route files (config `routes`) or with `@route` annotations on controller methods.
 - `.htaccess`: missing final slash redirects with 301, and with 308 under `/api/` (method and body are kept).
 
+## API
+
+- Under `/api/`, the backend (React/MUI) is a client of the api. Authentication uses the PHP session cookie (`HttpOnly`, `SameSite=Lax`), so no token is visible to JavaScript.
+- Unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`) require the header `X-Requested-With: XMLHttpRequest` (csrf protection), otherwise 403.
+- Request body: JSON (`Content-Type: application/json`). It is available as `$request->request` and `$_POST`; an invalid JSON body gives 400.
+- Errors always use `\Core\JsonResponse::error($code, $message, $extra, $headers)`, which gives `{"error": {"code": 422, "message": "...", "fields": {...}}}`. Exceptions under `/api/` are converted to this format; 5xx messages are hidden unless debug is on.
+- Status codes: 400 invalid body, 401 not logged / session expired / account disabled, 403 csrf or forbidden, 404, 405, 422 validation (`fields` = `{name: [messages]}`), 429 throttled (with `Retry-After`).
+- Validation: `$this->validator` (h2lsoft/validator ^3.0). `required()` is checked even on an empty body.
+- Auth endpoints: `POST /api/auth/login/` (`{"login", "password"}`), `POST /api/auth/logout/` (204), `GET /api/auth/me/`.
+- Every `/api/` route requires a logged user (middleware `auth.api`), except the route names listed in config `auth/api/public_routes`. The user and its group are checked in the database on each request; config `auth/api/idle_timeout_seconds` logs out inactive sessions.
+- Superadmin (group 1): rights are not checked (`\Model\User::isSuperAdmin()`).
+- Name api routes `api.<module>.<action>` (ex: `api.auth.login`).
+- React backend: sources in `backend/` (TypeScript, MUI, React Router), `npm run build` writes `core/backend/dist/` (committed: projects never need node), served under `/backend/` by the skeleton `.htaccess`. Dev: `npm run dev`, `/api` is proxied to the local site.
+- Login page settings: globals `backend.logo`, `backend.login.image`, `backend.login.title`, `backend.login.subtitle`, `backend.login.notice`, `backend.login.notice_severity`, exposed by the public route `GET /api/auth/config/` (whitelist only).
+
 ## Models
 
 - Every model declares its table: `public static string $table = 'xcore_user';` (or inherits it from a model that does). A model without its own table throws an exception.
@@ -61,6 +76,7 @@ Rules for any AI agent or developer working on this repository. Read them before
 - Visitor IP: `getVisitorIp()` only. Forwarded headers are read only from proxies listed in config `proxy/trusted`.
 - HTML: use `\Core\Html` helpers, attributes are escaped. Tag content (`$text`, `$label`) is raw HTML: escape user data before passing it.
 - Passwords: 8 to 72 bytes, all characters allowed (bcrypt limit).
+- Failed logons are logged in `xcore_log` (`logon_failed`), counted per login and per ip (`auth/logon_throttle`).
 - Never execute code stored in the database.
 - Session cookie is `secure`, `HttpOnly`, `SameSite=Lax`.
 

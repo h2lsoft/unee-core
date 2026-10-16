@@ -225,7 +225,7 @@ return [
 
 		// api (react backend) ************************************************************************************
 		'api' => [
-			'public_routes' => ['api.auth.login'], # route names reachable without logon
+			'public_routes' => ['api.auth.login', 'api.auth.config'], # route names reachable without logon
 			'idle_timeout_seconds' => 60*60*2, # logout after 2 hours without request, 0 = disabled
 		],
 	],

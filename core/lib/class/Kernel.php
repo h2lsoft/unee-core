@@ -35,7 +35,8 @@ class Kernel extends HttpKernel {
 		$this->requestStack = $requestStack;
 		$this->argumentResolver = $argumentResolver;
 
-		parent::__construct($this->dispatcher, $this->controllerResolver, $this->requestStack, $this->argumentResolver);
+		// handleAllThrowables: php errors (TypeError, class not found) go through kernel.exception too (json under /api/)
+		parent::__construct($this->dispatcher, $this->controllerResolver, $this->requestStack, $this->argumentResolver, true);
 
 		if($db_link)$this->db = $db_link;
 		if($pdo)$this->pdo = $pdo;
