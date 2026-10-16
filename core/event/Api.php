@@ -1,6 +1,6 @@
 <?php
 /**
- * api (/api/): csrf check on unsafe methods, json errors
+ * api (/api/): csrf check on unsafe methods, json body, json errors
  * csrf: the browser sends the session cookie, a cross-site page cannot add a custom header without a cors preflight
  */
 
@@ -18,7 +18,31 @@ $dispatcher->addListener(KernelEvents::REQUEST, function(RequestEvent $event){
 	if(!$request->isMethodSafe() && $request->headers->get('X-Requested-With') !== 'XMLHttpRequest')
 	{
 
-		$event->setResponse(new \Core\JsonResponse(['error' => ['code' => 403, 'message' => 'missing header X-Requested-With: XMLHttpRequest']], 403));
+		$event->setResponse(\Core\JsonResponse::error(403, 'missing header X-Requested-With: XMLHttpRequest'));
+		return;
+
+	}
+
+	// json body: available as $request->request and $_POST (read by the h2lsoft validator)
+	if(str_contains((string)$request->headers->get('Content-Type'), 'json') && $request->getContent() !== '')
+	{
+
+		try
+		{
+
+			$data = $request->toArray();
+
+		}
+		catch(\Symfony\Component\HttpFoundation\Exception\JsonException $e)
+		{
+
+			$event->setResponse(\Core\JsonResponse::error(400, 'invalid json body'));
+			return;
+
+		}
+
+		$request->request->replace($data);
+		$_POST = $data;
 
 	}
 
@@ -34,6 +58,6 @@ $dispatcher->addListener(KernelEvents::EXCEPTION, function(ExceptionEvent $event
 	$code = ($is_http) ? $e->getStatusCode() : 500;
 	$message = ($code < 500 || \Core\Config::isDebug()) ? $e->getMessage() : 'internal server error';
 
-	$event->setResponse(new \Core\JsonResponse(['error' => ['code' => $code, 'message' => $message]], $code, ($is_http) ? $e->getHeaders() : []));
+	$event->setResponse(\Core\JsonResponse::error($code, $message, [], ($is_http) ? $e->getHeaders() : []));
 
 });
