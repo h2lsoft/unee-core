@@ -108,7 +108,8 @@ class Kernel extends HttpKernel {
 
 		// load twig
 		$paths = [];
-		$loader = new \Twig\Loader\FilesystemLoader(".");
+		// project first, then core (vendor)
+		$loader = new \Twig\Loader\FilesystemLoader([APP_PATH, CORE_PATH]);
 		$this->twig = new \Twig\Environment($loader, \Core\Config::get('twig/options'));
 
 		include CORE_PATH.'/core/lib/inc/twig_functions.inc.php';

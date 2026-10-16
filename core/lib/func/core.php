@@ -81,9 +81,9 @@ function View(string $template='', array $data=[], int $status=200, array $heade
 	
 	
 	// backend
-	if($template[0] == '@' && file_exists(APP_PATH.'/core/theme/admin/'.$template))
+	if($template[0] == '@' && file_exists(CORE_PATH.'/core/theme/core-admin/'.$template))
 	{
-		$template = '/core/theme/admin/'.$template;
+		$template = '/core/theme/core-admin/'.$template;
 	}
 	
 
@@ -115,7 +115,8 @@ function View(string $template='', array $data=[], int $status=200, array $heade
 	$data['config_js_body'] = $files;
 
 
-	$tpl_path = str_erase(APP_PATH, $tpl_path);
+	// twig loader roots are APP_PATH and CORE_PATH: template name is relative to one of them
+	$tpl_path = str_erase([APP_PATH, CORE_PATH], $tpl_path);
 	if($app->is_backend)
 	{
 		$data['plugin'] = $app->plugin;
