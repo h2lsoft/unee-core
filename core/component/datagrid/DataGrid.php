@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Request;
  * declarative grid rendered as json for the react backend (\Core\CrudController::apiList)
  * only the declared columns (and id) are sent, sort and filters are whitelisted by the declaration
  *
- * query string: page, per_page, sort, dir (asc, desc), q (search), chip, f[name]=value, o[name]=operator
+ * query string: page, per_page, sort, dir (asc, desc), q (search), chip, c[i][f]=filter, c[i][o]=operator, c[i][v]=value, m=all|any
  */
 class DataGrid
 {
@@ -23,6 +23,11 @@ class DataGrid
 		'select' => ['eq', '!eq', 'in'],
 		'boolean' => ['eq'],
 	];
+
+	/**
+	 * conditions of the advanced filters kept from the request
+	 */
+	public const int MAX_CONDITIONS = 20;
 
 	public array $columns = [];
 	public array $filters = [];
@@ -78,7 +83,7 @@ class DataGrid
 	 * @param string $name
 	 * @param string $label
 	 * @param bool $sortable
-	 * @param array $colors value => grey, red, green, blue, orange, purple (default grey)
+	 * @param array $colors value => grey, orange, red, green, blue, purple, yellow, cyan (default grey)
 	 *
 	 * @return static
 	 */
@@ -327,25 +332,27 @@ class DataGrid
 
 		}
 
-		// filters
-		$values = $request->query->all('f');
-		$operators = $request->query->all('o');
-		$active_filters = [];
-		$i = 0;
-		foreach($this->filters as $name => $filter)
+		// conditions of the advanced filters, combined with AND (m=all) or OR (m=any)
+		$match = ($request->query->get('m') === 'any') ? 'any' : 'all';
+		$conditions = [];
+		$parts = [];
+		foreach(array_slice(array_values($request->query->all('c')), 0, self::MAX_CONDITIONS) as $i => $c)
 		{
 
-			if(!isset($values[$name]) && !in_array($operators[$name] ?? '', ['empty', '!empty'], true))continue;
+			$name = (is_array($c)) ? (string)($c['f'] ?? '') : '';
+			if(!isset($this->filters[$name]))continue;
 
-			$value = trim((string)($values[$name] ?? ''));
-			$operator = (string)($operators[$name] ?? self::OPERATORS[$filter['type']][0]);
+			$filter = $this->filters[$name];
+			$operator = (string)($c['o'] ?? self::OPERATORS[$filter['type']][0]);
+			$value = trim((string)($c['v'] ?? ''));
 			if(!in_array($operator, self::OPERATORS[$filter['type']], true))continue;
 			if($value === '' && !in_array($operator, ['empty', '!empty'], true))continue;
 
-			$wheres[] = $this->filterSql($filter['sql'], $operator, $value, $binds, '_f'.($i++));
-			$active_filters[$name] = ['value' => $value, 'operator' => $operator];
+			$parts[] = $this->filterSql($filter['sql'], $operator, $value, $binds, "_c{$i}");
+			$conditions[] = ['f' => $name, 'o' => $operator, 'v' => $value];
 
 		}
+		if($parts)$wheres[] = '('.implode(($match === 'any') ? ' OR ' : ' AND ', $parts).')';
 
 		// chips, counted with the search and the filters but without the chip itself
 		$chips = null;
@@ -411,7 +418,8 @@ class DataGrid
 				'operators' => self::OPERATORS[$f['type']],
 				'options' => $this->options($f['options']),
 			], $this->filters)),
-			'active_filters' => (object)$active_filters,
+			'conditions' => $conditions,
+			'match' => $match,
 			'chips' => $chips,
 			'search' => ($this->search_columns) ? ['placeholder' => ts($this->search_placeholder)] : null,
 			'sort' => ['column' => $sort, 'dir' => $dir],

@@ -24,14 +24,17 @@ class GlobalsController extends \Core\CrudController
 		$grid->setOrderByFirst('name');
 		$grid->setSearch(['name', 'description', 'value'], 'Search name...');
 		$grid->addFilterChips('category');
+		$grid->addFilter('name', 'Name');
+		$grid->addFilter('category', 'Category');
 		$grid->addFilter('type', 'Type', 'select', array_combine(self::TYPES, self::TYPES));
 		$grid->addFilter('value', 'Value');
+		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'value');
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('category', 'Category', true)->width(130);
 		$grid->addCol('name', 'Name', true);
-		$grid->addColBadge('type', 'Type', true, ['text' => 'grey', 'int' => 'red', 'float' => 'red', 'boolean' => 'orange', 'url' => 'green', 'json-array' => 'purple', 'json-object' => 'purple', 'list' => 'blue'])->width(120);
+		$grid->addColBadge('type', 'Type', true, ['text' => 'orange', 'int' => 'red', 'float' => 'red', 'boolean' => 'yellow', 'url' => 'green', 'json-array' => 'purple', 'json-object' => 'purple', 'list' => 'cyan'])->width(120);
 		$grid->addCol('value', 'Value');
 
 		$grid->hookData(function(array $row):array {

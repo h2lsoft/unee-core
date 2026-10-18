@@ -31,6 +31,7 @@ export default function ModulePage()
 			<DataGrid
 				key={module}
 				module={module}
+				icon={item.icon}
 				version={version}
 				onTitle={(_, record_label) => setLabel(record_label)}
 				onAdd={() => setForm({open: true, id: 0})}
