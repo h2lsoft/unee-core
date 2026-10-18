@@ -101,10 +101,12 @@ class System_InfoController extends \Core\Controller
 		$load = (function_exists('sys_getloadavg')) ? @sys_getloadavg() : false;
 		if($load)$add('Load average', implode(' / ', array_map(fn($l) => number_format($l, 2), $load)), 'speed');
 
-		// memory and swap from /proc/meminfo (kB)
+		// memory and swap from /proc/meminfo (kB), windows: memory and paging files of the system
 		$meminfo = [];
 		foreach(explode("\n", (string)@file_get_contents('/proc/meminfo')) as $line)
 			if(preg_match('/^(\w+):\s+(\d+)/', $line, $m))$meminfo[$m[1]] = (int)$m[2] * 1024;
+
+		if(!$meminfo && PHP_OS_FAMILY === 'Windows')$meminfo = $this->windowsMemory();
 
 		if(isset($meminfo['MemTotal'], $meminfo['MemAvailable']))$add('Memory', $this->usage($meminfo['MemTotal'] - $meminfo['MemAvailable'], $meminfo['MemTotal']), 'memory_alt', $this->percent($meminfo['MemTotal'] - $meminfo['MemAvailable'], $meminfo['MemTotal']));
 		if(isset($meminfo['SwapTotal'], $meminfo['SwapFree']))$add('Swap', ($meminfo['SwapTotal']) ? $this->usage($meminfo['SwapTotal'] - $meminfo['SwapFree'], $meminfo['SwapTotal']) : ts('none'), 'swap_horiz', ($meminfo['SwapTotal']) ? $this->percent($meminfo['SwapTotal'] - $meminfo['SwapFree'], $meminfo['SwapTotal']) : null);
@@ -120,6 +122,75 @@ class System_InfoController extends \Core\Controller
 		$add('Server time', date('Y-m-d H:i:s T'), 'schedule');
 
 		return $stats;
+
+	}
+
+	/**
+	 * memory and paging files of windows (kB in Win32_OperatingSystem) as /proc/meminfo keys in bytes: com_dotnet, else wmic, else powershell
+	 *
+	 * @return array MemTotal, MemAvailable, SwapTotal, SwapFree, [] when nothing is readable
+	 */
+	private function windowsMemory():array
+	{
+
+		$fields = ['TotalVisibleMemorySize', 'FreePhysicalMemory', 'SizeStoredInPagingFiles', 'FreeSpaceInPagingFiles'];
+		$values = [];
+
+		try
+		{
+
+			if(class_exists('COM'))
+			{
+
+				$wmi = new \COM('winmgmts://./root/cimv2');
+				foreach($wmi->ExecQuery('SELECT '.implode(', ', $fields).' FROM Win32_OperatingSystem') as $os)
+					foreach($fields as $field)$values[$field] = (int)$os->$field;
+
+			}
+
+		}
+		catch(\Throwable)
+		{
+
+			$values = [];
+
+		}
+
+		// fixed commands, no user input
+		if(!$values && function_exists('shell_exec'))
+		{
+
+			$output = (string)@shell_exec('wmic OS get '.implode(',', $fields).' /Value 2>NUL');
+			if(trim($output) === '')$output = (string)@shell_exec('powershell -NoProfile -Command "Get-CimInstance Win32_OperatingSystem | Format-List '.implode(',', $fields).'" 2>NUL');
+			$values = $this->parseWindowsValues($output, $fields);
+
+		}
+
+		if(!isset($values['TotalVisibleMemorySize'], $values['FreePhysicalMemory']))return [];
+
+		return [
+			'MemTotal' => $values['TotalVisibleMemorySize'] * 1024,
+			'MemAvailable' => $values['FreePhysicalMemory'] * 1024,
+		] + ((isset($values['SizeStoredInPagingFiles'], $values['FreeSpaceInPagingFiles'])) ? ['SwapTotal' => $values['SizeStoredInPagingFiles'] * 1024, 'SwapFree' => $values['FreeSpaceInPagingFiles'] * 1024] : []);
+
+	}
+
+	/**
+	 * values of a wmic (Name=123) or powershell format-list (Name : 123) output
+	 *
+	 * @param string $output
+	 * @param array $fields
+	 *
+	 * @return array field => int
+	 */
+	private function parseWindowsValues(string $output, array $fields):array
+	{
+
+		$values = [];
+		foreach($fields as $field)
+			if(preg_match('/^\s*'.$field.'\s*[=:]\s*(\d+)\s*$/mi', $output, $m))$values[$field] = (int)$m[1];
+
+		return $values;
 
 	}
 
