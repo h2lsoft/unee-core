@@ -125,7 +125,7 @@ class AuthController extends \Core\Controller
 	/**
 	 * public settings of the login page: whitelist of globals, the other globals are never exposed
 	 *
-	 * @return \Core\JsonResponse {"name", "login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
+	 * @return \Core\JsonResponse {"name", "login_key", "logo", "header_background", "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
 	 */
 	#[Route('/config/', name: 'config', methods: ['GET'])]
 	public function config():\Core\JsonResponse
@@ -134,10 +134,15 @@ class AuthController extends \Core\Controller
 		$globals = App()->globals;
 		$get = fn(string $name) => (isset($globals[$name]) && trim((string)$globals[$name]) !== '') ? (string)$globals[$name] : null;
 
+		// css color only: the value goes into a stylesheet
+		$header_background = $get('backend.header.background');
+		if($header_background !== null && !preg_match('/^(#[0-9a-f]{3,8}|[a-z]{3,30}|(rgb|hsl)a?\([0-9a-z\s.,%\/-]{1,60}\))$/i', trim($header_background)))$header_background = null;
+
 		return new \Core\JsonResponse([
 			'name' => (string)\Core\Config::get('name'),
 			'login_key' => (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email',
 			'logo' => $get('backend.logo'),
+			'header_background' => ($header_background !== null) ? trim($header_background) : null,
 			'login' => [
 				'image' => $get('backend.login.image'),
 				'title' => $get('backend.login.title'),

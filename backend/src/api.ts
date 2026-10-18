@@ -82,6 +82,7 @@ export type LoginConfig = {
 	name: string
 	login_key: 'email' | 'login'
 	logo: string | null
+	header_background: string | null
 	login: {
 		image: string | null
 		title: string | null
