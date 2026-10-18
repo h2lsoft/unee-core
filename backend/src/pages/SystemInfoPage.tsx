@@ -9,8 +9,8 @@ import { MenuIcon } from '../components/icons'
 type Pair = {name: string, value: string}
 type SystemInfo = {
 	title: string
+	server: {stats: {label: string, value: string}[], variables: Pair[]}
 	php: {stats: {label: string, value: string}[], ini: Pair[], extensions: string[], env: Pair[]}
-	server: Pair[]
 	database: {version: string, variables: Pair[]}
 }
 
@@ -49,7 +49,7 @@ export default function SystemInfoPage({icon}: {icon: string})
 
 	const [data, setData] = useState<SystemInfo | null>(null)
 	const [error, setError] = useState('')
-	const [tab, setTab] = useState('php')
+	const [tab, setTab] = useState('server')
 	const [search, setSearch] = useState('')
 
 	useEffect(() => {
@@ -78,11 +78,12 @@ export default function SystemInfoPage({icon}: {icon: string})
 			</Box>
 
 			<Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{minHeight: 40, mt: -1, borderBottom: `1px solid ${BORDER}`, '& .MuiTab-root': {minHeight: 40, px: 1.5, textTransform: 'none', fontSize: 14, fontWeight: 500}}}>
-				<Tab value="php" label="PHP" />
 				<Tab value="server" label={t('Server')} />
+				<Tab value="php" label="PHP" />
 				<Tab value="database" label={t('Database')} />
 			</Tabs>
 
+			{tab === 'server' && <Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.25}}>{data.server.stats.map((s) => stat(s.label, s.value))}</Box>}
 			{tab === 'php' && <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1.25}}>{data.php.stats.map((s) => stat(s.label, s.value))}</Box>}
 			{tab === 'database' && <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1.25}}>{stat(t('Version'), data.database.version)}</Box>}
 
@@ -108,7 +109,7 @@ export default function SystemInfoPage({icon}: {icon: string})
 					<PairTable title={t('Environment')} pairs={data.php.env} filter={filter} />
 				</>
 			)}
-			{tab === 'server' && <PairTable title={t('Server')} pairs={data.server} filter={filter} />}
+			{tab === 'server' && <PairTable title={t('Variables')} pairs={data.server.variables} filter={filter} />}
 			{tab === 'database' && <PairTable title={t('Variables')} pairs={data.database.variables} filter={filter} />}
 		</>
 	)
