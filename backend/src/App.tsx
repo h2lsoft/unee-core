@@ -41,6 +41,13 @@ const theme = createTheme({
 			},
 		},
 		MuiAlert: {styleOverrides: {root: {fontSize: 13, borderRadius: 8}}},
+		// dialogs at the top of the screen, not centered (full screen dialogs on mobile unchanged)
+		MuiDialog: {
+			styleOverrides: {
+				container: {alignItems: 'flex-start'},
+				paper: {'&:not(.MuiDialog-paperFullScreen)': {marginTop: 48}},
+			},
+		},
 	},
 })
 
