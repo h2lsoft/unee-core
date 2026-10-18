@@ -265,6 +265,13 @@ return [
 	'commands' => [
 		'migrate' => \Command\Core\Migrate::class,
 		'user:create' => \Command\Core\UserCreate::class,
+		'cron' => \Command\Core\Cron::class,
+		'jobber' => \Command\Core\Jobber::class,
+	],
+
+	// job handlers of the queue (\Core\Jobber::push(type, payload)), keyed: a project or an instance can add, override, or disable with null
+	'jobs' => [
+		'send_email' => \Job\Core\Send_Email::class,
 	],
 
 ];

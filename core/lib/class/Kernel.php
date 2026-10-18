@@ -26,6 +26,26 @@ class Kernel extends HttpKernel {
 	public $validator;
 	public array $globals = [];
 	
+	/**
+	 * application without http request, for console commands that use DB(), App(), globals or mail templates (cron, jobber)
+	 *
+	 * @return static the global $app
+	 */
+	public static function boot():static
+	{
+
+		global $app, $DB, $PDO;
+
+		if($app instanceof static)return $app;
+
+		$DB = \Core\DB::connectFromConfig();
+		$PDO = $DB->getConnectionLink();
+		$app = new static(new \Symfony\Component\EventDispatcher\EventDispatcher(), new \Symfony\Component\HttpKernel\Controller\ControllerResolver(), new \Symfony\Component\HttpFoundation\RequestStack(), new \Symfony\Component\HttpKernel\Controller\ArgumentResolver(), Request::create('/'), $DB, $PDO);
+
+		return $app;
+
+	}
+
 	public function __construct($dispatcher, $controllerResolver, $requestStack, $argumentResolver, Request $request, $db_link=false, $pdo=false)
 	{
 		$this->request = $request;

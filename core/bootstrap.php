@@ -47,7 +47,7 @@ if(file_exists(APP_PATH."/config/app_".APP_ENV.".php"))
 }
 
 // load instance config: overrides existing keys and adds new ones
-// lists (middlewares, routes, events, commands) are keyed: same key overrides, new key adds, null disables
+// lists (middlewares, routes, events, commands, jobs) are keyed: same key overrides, new key adds, null disables
 if(APP_DIR != '' && file_exists(APP_PATH."/instances/".APP_DIR."/config/app.php"))
 {
 	$tmp = require APP_PATH."/instances/".APP_DIR."/config/app.php";
@@ -55,9 +55,9 @@ if(APP_DIR != '' && file_exists(APP_PATH."/instances/".APP_DIR."/config/app.php"
 }
 
 // remove disabled entries
-foreach(['middlewares', 'routes', 'events', 'commands'] as $key)
+foreach(['middlewares', 'routes', 'events', 'commands', 'jobs'] as $key)
 {
-	$config[$key] = array_filter($config[$key]);
+	$config[$key] = array_filter($config[$key] ?? []);
 }
 
 
@@ -145,6 +145,26 @@ spl_autoload_register(function($class){
 		{
 			include_once($core_class_path);
 			return true;
+		}
+
+	}
+
+	// Job handler (config jobs): Job\Core\Send_Email => core/job/Core/Send_Email.php, an instance can override
+	if($path[0] == 'Job' && count($path) === 3)
+	{
+
+		$class_path = APP_PATH."/instances/".APP_DIR."/job/{$path[1]}/{$path[2]}.php";
+		$core_class_path = CORE_PATH."/core/job/{$path[1]}/{$path[2]}.php";
+
+		foreach([$class_path, $core_class_path] as $file)
+		{
+
+			if(file_exists($file))
+			{
+				include_once($file);
+				return true;
+			}
+
 		}
 
 	}
