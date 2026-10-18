@@ -664,7 +664,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				{can_add && <Button variant="contained" startIcon={<AddCircleOutlineOutlined />} onClick={onAdd}>{is_mobile ? t('Add') : `${t('Add')} ${grid.label}`}</Button>}
 			</Box>
 
-			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: -0.5}}>
+			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: -0.5, mb: {xs: -1, md: -1.25}}}>
 				{grid.chips && (
 					<>
 						<ButtonBase sx={tab_sx(chip === '')} onClick={() => update({chip: '', page: ''})}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>
