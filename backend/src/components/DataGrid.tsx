@@ -344,11 +344,14 @@ function SaveFilterDialog({module, draft, onClose, onSaved}: {module: string, dr
 
 	return (
 		<Dialog open={!!draft} onClose={onClose} maxWidth="xs" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true} as object}}>
-			<DialogTitle sx={{fontSize: 17, fontWeight: 600}}>{t('Save filter')}</DialogTitle>
+			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
+				<Box component="span" sx={{flexGrow: 1}}>{t('Save filter')}</Box>
+				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
+			</DialogTitle>
 			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.5}}>
 				{error && <Box role="alert" sx={{px: 2, py: 1.25, borderRadius: '6px', bgcolor: '#fdecee', color: '#b3261e', fontSize: 14}}>{error}</Box>}
 				<OutlinedInput autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Filter name')} error={!!error} inputProps={{maxLength: 255, 'aria-label': t('Filter name')}} />
-				<FormControlLabel control={<Checkbox size="small" checked={shared} onChange={(e) => setShared(e.target.checked)} />} label={t('Share with my group')} slotProps={{typography: {sx: {fontSize: 14}}}} />
+				<FormControlLabel control={<Checkbox size="small" checked={shared} onChange={(e) => setShared(e.target.checked)} />} label={t('Share')} slotProps={{typography: {sx: {fontSize: 14}}}} />
 			</DialogContent>
 			<DialogActions sx={{px: 3, pb: 2.5}}>
 				<Button type="submit" variant="contained" disabled={saving || name.trim() === ''}>{saving ? <CircularProgress size={20} color="inherit" /> : t('Save')}</Button>

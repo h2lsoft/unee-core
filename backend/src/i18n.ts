@@ -72,7 +72,7 @@ const fr: Record<string, string> = {
 	'Value': 'Valeur',
 	'Save filter': 'Enregistrer le filtre',
 	'Filter name': 'Nom du filtre',
-	'Share with my group': 'Partager avec mon groupe',
+	'Share': 'Partager',
 	'Shared with my group': 'Partagé avec mon groupe',
 	'Filter saved': 'Filtre enregistré',
 	'Reset': 'Réinitialiser',
