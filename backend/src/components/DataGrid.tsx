@@ -1013,7 +1013,10 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5}}>
 				<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0}}>
 					<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
-					<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{grid.title}</Typography>
+					{/* the title goes back to the index of the module: search, tabs, filters, sort and page cleared */}
+					<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
+						<ButtonBase onClick={() => { setSearch(''); navigate({search: ''}) }} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{grid.title}</ButtonBase>
+					</Typography>
 					{/* bookmarks: placeholder until the bookmarks module */}
 					<IconButton aria-label={t('Bookmark')} sx={{width: 34, height: 34, color: 'primary.main'}}><BookmarkBorderOutlined sx={{fontSize: 22}} /></IconButton>
 				</Box>

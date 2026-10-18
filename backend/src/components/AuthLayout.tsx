@@ -11,6 +11,9 @@ const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
 /**
  * public settings of the auth pages (logo, texts, maintenance message), null until loaded or when the api fails
  */
+// asked once per page load: every page title uses it
+let config_request: Promise<LoginConfig | null> | null = null
+
 export function useLoginConfig(): LoginConfig | null
 {
 
@@ -18,7 +21,8 @@ export function useLoginConfig(): LoginConfig | null
 
 	useEffect(() => {
 
-		api<LoginConfig>('auth/config/').then(setConfig).catch(() => setConfig(null))
+		config_request ??= api<LoginConfig>('auth/config/').catch(() => null)
+		config_request.then(setConfig)
 
 	}, [])
 
@@ -44,11 +48,14 @@ export function BackToSignIn()
 export function useDocumentTitle(page: string, name?: string | null)
 {
 
+	const config = useLoginConfig()
+	const site = name || config?.name || 'Unee'
+
 	useEffect(() => {
 
-		document.title = `${name || 'Unee'} - ${page}`
+		document.title = page ? `${page} - ${site}` : site
 
-	}, [page, name])
+	}, [page, site])
 
 }
 

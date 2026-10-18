@@ -92,7 +92,9 @@ export default function RightsPage({icon}: {icon: string})
 		<>
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
 				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
-				<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{data.title}</Typography>
+				<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
+					<ButtonBase onClick={() => navigate({search: ''})} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{data.title}</ButtonBase>
+				</Typography>
 			</Box>
 
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>
