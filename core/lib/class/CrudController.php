@@ -618,6 +618,10 @@ abstract class CrudController extends Controller
 		$form = new Form();
 		$this->form($form, $record);
 
+		// the react form capitalizes these fields while typing
+		foreach(array_intersect_key($form->fields, array_flip($this->ucfirst)) as $name => $field)
+			$form->fields[$name]['ucfirst'] = true;
+
 		return $form;
 
 	}

@@ -213,7 +213,7 @@ function FieldRow({field, value, errors, onChange}: {field: FormField, value: st
 				{field.label}{field.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 			</InputLabel>
 			<Box sx={{minWidth: 0}}>
-				<Input field={field} value={value} error={!!errors[field.name]} onChange={onChange} />
+				<Input field={field} value={value} error={!!errors[field.name]} onChange={(field.ucfirst && field.type !== 'html') ? (v) => onChange(v.charAt(0).toLocaleUpperCase() + v.slice(1)) : onChange} />
 				{field.help && <FormHelperText sx={{m: 0, mt: 0.5}}>{field.help}</FormHelperText>}
 			</Box>
 		</Box>
