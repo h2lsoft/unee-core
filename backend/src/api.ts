@@ -200,6 +200,7 @@ export type FormField = {
 	tab?: string
 	language?: string
 	ucfirst?: boolean
+	swatch?: boolean
 }
 
 // tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)

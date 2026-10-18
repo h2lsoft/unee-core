@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
-import { CloseOutlined, ErrorOutlineOutlined, HistoryOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import HistoryDialog from './HistoryDialog'
+import { BADGES } from './DataGrid'
 import CodeEditor from './Code'
 import RichText from './RichText'
 import { Flag } from './Flag'
@@ -83,6 +84,21 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 	// radio buttons on one line
 	if(field.type === 'radio')
 	{
+
+		// color swatches (option values are badge colors, ex: purple, blue)
+		if(field.swatch)
+		{
+
+			return (
+				<Box role="radiogroup" id={id} aria-label={field.label} sx={{display: 'flex', alignItems: 'center', gap: 1, minHeight: 34}}>
+					{field.options?.map((o) => (
+						<ButtonBase key={o.value} role="radio" aria-checked={o.value === value} aria-label={o.label} title={o.label} disabled={field.readonly} onClick={() => onChange(o.value)}
+							sx={{width: 22, height: 22, borderRadius: '50%', bgcolor: BADGES[o.value]?.fg ?? o.value, boxShadow: o.value === value ? '0 0 0 2px var(--u-paper), 0 0 0 4px var(--mui-palette-primary-main)' : 'none'}} />
+					))}
+				</Box>
+			)
+
+		}
 
 		return (
 			<RadioGroup row id={id} value={value} onChange={(e) => onChange(e.target.value)} sx={{minHeight: 34, columnGap: 1}}>
@@ -234,7 +250,7 @@ function FieldRow({field, value, errors, onChange}: {field: FormField, value: st
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
  * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
-export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void})
+export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored, defaults, onDeleted}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void, defaults?: Record<string, string>, onDeleted?: () => void})
 {
 
 	const theme = useTheme()
@@ -248,6 +264,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const [tab, setTab] = useState('')
 	const [running, setRunning] = useState('')
 	const [history, setHistory] = useState(false)
+	const [deleting, setDeleting] = useState(false)
 	const [reload, setReload] = useState(0)
 
 	useEffect(() => {
@@ -263,7 +280,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 				setData(payload)
 				setTab(payload.form.tabs?.[0]?.key ?? '')
-				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, toInput(f, payload.record[f.name])])))
+				// defaults: values given by the page for a new record (ex: the day clicked in the calendar)
+				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, (!id && defaults?.[f.name] !== undefined) ? defaults[f.name] : toInput(f, payload.record[f.name])])))
 
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
@@ -390,6 +408,9 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 			</DialogContent>
 
 			<DialogActions sx={{px: 3, pt: 1, pb: 2.5, gap: 1}}>
+				{id > 0 && onDeleted && (
+					<Button variant="outlined" color="error" onClick={() => setDeleting(true)} startIcon={<DeleteOutlineOutlined />} sx={{mr: (data?.versions !== undefined) ? 0 : 'auto', fontWeight: 500}}>{t('Delete')}</Button>
+				)}
 				{id > 0 && data?.versions !== undefined && (
 					<Button variant="outlined" color="inherit" disabled={!data.versions} onClick={() => setHistory(true)} startIcon={<HistoryOutlined />} sx={{mr: 'auto', borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{t('History')} ({data.versions})</Button>
 				)}
@@ -398,6 +419,35 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 				))}
 				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>
 			</DialogActions>
+			<Dialog open={deleting} onClose={(_, reason) => reason !== 'backdropClick' && setDeleting(false)} maxWidth="xs" fullWidth>
+				<DialogTitle sx={{display: 'flex', alignItems: 'center', pr: 1.5, fontSize: 18, fontWeight: 600}}>
+					<Box component="span" sx={{flexGrow: 1}}>{t('Delete')}</Box>
+					<IconButton aria-label={t('Close')} onClick={() => setDeleting(false)}><CloseOutlined /></IconButton>
+				</DialogTitle>
+				<DialogContent><Box sx={{fontSize: 14}}>{t('Delete this [LABEL]?', {LABEL: label})}</Box></DialogContent>
+				<DialogActions sx={{px: 3, pb: 2.5}}>
+					<Button variant="contained" color="error" onClick={async () => {
+
+						try
+						{
+
+							await api(`${module}/${id}/`, {method: 'DELETE'})
+							setDeleting(false)
+							toast(t('Deleted'))
+							onDeleted?.()
+
+						}
+						catch(e)
+						{
+
+							setDeleting(false)
+							toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+
+						}
+
+					}}>{t('Delete')}</Button>
+				</DialogActions>
+			</Dialog>
 			{history && <HistoryDialog module={module} id={id} title={`${t('History')} - ${label} #${id}`} onClose={() => setHistory(false)} onRestored={() => { setHistory(false); setReload((v) => v + 1); onRestored?.() }} />}
 		</Dialog>
 	)

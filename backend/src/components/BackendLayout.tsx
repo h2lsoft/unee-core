@@ -399,10 +399,10 @@ export default function BackendLayout()
 					{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
 					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 35}, width: 'auto', ml: {md: '-5px'}}} /></Box>
 					<Box sx={{flexGrow: 1}} />
-					{/* calendar: placeholder until the agenda module */}
+					{/* calendar: module calendar (hidden from the menus), shown with its list right */}
 					{!is_mobile && (
 						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
+							{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
 							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
 							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
 						</Box>

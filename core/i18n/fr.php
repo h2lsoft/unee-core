@@ -384,4 +384,22 @@ return [
 	'the list right on this plugin shows the widget, its title links to the plugin' => 'le droit list sur ce plugin affiche le widget, son titre renvoie au plugin',
 	'public static method of a module returning the data of the widget' => 'méthode publique statique d\'un module qui renvoie les données du widget',
 
+
+	// calendar, versioning
+	'Calendar' => 'Calendrier',
+	'From' => 'De',
+	'To' => 'À',
+	'All day' => 'Journée entière',
+	'User' => 'Utilisateur',
+	'confirmed' => 'confirmé',
+	'cancelled' => 'annulé',
+	'Search name, address...' => 'Rechercher un nom, une adresse...',
+	'`[FIELD]` must be after the start' => '`[FIELD]` doit être après le début',
+	'version #[VERSION] restored' => 'version #[VERSION] restaurée',
+	'Version restored' => 'Version restaurée',
+	'versioning is not enabled' => 'le versioning n\'est pas activé',
+	'version not found' => 'version introuvable',
+	'widget not found' => 'widget introuvable',
+	'note not found' => 'note introuvable',
+
 ];

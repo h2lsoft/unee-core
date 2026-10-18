@@ -37,7 +37,7 @@ export default function RichEditor({id, value, error = false, readOnly = false, 
 			view.dispatch(view.state.tr.insertText(text.charAt(0).toLocaleUpperCase() + text.slice(1), from, to))
 			return true
 
-		}} : undefined,
+		}} : {},
 		onUpdate: ({editor}) => onChange(empty(editor.getHTML())),
 	})
 
