@@ -1033,7 +1033,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				)}
 				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: '#5b6178', display: 'flex', alignItems: 'center', gap: 1}}>
 					{loading && <CircularProgress size={12} />}
-					{t('[FROM] to [TO] (total [TOTAL])', {FROM: from, TO: to, TOTAL: p.total})}
+					{p.total > 0 && t('[FROM] to [TO] (total [TOTAL])', {FROM: from, TO: to, TOTAL: p.total})}
 				</Box>
 			</Box>
 
