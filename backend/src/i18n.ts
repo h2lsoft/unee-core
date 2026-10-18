@@ -38,7 +38,7 @@ const fr: Record<string, string> = {
 	'Calendar': 'Calendrier',
 	'Bookmarks': 'Favoris',
 	'Sign out': 'Se déconnecter',
-	'Sign out?': 'Se déconnecter ?',
+	'Would you like to sign out?': 'Voulez-vous vous déconnecter ?',
 	'Page not found': 'Page introuvable',
 	'This page does not exist or you do not have access to it.': "Cette page n'existe pas ou vous n'y avez pas accès.",
 	'Back to dashboard': 'Retour au tableau de bord',

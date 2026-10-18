@@ -229,7 +229,7 @@ function UserMenu({compact}: {compact: boolean})
 			{/* sign out confirmed first */}
 			<Dialog open={confirm} onClose={(_, reason) => reason !== 'backdropClick' && setConfirm(false)} maxWidth="xs" fullWidth>
 				<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
-					<Box component="span" sx={{flexGrow: 1}}>{t('Sign out?')}</Box>
+					<Box component="span" sx={{flexGrow: 1}}>{t('Would you like to sign out?')}</Box>
 					<IconButton aria-label={t('Close')} onClick={() => setConfirm(false)}><CloseOutlined /></IconButton>
 				</DialogTitle>
 				<DialogActions sx={{px: 3, pb: 2.5}}>

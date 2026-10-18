@@ -206,6 +206,22 @@ class DataGrid
 	}
 
 	/**
+	 * the value of the last column links to a page of the backend, {id} and {column} replaced by the values of the row
+	 * ex: link('plugin/?search[]=xcore_menu_id||{id}'), check the right of the target module before declaring it
+	 *
+	 * @param string $url
+	 *
+	 * @return static
+	 */
+	public function link(string $url):static
+	{
+
+		$this->columns[$this->last]['link'] = $url;
+		return $this;
+
+	}
+
+	/**
 	 * column width in px for the last column
 	 *
 	 * @param int $px

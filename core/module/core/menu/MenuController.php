@@ -32,6 +32,7 @@ class MenuController extends \Core\CrudController
 		$grid->addColColor('color', 'Color')->width(110);
 		$grid->addCol('name', 'Name', true);
 		$grid->addColCount('plugins', 'Plugins', 'extension')->width(110);
+		if(\Model\User::hasRight('plugin', 'list'))$grid->link('plugin/?search[]=xcore_menu_id||{id}');
 
 	}
 

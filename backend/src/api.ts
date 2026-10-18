@@ -124,6 +124,7 @@ export type GridColumn = {
 	class_column?: string
 	style_column?: string
 	icon_column?: string
+	link?: string
 }
 
 // action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header

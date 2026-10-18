@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router'
 import {
 	Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
 	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
@@ -185,6 +185,16 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: '#9a9fb3'}}>-</Box>
 
 	const text = String(value)
+
+	// link to a page of the backend, {id} and {column} replaced by the values of the row
+	if(column.link)
+	{
+
+		const to = '/' + column.link.replace(/\{(\w+)\}/g, (_, key) => encodeURIComponent(String(row[key] ?? '')))
+		return <Box component={RouterLink} to={to} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{textDecoration: 'none', color: 'inherit', '& > span': {cursor: 'pointer'}, '&:hover > span': {borderColor: 'primary.main', color: 'primary.main'}}}><Cell column={{...column, link: undefined}} row={row} can_edit={can_edit} onToggle={onToggle} /></Box>
+
+	}
+
 	if(column.type === 'chip')return <ListChip label={text} className={String(row[column.class_column ?? ''] ?? '')} css={String(row[column.style_column ?? ''] ?? '')} icon={String(row[column.icon_column ?? ''] ?? '')} />
 	if(column.type === 'badge')return <Badge value={text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
