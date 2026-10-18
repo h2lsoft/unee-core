@@ -257,8 +257,8 @@ export default function BackendLayout()
 		const load = () => api<{menu: MenuCategory[]}>('backend/menu/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
 		load()
 
-		// categories or plugins changed in their modules
-		const onChange = (e: Event) => ['menu', 'plugin'].includes(String((e as CustomEvent).detail)) && load()
+		// categories, plugins or rights changed in their modules (the rights of the user's own group may change)
+		const onChange = (e: Event) => ['menu', 'plugin', 'right', 'group'].includes(String((e as CustomEvent).detail)) && load()
 		window.addEventListener(DATA_CHANGED_EVENT, onChange)
 		return () => window.removeEventListener(DATA_CHANGED_EVENT, onChange)
 

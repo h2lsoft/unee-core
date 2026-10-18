@@ -122,6 +122,14 @@ const fr: Record<string, string> = {
 	'Delete this [LABEL]?': 'Supprimer cet élément ([LABEL]) ?',
 	'Delete [COUNT] records?': 'Supprimer [COUNT] enregistrements ?',
 	'This action cannot be undone.': 'Cette action est irréversible.',
+
+	// code editor, rights
+	'Full screen': 'Plein écran',
+	'Exit full screen': 'Quitter le plein écran',
+	'Group': 'Groupe',
+	'Super admin has every right, it is not listed.': "Le super admin a tous les droits, il n'est pas listé.",
+	'No group with a backend access.': "Aucun groupe n'a accès au backend.",
+	'[COUNT] of [TOTAL] actions': '[COUNT] sur [TOTAL] actions',
 }
 
 const dictionaries: Record<string, Record<string, string>> = {fr}

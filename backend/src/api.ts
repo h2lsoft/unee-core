@@ -153,6 +153,7 @@ export type Grid = {
 	pagination: {total: number, page: number, per_page: number, last_page: number}
 	per_page_options: number[]
 	batch: {edit: string[], actions: {name: string, label: string, icon: string, right: string}[]} | null
+	detail: boolean
 	row_actions: RowAction[]
 	grid_actions: GridAction[]
 	mobile: {title: string, subtitle: string}
@@ -172,7 +173,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags' | 'code'
 	label: string
 	required: boolean
 	width: number
@@ -186,9 +187,29 @@ export type FormField = {
 	free?: boolean
 	suggestions?: string[]
 	show_if?: {field: string, values: string[]}
+	tab?: string
+	language?: string
 }
 
+// tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)
+export type FormTab = {key: string, label: string, flag: string}
+export type FormAction = {name: string, label: string, icon: string, right: string}
+
 export type FormPayload = {
-	form: {fields: FormField[]}
+	form: {fields: FormField[], tabs: FormTab[], actions: FormAction[]}
 	record: Record<string, string | string[]>
+}
+
+// read only view of a record (GET /api/<module>/<id>/detail/)
+export type DetailField = {label: string, value: string, type?: 'text' | 'badge' | 'code', color?: string, language?: string, wide?: boolean}
+export type DetailPayload = {title: string, fields: DetailField[]}
+
+// rights of a group (GET /api/right/?group=)
+export type RightsPayload = {
+	title: string
+	groups: {id: number, name: string}[]
+	group: number
+	menus: {name: string, icon: string, color: string, plugins: {id: number, name: string, icon: string, actions: string[]}[]}[]
+	rights: string[]
+	can_edit: boolean
 }

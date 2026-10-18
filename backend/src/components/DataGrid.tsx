@@ -12,6 +12,7 @@ import {
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
+import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
 
@@ -449,6 +450,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const [drag_rows, setDragRows] = useState<Row[] | null>(null)
 	const [drag_id, setDragId] = useState<number | null>(null)
 	const [confirm_action, setConfirmAction] = useState<GridAction | null>(null)
+	const [detail_id, setDetailId] = useState<number | null>(null)
 
 	const query = params.toString()
 
@@ -895,7 +897,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	{
 
 		body = grid.rows.map((row) => (
-			<Box key={row.id} onClick={() => can_edit && onEdit(row)} sx={{display: 'flex', alignItems: 'center', gap: 1.5, p: '12px 8px 12px 16px', borderBottom: `1px solid ${ROW_BORDER}`, cursor: can_edit ? 'pointer' : 'default', bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent'}}>
+			<Box key={row.id} onClick={() => grid.detail ? setDetailId(row.id) : (can_edit && onEdit(row))} sx={{display: 'flex', alignItems: 'center', gap: 1.5, p: '12px 8px 12px 16px', borderBottom: `1px solid ${ROW_BORDER}`, cursor: (can_edit || grid.detail) ? 'pointer' : 'default', bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent'}}>
 				{batch && <Checkbox size="small" checked={selected.includes(row.id)} onClick={(e) => e.stopPropagation()} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{ml: -1}} />}
 				<Box sx={{flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5}}>
 					<Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
@@ -940,7 +942,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				</thead>
 				<tbody>
 					{rows.map((row) => (
-						<Box component="tr" key={row.id} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? '#f2eeff' : '#f8f9fb'}}}>
+						<Box component="tr" key={row.id} onClick={() => grid.detail && setDetailId(row.id)} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{cursor: grid.detail ? 'pointer' : 'default', opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? '#f2eeff' : '#f8f9fb'}}}>
 							{grid.position && (
 								<Box component="td" sx={{...td, p: '0 0 0 10px', width: 36}}>
 									{can_drag && (
@@ -1093,6 +1095,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					<ListItemText>{t('Check / uncheck all')}</ListItemText>
 				</MenuItem>
 			</Menu>
+
+			<DetailDialog module={module} id={detail_id} onClose={() => setDetailId(null)} />
 
 			<MassEditDialog module={module} title={grid.title} ids={mass_edit} onClose={() => setMassEdit(null)} onSaved={() => { setMassEdit(null); dataChanged(module); setReload((n) => n + 1) }} />
 

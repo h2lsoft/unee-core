@@ -7,6 +7,7 @@ import DataGrid from '../components/DataGrid'
 import FormDialog from '../components/FormDialog'
 import { useDocumentTitle } from '../components/AuthLayout'
 import NotFound from './NotFound'
+import RightsPage from './RightsPage'
 
 /**
  * generic page of a crud module (\Core\CrudController): /backend/<module>/
@@ -25,6 +26,9 @@ export default function ModulePage()
 
 	if(!menu)return <Box sx={{display: 'flex', justifyContent: 'center', py: 8}}><CircularProgress /></Box>
 	if(!item || item.url)return <NotFound />
+
+	// modules with their own page
+	if(module === 'right')return <RightsPage icon={item.icon} />
 
 	return (
 		<>

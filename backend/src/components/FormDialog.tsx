@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
+import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
-import { api, ApiException, type FormField, type FormPayload } from '../api'
+import CodeEditor from './Code'
+import { Flag } from './Flag'
+import { api, ApiException, type FormAction, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
 import { MenuIcon } from './icons'
 import { useToast } from './Toast'
@@ -73,6 +75,8 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 {
 
 	const id = `field-${field.name}`
+
+	if(field.type === 'code')return <CodeEditor id={id} value={value} language={field.language} error={error} readOnly={field.readonly} onChange={onChange} />
 
 	// words typed as chips, enter or comma adds one
 	if(field.type === 'tags')
@@ -184,8 +188,27 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 }
 
+// row of a field: label on the first line of the control (40px), the help text stays under the control
+function FieldRow({field, value, errors, onChange}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void})
+{
+
+	return (
+		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
+			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: '#3a3f55', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '40px'}}}>
+				{field.label}{field.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
+			</InputLabel>
+			<Box sx={{minWidth: 0}}>
+				<Input field={field} value={value} error={!!errors[field.name]} onChange={onChange} />
+				{field.help && <FormHelperText sx={{m: 0, mt: 0.5}}>{field.help}</FormHelperText>}
+			</Box>
+		</Box>
+	)
+
+}
+
 /**
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
+ * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
 export default function FormDialog({module, id, label, open, onClose, onSaved}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void})
 {
@@ -198,6 +221,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 	const [errors, setErrors] = useState<Record<string, string[]>>({})
 	const [error, setError] = useState('')
 	const [saving, setSaving] = useState(false)
+	const [tab, setTab] = useState('')
+	const [running, setRunning] = useState('')
 
 	useEffect(() => {
 
@@ -210,6 +235,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 			.then((payload) => {
 
 				setData(payload)
+				setTab(payload.form.tabs?.[0]?.key ?? '')
 				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, toInput(f, payload.record[f.name])])))
 
 			})
@@ -219,6 +245,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 
 	// field errors on top, messages of h2lsoft/validator (they hold the label of the field)
 	const summary = Object.values(errors).flat()
+	const body = () => Object.fromEntries((data?.form.fields ?? []).filter((f) => !f.readonly).map((f) => [f.name, toApi(f, values[f.name] ?? '')]))
 
 	const submit = async (e: FormEvent) => {
 
@@ -231,8 +258,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 		try
 		{
 
-			const body = Object.fromEntries(data.form.fields.filter((f) => !f.readonly).map((f) => [f.name, toApi(f, values[f.name] ?? '')]))
-			await api(id ? `${module}/${id}/` : `${module}/`, {method: id ? 'PUT' : 'POST', body})
+			await api(id ? `${module}/${id}/` : `${module}/`, {method: id ? 'PUT' : 'POST', body: body()})
 			toast(id ? t('Saved') : t('Created'))
 			onSaved()
 
@@ -241,7 +267,14 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 		{
 
 			const api_error = (err instanceof ApiException) ? err.error : null
-			if(api_error?.fields)setErrors(api_error.fields)
+			if(api_error?.fields)
+			{
+
+				setErrors(api_error.fields)
+				const first = data.form.fields.find((f) => api_error.fields?.[f.name] && f.tab)
+				if(first?.tab)setTab(first.tab)
+
+			}
 			else setError(api_error?.message ?? t('network error, please retry'))
 
 		}
@@ -254,8 +287,41 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 
 	}
 
+	// button of the form: values of the form (not saved) and the active tab are sent
+	const runAction = async (action: FormAction) => {
+
+		setRunning(action.name)
+
+		try
+		{
+
+			const data = await api<{message?: string}>(`${module}/${id}/action/${action.name}/`, {method: 'POST', body: {...body(), tab}})
+			toast(data?.message ?? t('Done'))
+
+		}
+		catch(err)
+		{
+
+			toast(err instanceof ApiException ? err.error.message : t('network error, please retry'), 'error')
+
+		}
+		finally
+		{
+
+			setRunning('')
+
+		}
+
+	}
+
+	const fields = (data?.form.fields ?? []).filter((f) => isVisible(f, values))
+	const tabs = data?.form.tabs ?? []
+	const first_tab = fields.findIndex((f) => f.tab)
+	const row = (f: FormField) => <FieldRow key={f.name} field={f} value={values[f.name] ?? ''} errors={errors} onChange={(v) => setValues({...values, [f.name]: v})} />
+	const wide = fields.some((f) => f.type === 'code')
+
 	return (
-		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="md" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: 760}}} as object}}>
+		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1000 : 760}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{id ? t('Edit') : t('Add')} {label}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
@@ -271,27 +337,35 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 				)}
 				{data && (
 					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5}}>
-						{data.form.fields.filter((f) => isVisible(f, values)).map((f) => {
+						{fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)).map(row)}
+						{first_tab >= 0 && (
+							<>
+								<Box role="tablist" sx={{display: 'flex', gap: 2.75, borderBottom: '1px solid #eceef3', mt: 0.5, overflowX: 'auto'}}>
+									{tabs.filter((tb) => fields.some((f) => f.tab === tb.key)).map((tb) => {
 
-							// label on the first line of the control (40px), the help text stays under the control
-							return (
-								<Box key={f.name} sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
-									<InputLabel id={`field-${f.name}-label`} htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: '#3a3f55', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '40px'}}}>
-										{f.label}{f.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
-									</InputLabel>
-									<Box sx={{minWidth: 0}}>
-										<Input field={f} value={values[f.name] ?? ''} error={!!errors[f.name]} onChange={(v) => setValues({...values, [f.name]: v})} />
-										{f.help && <FormHelperText sx={{m: 0, mt: 0.5}}>{f.help}</FormHelperText>}
-									</Box>
+										const on = (tb.key === tab)
+										const has_error = fields.some((f) => f.tab === tb.key && errors[f.name])
+										return (
+											<ButtonBase key={tb.key} role="tab" aria-selected={on} onClick={() => setTab(tb.key)} sx={{height: 40, gap: 1, px: 0.25, borderBottom: '2px solid', borderColor: on ? 'primary.main' : 'transparent', color: has_error ? 'error.main' : (on ? '#4b2fd6' : '#5b6178'), fontSize: 14, fontWeight: on ? 600 : 400, whiteSpace: 'nowrap'}}>
+												{tb.flag && <Flag code={tb.flag} />}{tb.label}
+											</ButtonBase>
+										)
+
+									})}
 								</Box>
-							)
-
-						})}
+								{fields.filter((f) => f.tab === tab).map(row)}
+								{fields.some((f, i) => !f.tab && i > first_tab) && <Box sx={{height: '1px', bgcolor: '#f1f2f6', my: 0.25}} />}
+								{fields.filter((f, i) => !f.tab && i > first_tab).map(row)}
+							</>
+						)}
 					</Box>
 				)}
 			</DialogContent>
 
-			<DialogActions sx={{px: 3, pt: 1, pb: 2.5}}>
+			<DialogActions sx={{px: 3, pt: 1, pb: 2.5, gap: 1}}>
+				{id > 0 && data?.form.actions?.map((a) => (
+					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: '#d5d8e3', color: '#3a3f55', fontWeight: 500}}>{a.label}</Button>
+				))}
 				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : (id ? t('Save') : t('Create'))}</Button>
 			</DialogActions>
 		</Dialog>

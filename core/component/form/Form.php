@@ -12,7 +12,10 @@ class Form
 {
 
 	public array $fields = [];
+	public array $tabs = [];
+	public array $actions = [];
 	private string $last = '';
+	private string $tab = '';
 
 	// fields **********************************************************************************************************
 
@@ -30,7 +33,7 @@ class Form
 	public function add(string $type, string $name, string $label='', bool $required=false, array $options=[]):static
 	{
 
-		$this->fields[$name] = ['name' => $name, 'type' => $type, 'label' => ($label === '') ? $name : $label, 'required' => $required, 'width' => 12] + $options;
+		$this->fields[$name] = ['name' => $name, 'type' => $type, 'label' => ($label === '') ? $name : $label, 'required' => $required, 'width' => 12] + $options + (($this->tab !== '') ? ['tab' => $this->tab] : []);
 		$this->last = $name;
 
 		return $this;
@@ -176,6 +179,59 @@ class Form
 
 	}
 
+	/**
+	 * source code (html, json) edited with a code editor, written as typed: never shown as html in the backend
+	 *
+	 * @param string $language html, json
+	 */
+	public function addCode(string $name, string $label='', bool $required=false, string $language='html'):static
+	{
+
+		return $this->add('code', $name, $label, $required, ['language' => $language]);
+
+	}
+
+	// layout ***********************************************************************************************************
+
+	/**
+	 * the next fields go in a tab, tab('') ends the tabs (the next fields are under them)
+	 *
+	 * @param string $key unique key, ex: credentials
+	 * @param string $label english, translated
+	 * @param string $flag country code shown as a flag, ex: gb, fr
+	 *
+	 * @return static
+	 */
+	public function tab(string $key, string $label='', string $flag=''):static
+	{
+
+		$this->tab = $key;
+		if($key !== '')$this->tabs[$key] = ['key' => $key, 'label' => ($label === '') ? $key : $label, 'flag' => $flag];
+
+		return $this;
+
+	}
+
+	/**
+	 * button of the form when a record is edited: POST /api/<module>/<id>/action/<name>/ with the values of the form, calls row<Name>(array $record, Request $request)
+	 *
+	 * @param string $name a-z, 0-9 and dashes
+	 * @param string $label english, translated
+	 * @param string $icon material symbol name
+	 * @param string $right right needed on the module
+	 *
+	 * @return static
+	 */
+	public function addAction(string $name, string $label, string $icon='', string $right='edit'):static
+	{
+
+		if(!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name))throw new \InvalidArgumentException("action name `{$name}` not allowed");
+		$this->actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right];
+
+		return $this;
+
+	}
+
 	// modifiers of the last field *************************************************************************************
 
 	public function maxLength(int $length):static
@@ -311,7 +367,10 @@ class Form
 
 		}
 
-		return ['fields' => $fields];
+		$tabs = array_values(array_map(fn($t) => ['label' => ts($t['label'])] + $t, $this->tabs));
+		$actions = array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->actions));
+
+		return ['fields' => $fields, 'tabs' => $tabs, 'actions' => $actions];
 
 	}
 

@@ -148,7 +148,30 @@ class User extends \Core\Entity
 
 		}
 
-		// session fixation
+		$row = ['last_connection_date' => now(), 'last_connection_application' => 'backend', 'last_connection_ip' => $ip];
+
+		// algo or cost changed in config
+		if(password_needs_rehash($user['password'], $password_cfg['algo'], $password_cfg['algo_options']))
+			$row['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
+
+		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+		self::openSession(['password' => $row['password'] ?? (string)$user['password']] + $user);
+		\Core\Log::write('logon', 'logon', [], (int)$user['id'], 'info', 'auth', $user['login']);
+
+		return '';
+
+	}
+
+	/**
+	 * session of a user (logon, connect as), new session id against session fixation
+	 *
+	 * @param array $user row of xcore_user
+	 *
+	 * @return void
+	 */
+	public static function openSession(array $user):void
+	{
+
 		session_regenerate_id(true);
 		foreach(['id', 'login', 'email', 'firstname', 'lastname', 'language'] as $field)
 		{
@@ -158,18 +181,7 @@ class User extends \Core\Entity
 		}
 		\Core\Session::set('auth.group_id', (int)$user['xcore_group_id']);
 		\Core\Session::set('auth.last_activity', time());
-
-		$row = ['last_connection_date' => now(), 'last_connection_application' => 'backend', 'last_connection_ip' => $ip];
-
-		// algo or cost changed in config
-		if(password_needs_rehash($user['password'], $password_cfg['algo'], $password_cfg['algo_options']))
-			$row['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
-
-		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
-		\Core\Session::set('auth.password_check', self::passwordCheck($row['password'] ?? (string)$user['password']));
-		\Core\Log::write('logon', 'logon', [], (int)$user['id'], 'info', 'auth', $user['login']);
-
-		return '';
+		\Core\Session::set('auth.password_check', self::passwordCheck((string)$user['password']));
 
 	}
 

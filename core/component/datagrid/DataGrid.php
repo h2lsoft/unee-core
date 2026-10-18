@@ -47,6 +47,7 @@ class DataGrid
 	public array $batch_actions = [];
 	public array $row_actions = [];
 	public array $grid_actions = [];
+	public bool $detail = false;
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
 	private string $last = '';
@@ -341,6 +342,17 @@ class DataGrid
 
 	}
 
+	/**
+	 * a click on a row opens its read only view (GET /api/<module>/<id>/detail/, controller method detail()), ex: logs
+	 */
+	public function setDetail(bool $detail=true):static
+	{
+
+		$this->detail = $detail;
+		return $this;
+
+	}
+
 	public function setBatchMode(bool $batch):static
 	{
 
@@ -631,6 +643,7 @@ class DataGrid
 				'edit' => array_values($this->batch_edit),
 				'actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->batch_actions)),
 			] : null,
+			'detail' => $this->detail,
 			'row_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->row_actions)),
 			'grid_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label']), 'confirm' => ($a['confirm'] !== '') ? ts($a['confirm']) : ''] + $a, $this->grid_actions)),
 			'mobile' => $this->mobile,

@@ -396,25 +396,47 @@ abstract class CrudController extends Controller
 	}
 
 	/**
-	 * action of a row declared with $grid->rowAction() without url, calls row<Action>(array $record)
+	 * action of a record declared with $grid->rowAction() (without url) or $form->addAction(), calls row<Action>(array $record, Request $request)
+	 * a form action receives the values of the form in the body (not saved)
 	 *
+	 * @param Request $request
 	 * @param int $id
 	 * @param string $action
 	 *
 	 * @return JsonResponse what row<Action>() returns, ex: {"message"} or {"redirect": "/backend/"} (full page reload)
 	 */
 	#[Route('/{id}/action/{action}/', name: 'row.action', methods: ['POST'], requirements: ['action' => '[a-z0-9]+(-[a-z0-9]+)*'])]
-	public function apiRowAction(int $id, string $action):JsonResponse
+	public function apiRowAction(Request $request, int $id, string $action):JsonResponse
 	{
 
-		$declared = $this->buildGrid()->row_actions[$action] ?? null;
 		$method = 'row'.str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
-		if(!$declared || $declared['url'] !== '' || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
-
-		if($denied = $this->deny($declared['right']))return $denied;
+		if(!method_exists($this, $method))return JsonResponse::error(404, 'action not found');
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
 
-		return $this->$method($record);
+		$declared = $this->buildGrid()->row_actions[$action] ?? $this->buildForm($record)->actions[$action] ?? null;
+		if(!$declared || ($declared['url'] ?? '') !== '')return JsonResponse::error(404, 'action not found');
+		if($denied = $this->deny($declared['right']))return $denied;
+
+		return $this->$method($record, $request);
+
+	}
+
+	/**
+	 * read only view of a record ($grid->setDetail()), list right
+	 *
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"title", "fields": [{"label", "value", "type"}]}, type text, badge, code (json, html)
+	 */
+	#[Route('/{id}/detail/', name: 'detail', methods: ['GET'])]
+	public function apiDetail(int $id):JsonResponse
+	{
+
+		if(!$this->buildGrid()->detail)return JsonResponse::error(404, 'action not found');
+		if($denied = $this->deny('list'))return $denied;
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		return new JsonResponse($this->detail($record));
 
 	}
 
@@ -477,10 +499,29 @@ abstract class CrudController extends Controller
 			]]],
 			'apiBatchPosition' => ($grid->position === '') ? ['skip' => true] : ['requestBody' => $ids, 'response' => ['type' => 'object', 'properties' => ['updated' => ['type' => 'integer']]]],
 			'apiBatchAction' => ($grid->batch_actions) ? ['requestBody' => $ids, 'path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->batch_actions)]]] : ['skip' => true],
-			'apiRowAction' => ($row_actions = array_keys(array_filter($grid->row_actions, fn($a) => $a['url'] === ''))) ? ['path' => ['action' => ['type' => 'string', 'enum' => $row_actions]]] : ['skip' => true],
+			'apiRowAction' => ($row_actions = array_merge(array_keys(array_filter($grid->row_actions, fn($a) => $a['url'] === '')), array_keys($form->actions))) ? ['path' => ['action' => ['type' => 'string', 'enum' => $row_actions]]] : ['skip' => true],
+			'apiDetail' => ($grid->detail) ? [] : ['skip' => true],
 			'apiGridAction' => ($grid->grid_actions) ? ['path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->grid_actions)]]] : ['skip' => true],
 			default => [],
 		};
+
+	}
+
+	/**
+	 * read only view of a record, ex: ['title' => 'Log #12', 'fields' => [['label' => 'Date', 'value' => '...'], ['label' => 'Values', 'value' => '{}', 'type' => 'code', 'language' => 'json', 'wide' => true]]]
+	 *
+	 * @param array $record
+	 *
+	 * @return array
+	 */
+	protected function detail(array $record):array
+	{
+
+		$fields = [];
+		foreach($this->buildForm($record)->fields as $name => $f)
+			if($f['type'] !== 'password')$fields[] = ['label' => ts($f['label']), 'value' => (string)($record[$name] ?? '')];
+
+		return ['title' => ts($this->object_label).' #'.$record['id'], 'fields' => $fields];
 
 	}
 
