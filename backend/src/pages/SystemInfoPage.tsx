@@ -27,14 +27,15 @@ function StatCard({stat}: {stat: Stat})
 	const color = (stat.percent !== undefined) ? usageColor(stat.percent) : ''
 
 	return (
-		<Box sx={{display: 'flex', gap: 1.5, alignItems: 'flex-start', p: 1.75, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '8px', minWidth: 0}}>
+		<Box title={stat.value} sx={{height: 104, boxSizing: 'border-box', display: 'flex', gap: 1.5, alignItems: 'flex-start', p: 1.75, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '8px', minWidth: 0, transition: 'border-color .15s, box-shadow .15s', '&:hover': {borderColor: '#c9bdff', boxShadow: '0 4px 14px rgba(16, 20, 40, 0.06)'}}}>
 			<Box sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', bgcolor: color ? `${color}1a` : '#f0ecff', color: color || 'primary.main'}}><MenuIcon name={stat.icon} fontSize={22} /></Box>
 			<Box sx={{flexGrow: 1, minWidth: 0}}>
 				<Box sx={{display: 'flex', alignItems: 'baseline', gap: 1}}>
 					<Typography sx={{flexGrow: 1, fontSize: 12, fontWeight: 500, letterSpacing: '.04em', textTransform: 'uppercase', color: '#6b7088'}}>{stat.label}</Typography>
 					{stat.percent !== undefined && <Typography sx={{fontSize: 13, fontWeight: 600, color}}>{stat.percent}%</Typography>}
 				</Box>
-				<Typography sx={{mt: 0.25, fontSize: 15, fontWeight: 600, lineHeight: 1.35, overflowWrap: 'anywhere'}}>{stat.value}</Typography>
+				{/* same height for every card: two lines at most, the full value in the tooltip */}
+				<Typography sx={{mt: 0.25, fontSize: 15, fontWeight: 600, lineHeight: 1.35, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: (stat.percent !== undefined) ? 1 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>{stat.value}</Typography>
 				{stat.percent !== undefined && <LinearProgress variant="determinate" value={Math.min(100, stat.percent)} sx={{mt: 1, height: 6, borderRadius: 3, bgcolor: '#eef0f5', '& .MuiLinearProgress-bar': {bgcolor: color, borderRadius: 3}}} />}
 			</Box>
 		</Box>

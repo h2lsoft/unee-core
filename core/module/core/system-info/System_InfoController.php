@@ -63,7 +63,7 @@ class System_InfoController extends \Core\Controller
 	}
 
 	/**
-	 * machine: host, system, cpu, load, memory, swap, disk, uptime (linux /proc, windows: cpu from the environment, a value not readable is left out)
+	 * machine: cpu, load, memory, swap, disk, uptime (linux /proc, windows: cpu from the environment, a value not readable is left out)
 	 *
 	 * @return array [{"label", "value", "icon", "percent"}], percent: used part of memory, swap and disk
 	 */
@@ -77,9 +77,6 @@ class System_InfoController extends \Core\Controller
 
 		};
 
-		$add('Host', gethostname() ?: null, 'dns');
-		$add('System', php_uname('s').' '.php_uname('r').' ('.php_uname('m').')', 'computer');
-		$add('Web server', $_SERVER['SERVER_SOFTWARE'] ?? null, 'public');
 
 		// cpu: model and cores
 		$cpuinfo = (string)@file_get_contents('/proc/cpuinfo');
@@ -119,7 +116,6 @@ class System_InfoController extends \Core\Controller
 		$uptime = (float)@file_get_contents('/proc/uptime');
 		if($uptime > 0)$add('Uptime', ts('[DAYS] d [HOURS] h', ['DAYS' => intdiv((int)$uptime, 86400), 'HOURS' => intdiv((int)$uptime % 86400, 3600)]), 'timer');
 
-		$add('Server time', date('Y-m-d H:i:s T'), 'schedule');
 
 		return $stats;
 
