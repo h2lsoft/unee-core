@@ -927,7 +927,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					</MenuItem>
 				))}
 				<Divider />
-				<MenuItem onClick={() => { setSelected(all_selected ? [] : grid.rows.map((r) => r.id)); setSelectionMenu(null) }}>
+				<MenuItem onClick={() => setSelected(all_selected ? [] : grid.rows.map((r) => r.id))}>
 					<ListItemIcon><CheckBoxOutlined fontSize="small" /></ListItemIcon>
 					<ListItemText>{t('Check / uncheck all')}</ListItemText>
 				</MenuItem>
