@@ -73,7 +73,7 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 	const count = ids?.length ?? 0
 
 	return (
-		<Dialog open={!!ids} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} maxWidth="sm" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true} as object}}>
+		<Dialog open={!!ids} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} maxWidth="md" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: 760}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{t('Mass edit')} - {title} ({count})</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
@@ -91,9 +91,10 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 
 					const on = checked.includes(f.name)
 					return (
-						<Box key={f.name} sx={{display: 'grid', gridTemplateColumns: {xs: '28px 1fr', sm: '28px 130px 1fr'}, columnGap: 1.5, rowGap: 0.5, alignItems: 'start'}}>
-							<Checkbox size="small" checked={on} onChange={() => setChecked(on ? checked.filter((n) => n !== f.name) : [...checked, f.name])} slotProps={{input: {'aria-label': `${t('Change')} ${f.label}`}}} sx={{p: 0, mt: '10px'}} />
-							<InputLabel htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: on ? '#3a3f55' : '#a3a7b7', lineHeight: '40px', whiteSpace: 'normal'}}>
+						<Box key={f.name} sx={{display: 'grid', gridTemplateColumns: {xs: '28px 1fr', sm: '28px 150px 1fr'}, columnGap: 1.5, rowGap: 0.5, alignItems: 'start'}}>
+							<Checkbox id={`change-${f.name}`} size="small" checked={on} onChange={() => setChecked(on ? checked.filter((n) => n !== f.name) : [...checked, f.name])} slotProps={{input: {'aria-label': `${t('Change')} ${f.label}`}}} sx={{p: 0, mt: '10px'}} />
+							{/* a click on the label checks or unchecks the field */}
+							<InputLabel htmlFor={`change-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: on ? '#3a3f55' : '#a3a7b7', lineHeight: '40px', whiteSpace: 'normal', cursor: 'pointer', userSelect: 'none'}}>
 								{f.label}{f.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 							</InputLabel>
 							<Box sx={{minWidth: 0, gridColumn: {xs: '2', sm: 'auto'}}}>

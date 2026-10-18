@@ -30,7 +30,7 @@ class GlobalsController extends \Core\CrudController
 		$grid->addFilter('value', 'Value');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'value');
-		$grid->batchEdit(['category', 'type', 'description']);
+		$grid->batchEdit(['category', 'type']);
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('category', 'Category', true)->width(130);
