@@ -214,6 +214,18 @@ return [
 	'mail not sent: [ERROR]' => 'mail non envoyé : [ERROR]',
 	'Mail sent to [EMAIL]' => 'Mail envoyé à [EMAIL]',
 
+	// module system info
+	'System info' => 'Infos système',
+	'PHP version' => 'Version PHP',
+	'Interface' => 'Interface',
+	'Memory limit' => 'Limite mémoire',
+	'Max execution time' => 'Temps d\'exécution max',
+	'Upload max filesize' => 'Taille max d\'upload',
+	'Extensions' => 'Extensions',
+	'Tools' => 'Outils',
+	'Configuration' => 'Configuration',
+	'Website' => 'Site web',
+
 	// module log
 	'Logs' => 'Logs',
 	'log' => 'log',

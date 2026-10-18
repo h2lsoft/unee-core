@@ -8,6 +8,7 @@ import FormDialog from '../components/FormDialog'
 import { useDocumentTitle } from '../components/AuthLayout'
 import NotFound from './NotFound'
 import RightsPage from './RightsPage'
+import SystemInfoPage from './SystemInfoPage'
 
 /**
  * generic page of a crud module (\Core\CrudController): /backend/<module>/
@@ -29,6 +30,7 @@ export default function ModulePage()
 
 	// modules with their own page
 	if(module === 'right')return <RightsPage icon={item.icon} />
+	if(module === 'system-info')return <SystemInfoPage icon={item.icon} />
 
 	return (
 		<>

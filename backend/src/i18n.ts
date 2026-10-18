@@ -137,6 +137,18 @@ const fr: Record<string, string> = {
 	'Super admin has every right, it is not listed.': "Le super admin a tous les droits, il n'est pas listé.",
 	'No group with a backend access.': "Aucun groupe n'a accès au backend.",
 	'[COUNT] of [TOTAL] actions': '[COUNT] sur [TOTAL] actions',
+
+	// system info
+	'Server': 'Serveur',
+	'Database': 'Base de données',
+	'Version': 'Version',
+	'Filter': 'Filtrer',
+	'Filter: name or value...': 'Filtrer : nom ou valeur...',
+	'Values whose name holds password, secret, token or key are masked.': 'Les valeurs dont le nom contient password, secret, token ou key sont masquées.',
+	'Settings (php.ini)': 'Réglages (php.ini)',
+	'Extensions': 'Extensions',
+	'Environment': 'Environnement',
+	'Variables': 'Variables',
 }
 
 const dictionaries: Record<string, Record<string, string>> = {fr}
