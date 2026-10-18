@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link as RouterLink } from 'react-router'
-import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
+import { Link as RouterLink, useNavigate } from 'react-router'
+import { Box, CircularProgress, InputAdornment, OutlinedInput, Tab, Tabs, Typography } from '@mui/material'
+import { SearchOutlined } from '@mui/icons-material'
 import { api, type MenuCategory, type MenuItem } from '../api'
 import { useDocumentTitle } from '../components/AuthLayout'
 import { MenuIcon } from '../components/icons'
@@ -53,6 +54,9 @@ function writeTab(tab: DashboardTab)
 
 }
 
+// lower case without accents, for the search
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 // plugin of the menu tab: icon and name (two lines), external link for url plugins
 function PluginTile({item}: {item: MenuItem})
 {
@@ -77,7 +81,9 @@ export default function Dashboard()
 	const [tab, setTab] = useState<DashboardTab>(readTab)
 	const [menu, setMenu] = useState<MenuCategory[] | null>(null)
 	const [widgets, setWidgets] = useState<WidgetInfo[] | null>(null)
+	const [search, setSearch] = useState('')
 	const {user} = useAuth()
+	const navigate = useNavigate()
 	useDocumentTitle(t('Dashboard'))
 
 	useEffect(() => {
@@ -85,6 +91,10 @@ export default function Dashboard()
 		api<{menu: MenuCategory[], widgets: WidgetInfo[]}>('dashboard/').then((data) => { setMenu(data.menu); setWidgets(data.widgets) }).catch(() => { setMenu([]); setWidgets([]) })
 
 	}, [])
+
+	// visible plugins whose name holds the search, the ones starting with it first
+	const query = fold(search.trim())
+	const plugins = (menu ?? []).map((c) => ({...c, items: c.items.filter((i) => !i.hidden && fold(i.name).includes(query)).sort((a, b) => Number(fold(b.name).startsWith(query)) - Number(fold(a.name).startsWith(query)))})).filter((c) => c.items.length > 0)
 
 	const change = (value: DashboardTab) => {
 
@@ -112,7 +122,14 @@ export default function Dashboard()
 			)}
 
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
-			{tab === 'menu' && menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0).map((category) => (
+			{tab === 'menu' && menu && (
+				<OutlinedInput autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search a plugin...')} inputProps={{'aria-label': t('Search a plugin...')}}
+					onKeyDown={(e) => { if(e.key === 'Escape')setSearch(''); if(e.key === 'Enter' && plugins[0]?.items[0]){ const first = plugins[0].items[0]; if(first.url)window.open(first.url, '_blank', 'noopener'); else navigate(`/${first.route}/`) } }}
+					startAdornment={<InputAdornment position="start"><SearchOutlined sx={{fontSize: 20, color: 'var(--u-muted)'}} /></InputAdornment>}
+					sx={{width: {xs: '100%', sm: 320}, height: 36, fontSize: 14, bgcolor: 'var(--u-paper)'}} />
+			)}
+			{tab === 'menu' && menu && plugins.length === 0 && <Typography sx={{fontSize: 13.5, color: 'var(--u-muted)'}}>{t('No plugin found')}</Typography>}
+			{tab === 'menu' && plugins.map((category) => (
 				<Box component="section" key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 1.25}}>
 					<Typography component="h2" sx={{fontSize: 13, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{category.name}</Typography>
 					<Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 2}}>

@@ -209,6 +209,8 @@ const fr: Record<string, string> = {
 	'Environment': 'Environnement',
 	'Variables': 'Variables',
 	'Insert pattern': 'Insérer un pattern',
+	'Search a plugin...': 'Rechercher un plugin...',
+	'No plugin found': 'Aucun plugin trouvé',
 
 	// projects
 	'Edit task': 'Modifier la tâche',
