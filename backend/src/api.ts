@@ -128,7 +128,8 @@ export type Grid = {
 	filters: GridFilter[]
 	conditions: {f: string, o: string, v: string}[]
 	match: 'all' | 'any'
-	chips: {name: string, total: number, options: (Option & {count: number})[]} | null
+	q: string
+	chips: {name: string, active: string, total: number, options: (Option & {count: number})[]} | null
 	search: {placeholder: string} | null
 	sort: {column: string, dir: 'asc' | 'desc'}
 	rows: Row[]

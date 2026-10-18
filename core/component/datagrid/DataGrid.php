@@ -8,7 +8,8 @@ use Symfony\Component\HttpFoundation\Request;
  * declarative grid rendered as json for the react backend (\Core\CrudController::apiList)
  * only the declared columns (and id) are sent, sort and filters are whitelisted by the declaration
  *
- * query string: page, per_page, sort, dir (asc, desc), q (search), chip, c[i][f]=filter, c[i][o]=operator, c[i][v]=value, m=all|any
+ * query string: search[]=column||value (equal) or column||operator||value (operator without value: column||empty||), search[]=q||text (search box),
+ * the short form on the chips column = the active tab (column||eq||value is a condition), match=all|any, sort, dir (asc, desc), page, per_page
  */
 class DataGrid
 {
@@ -315,8 +316,26 @@ class DataGrid
 		$wheres = ["deleted = 'no'"];
 		if($this->where !== '')$wheres[] = $this->where;
 
-		// search
-		$q = trim((string)$request->query->get('q', ''));
+		// search[]: column||value (equal), column||operator||value, q||text = search box, short form on the chips column = the active tab
+		$q = '';
+		$chip = '';
+		$entries = [];
+		foreach(array_slice((array)$request->query->all('search'), 0, self::MAX_CONDITIONS + 2) as $raw)
+		{
+
+			$parts = explode('||', (string)$raw, 3);
+			if(count($parts) < 2)continue;
+
+			$short = (count($parts) === 2);
+			[$name, $operator, $value] = ($short) ? [$parts[0], 'eq', $parts[1]] : $parts;
+			$value = trim($value);
+
+			if($name === 'q' && $q === '')$q = $value;
+			elseif($short && $this->chips && $name === $this->chips['name'] && $chip === '' && $value !== '')$chip = $value;
+			else $entries[] = [$name, $operator, $value];
+
+		}
+
 		if($q !== '' && $this->search_columns)
 		{
 
@@ -332,19 +351,16 @@ class DataGrid
 
 		}
 
-		// conditions of the advanced filters, combined with AND (m=all) or OR (m=any)
-		$match = ($request->query->get('m') === 'any') ? 'any' : 'all';
+		// conditions of the advanced filters, combined with AND (match=all) or OR (match=any)
+		$match = ($request->query->get('match') === 'any') ? 'any' : 'all';
 		$conditions = [];
 		$parts = [];
-		foreach(array_slice(array_values($request->query->all('c')), 0, self::MAX_CONDITIONS) as $i => $c)
+		foreach(array_slice($entries, 0, self::MAX_CONDITIONS) as $i => [$name, $operator, $value])
 		{
 
-			$name = (is_array($c)) ? (string)($c['f'] ?? '') : '';
 			if(!isset($this->filters[$name]))continue;
 
 			$filter = $this->filters[$name];
-			$operator = (string)($c['o'] ?? self::OPERATORS[$filter['type']][0]);
-			$value = trim((string)($c['v'] ?? ''));
 			if(!in_array($operator, self::OPERATORS[$filter['type']], true))continue;
 			if($value === '' && !in_array($operator, ['empty', '!empty'], true))continue;
 
@@ -359,9 +375,8 @@ class DataGrid
 		if($this->chips)
 		{
 
-			$chips = ['name' => $this->chips['name']] + $this->chipOptions(implode(' AND ', $wheres), $binds);
+			$chips = ['name' => $this->chips['name'], 'active' => $chip] + $this->chipOptions(implode(' AND ', $wheres), $binds);
 
-			$chip = (string)$request->query->get('chip', '');
 			if($chip !== '')
 			{
 
@@ -420,6 +435,7 @@ class DataGrid
 			], $this->filters)),
 			'conditions' => $conditions,
 			'match' => $match,
+			'q' => $q,
 			'chips' => $chips,
 			'search' => ($this->search_columns) ? ['placeholder' => ts($this->search_placeholder)] : null,
 			'sort' => ['column' => $sort, 'dir' => $dir],

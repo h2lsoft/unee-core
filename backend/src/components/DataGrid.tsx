@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import {
 	Box, Button, ButtonBase, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
 	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
@@ -46,6 +46,19 @@ const OPERATOR_LABELS: Record<string, string> = {
 type Condition = {f: string, o: string, v: string}
 
 const no_value = (operator: string) => (operator === 'empty' || operator === '!empty')
+
+// search[] entries: column||value (equal), column||operator||value, q||text (search box), short form on the tabs column = active tab
+const entry = (f: string, o: string, v: string) => (o === 'eq') ? `${f}||${v}` : `${f}||${o}||${no_value(o) ? '' : v}`
+const isShort = (raw: string) => raw.split('||').length === 2
+const qOf = (params: URLSearchParams) => params.getAll('search[]').find((raw) => raw.startsWith('q||'))?.slice(3) ?? ''
+
+// readable url: search[] and || are not encoded
+function serialize(params: URLSearchParams): string
+{
+
+	return [...params.entries()].map(([k, v]) => `${k === 'search[]' ? k : encodeURIComponent(k)}=${encodeURIComponent(v).replace(/%7C/gi, '|')}`).join('&')
+
+}
 
 const tab_sx = (on: boolean) => ({
 	height: 32,
@@ -402,11 +415,12 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const theme = useTheme()
 	const is_mobile = useMediaQuery(theme.breakpoints.down('md'))
 	const toast = useToast()
-	const [params, setParams] = useSearchParams()
+	const [params] = useSearchParams()
+	const navigate = useNavigate()
 	const [grid, setGrid] = useState<Grid | null>(null)
 	const [error, setError] = useState('')
 	const [loading, setLoading] = useState(true)
-	const [search, setSearch] = useState(params.get('q') ?? '')
+	const [search, setSearch] = useState(qOf(params))
 	const [selected, setSelected] = useState<number[]>([])
 	const [to_delete, setToDelete] = useState<Row[] | null>(null)
 	const [deleting, setDeleting] = useState(false)
@@ -456,12 +470,20 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	// search typed: applied after a short pause
 	useEffect(() => {
 
-		if(search === (params.get('q') ?? ''))return
-		const timer = setTimeout(() => update({q: search, page: ''}), 350)
+		if(search === qOf(params))return
+		const timer = setTimeout(() => setSearchEntries((list) => [...(search.trim() ? [`q||${search.trim()}`] : []), ...list.filter((raw) => !raw.startsWith('q||'))]), 350)
 		return () => clearTimeout(timer)
 
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search])
+
+	function setUrl(next: URLSearchParams)
+	{
+
+		const search = serialize(next)
+		navigate({search: search ? `?${search}` : ''}, {replace: true})
+
+	}
 
 	// set or remove query parameters, empty value = removed
 	function update(values: Record<string, string>)
@@ -475,7 +497,40 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			else next.set(key, value)
 
 		}
-		setParams(next, {replace: true})
+		setUrl(next)
+
+	}
+
+	// replace the search[] entries, back to the first page
+	function setSearchEntries(change: (list: string[]) => string[], extra: Record<string, string> = {})
+	{
+
+		const next = new URLSearchParams(params)
+		const list = change(next.getAll('search[]'))
+		next.delete('search[]')
+		list.forEach((raw) => next.append('search[]', raw))
+		next.delete('page')
+		for(const [key, value] of Object.entries(extra))
+		{
+
+			if(value === '')next.delete(key)
+			else next.set(key, value)
+
+		}
+		setUrl(next)
+
+	}
+
+	// active tab: short form on the tabs column
+	const setTab = (value: string) => {
+
+		const name = grid?.chips?.name ?? ''
+		setSearchEntries((list) => {
+
+			const rest = list.filter((raw) => !(isShort(raw) && raw.startsWith(`${name}||`)))
+			return value ? [...rest, `${name}||${value}`] : rest
+
+		})
 
 	}
 
@@ -487,19 +542,13 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	const applyConditions = (conditions: Condition[], match: 'all' | 'any') => {
 
-		const next = new URLSearchParams(params)
-		for(const key of [...next.keys()])if(key.startsWith('c['))next.delete(key)
-		next.delete('m')
-		conditions.filter((c) => no_value(c.o) || c.v !== '').forEach((c, i) => {
+		const tabs = grid?.chips?.name ?? ''
 
-			next.set(`c[${i}][f]`, c.f)
-			next.set(`c[${i}][o]`, c.o)
-			if(!no_value(c.o))next.set(`c[${i}][v]`, c.v)
-
-		})
-		if(match === 'any')next.set('m', 'any')
-		next.delete('page')
-		setParams(next, {replace: true})
+		// search box and active tab kept, conditions replaced (an equal on the tabs column stays explicit: not a tab)
+		setSearchEntries((list) => [
+			...list.filter((raw) => raw.startsWith('q||') || (tabs !== '' && isShort(raw) && raw.startsWith(`${tabs}||`))),
+			...conditions.filter((c) => no_value(c.o) || c.v !== '').map((c) => (c.o === 'eq' && c.f === tabs) ? `${c.f}||eq||${c.v}` : entry(c.f, c.o, c.v)),
+		], {match: match === 'any' ? 'any' : ''})
 		setFiltersAnchor(null)
 
 	}
@@ -616,7 +665,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const from = (p.total === 0) ? 0 : (p.page - 1) * p.per_page + 1
 	const to = Math.min(p.page * p.per_page, p.total)
 	const all_selected = grid.rows.length > 0 && grid.rows.every((r) => selected.includes(r.id))
-	const chip = params.get('chip') ?? ''
+	const chip = grid.chips?.active ?? ''
 	const mobile_title = grid.columns.find((c) => c.name === grid.mobile.title) ?? grid.columns.find((c) => c.name !== 'id') ?? grid.columns[0]
 	const mobile_subtitle = grid.columns.find((c) => c.name === grid.mobile.subtitle)
 	const mobile_badge = grid.columns.find((c) => c.type === 'badge')
@@ -762,8 +811,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: -0.5, mb: {xs: -1, md: -1.25}}}>
 				{grid.chips && (
 					<>
-						<ButtonBase sx={tab_sx(chip === '')} onClick={() => update({chip: '', page: ''})}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>
-						{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={tab_sx(chip === o.value)} onClick={() => update({chip: o.value, page: ''})}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>)}
+						<ButtonBase sx={tab_sx(chip === '')} onClick={() => setTab('')}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>
+						{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={tab_sx(chip === o.value)} onClick={() => setTab(o.value)}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>)}
 					</>
 				)}
 				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: '#5b6178', display: 'flex', alignItems: 'center', gap: 1}}>
