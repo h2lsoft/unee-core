@@ -313,7 +313,7 @@ export default function BackendLayout()
 							</Box>
 						)}
 
-					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '20px 16px', md: '28px 32px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
+					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '10px 8px', md: '14px 16px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
 						<Outlet />
 					</Box>
 				</Box>
