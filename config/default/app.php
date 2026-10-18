@@ -9,7 +9,7 @@ if(php_sapi_name() === 'cli')
 return [
 
 	// generics
-	'name' => 'Unee', # application name, shown in the browser title
+	'name' => 'UNEE', # application name, shown in the browser title
 	// HTTP_HOST already holds the port when it is not the default one (set url in the instance config in production)
 	'url' => "https://{$_SERVER['HTTP_HOST']}",
 	'timezone' => "", # empty = default timezone
