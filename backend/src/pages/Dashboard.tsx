@@ -55,7 +55,7 @@ function PluginTile({item}: {item: MenuItem})
 
 	return (
 		<Box {...link} sx={{height: 120, px: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.25, bgcolor: '#fff', border: '1px solid #e6e8ee', borderRadius: 2, color: '#1f2335', textDecoration: 'none', textAlign: 'center', transition: 'border-color .15s, background-color .15s', '&:hover': {borderColor: '#c9bdff', bgcolor: '#f7f5ff'}}}>
-			<Box component="span" sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7088'}}><MenuIcon name={item.icon} fontSize={22} /></Box>
+			<Box component="span" sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7088'}}><MenuIcon name={item.icon} fontSize={26} /></Box>
 			<Box component="span" sx={{minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 13.5, fontWeight: 500, lineHeight: 1.3}}>{item.name}</Box>
 		</Box>
 	)
@@ -100,9 +100,7 @@ export default function Dashboard()
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 			{tab === 'menu' && menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0).map((category) => (
 				<Box component="section" key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 1.25}}>
-					<Typography component="h2" sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 12, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>
-						<MenuIcon name={category.icon} fontSize={16} />{category.name}
-					</Typography>
+					<Typography component="h2" sx={{fontSize: 14, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
 					<Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1.25}}>
 						{category.items.map((item) => <PluginTile key={item.route + (item.url ?? '')} item={item} />)}
 					</Box>
