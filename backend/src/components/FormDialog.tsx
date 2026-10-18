@@ -218,7 +218,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 	const type = {email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text'
 	// textareas: 150px high at least, they grow with the content
-	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : (field.type === 'date' ? {width: 130, maxWidth: '100%'} : undefined)} />
+	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : ({date: {width: 130, maxWidth: '100%'}, datetime: {width: 180, maxWidth: '100%'}}[field.type as string])} />
 
 }
 
