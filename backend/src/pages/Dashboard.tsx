@@ -54,7 +54,7 @@ function PluginTile({item}: {item: MenuItem})
 	const link = item.url ? {component: 'a', href: item.url, target: '_blank', rel: 'noopener noreferrer'} : {component: RouterLink, to: `/${item.route}/`}
 
 	return (
-		<Box {...link} sx={{height: 96, px: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: 2, color: 'var(--u-text)', textDecoration: 'none', textAlign: 'center', transition: 'border-color .15s, background-color .15s', '&:hover': {borderColor: 'var(--u-accent-border)', bgcolor: 'var(--u-accent-hover)'}}}>
+		<Box {...link} sx={{height: 96, px: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: '5px', color: 'var(--u-text)', textDecoration: 'none', textAlign: 'center', transition: 'border-color .15s, background-color .15s', '&:hover': {borderColor: 'var(--u-accent-border)', bgcolor: 'var(--u-accent-hover)'}}}>
 			<MenuIcon name={item.icon} fontSize={26} color="var(--u-muted)" />
 			<Box component="span" sx={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 13.5, fontWeight: 500, lineHeight: 1.3}}>{item.name}</Box>
 		</Box>
