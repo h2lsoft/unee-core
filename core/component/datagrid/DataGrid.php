@@ -43,6 +43,7 @@ class DataGrid
 	public array $per_page_options = [25, 50, 100];
 	public bool $batch = true;
 	public array $batch_edit = [];
+	public string $position = '';
 	public array $batch_actions = [];
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
@@ -125,6 +126,53 @@ class DataGrid
 	{
 
 		return $this->addCol($name, $label, $sortable, 'datetime');
+
+	}
+
+	/**
+	 * material symbol icon (name stored in the column), color = column holding its color (#rrggbb)
+	 */
+	public function addColIcon(string $name, string $label='', string $color_column=''):static
+	{
+
+		return $this->addCol($name, $label, false, 'icon', ['align' => 'center'] + (($color_column !== '') ? ['color_column' => $color_column] : []));
+
+	}
+
+	/**
+	 * color swatch (#rrggbb)
+	 */
+	public function addColColor(string $name, string $label=''):static
+	{
+
+		return $this->addCol($name, $label, false, 'color');
+
+	}
+
+	/**
+	 * number shown as a badge with an icon, ex: count of a qSelect
+	 */
+	public function addColCount(string $name, string $label='', string $icon=''):static
+	{
+
+		return $this->addCol($name, $label, false, 'count', ['align' => 'center', 'icon' => $icon]);
+
+	}
+
+	/**
+	 * manual order: drag handle in the first column (POST /api/<module>/batch/position/, edit right), list sorted by this column
+	 *
+	 * @param string $column integer column of the table
+	 *
+	 * @return static
+	 */
+	public function addColPosition(string $column='position'):static
+	{
+
+		$this->position = $column;
+		$this->setOrderByFirst($column, 'asc');
+
+		return $this->addCol($column, '', true, 'position', ['width' => 40]);
 
 	}
 
@@ -232,7 +280,7 @@ class DataGrid
 	public function batchAction(string $name, string $label, string $icon='', string $right='edit'):static
 	{
 
-		if(!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) || in_array($name, ['delete', 'update', 'form'], true))throw new \InvalidArgumentException("batch action name `{$name}` not allowed");
+		if(!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) || in_array($name, ['delete', 'update', 'form', 'position'], true))throw new \InvalidArgumentException("batch action name `{$name}` not allowed");
 		$this->batch_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right];
 
 		return $this;
@@ -493,7 +541,7 @@ class DataGrid
 		$recs = DB()->query($sql, $binds)->fetchAll();
 
 		$rows = [];
-		$keep = array_flip(array_merge(['id'], array_keys($this->columns)));
+		$keep = array_flip(array_merge(['id'], array_keys($this->columns), array_filter(array_column($this->columns, 'color_column'))));
 		foreach($recs as $rec)
 		{
 
@@ -527,6 +575,7 @@ class DataGrid
 				'actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->batch_actions)),
 			] : null,
 			'mobile' => $this->mobile,
+			'position' => ($this->position !== '') ? $this->position : null,
 		];
 
 	}

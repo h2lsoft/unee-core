@@ -6,10 +6,10 @@ import {
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, BookmarkBorderOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-	CheckBoxOutlined, CloseOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
+	CheckBoxOutlined, CloseOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 } from '@mui/icons-material'
-import { api, ApiException, type Grid, type GridColumn, type GridFilter, type Row, type SavedFilter } from '../api'
+import { api, ApiException, dataChanged, type Grid, type GridColumn, type GridFilter, type Row, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
 import MassEditDialog from './MassEditDialog'
@@ -152,6 +152,9 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	const text = String(value)
 	if(column.type === 'badge')return <Badge value={text} color={column.colors?.[text]} />
+	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
+	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
+	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: '#3a3f55'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
 	if(column.type === 'date' || column.type === 'datetime')return <>{formatDate(text, column.type === 'datetime')}</>
 	return <>{text}</>
 
@@ -442,6 +445,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const [saved_version, setSavedVersion] = useState(0)
 	const [mass_edit, setMassEdit] = useState<number[] | null>(null)
 	const [running, setRunning] = useState('')
+	const [drag_rows, setDragRows] = useState<Row[] | null>(null)
+	const [drag_id, setDragId] = useState<number | null>(null)
 
 	const query = params.toString()
 
@@ -455,6 +460,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 				if(cancelled)return
 				setGrid(data)
+				setDragRows(null)
 				setError('')
 				setSelected([])
 				onTitle?.(data.title, data.label)
@@ -583,6 +589,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			const data = await api<{message?: string}>(`${module}/batch/${name}/`, {method: 'POST', body: {ids: selected}})
 			toast(data?.message ?? t('Done'))
 			setSelectionMenu(null)
+			dataChanged(module)
 			setReload((n) => n + 1)
 
 		}
@@ -643,6 +650,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 			await api(`${module}/${row.id}/toggle/`, {method: 'PATCH', body: {column, value}})
 			setGrid((g) => g && {...g, rows: g.rows.map((r) => r.id === row.id ? {...r, [column]: value} : r)})
+			dataChanged(module)
 			toast(t('Saved'))
 
 		}
@@ -679,6 +687,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			}
 
 			setToDelete(null)
+			dataChanged(module)
 			setReload((n) => n + 1)
 
 		}
@@ -709,7 +718,60 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	}
 
 	const {pagination: p} = grid
-	const columns = grid.columns.filter((c) => !hidden.includes(c.name))
+	const columns = grid.columns.filter((c) => c.type !== 'position' && !hidden.includes(c.name))
+	const can_drag = !!grid.position && can_edit && !is_mobile && grid.sort.column === grid.position && grid.sort.dir === 'asc'
+	const rows = drag_rows ?? grid.rows
+
+	// drag and drop: the rows move live, the new order is saved at the drop
+	const endDrag = async () => {
+
+		const ordered = drag_rows
+		setDragId(null)
+		if(!ordered || ordered.map((r) => r.id).join() === grid.rows.map((r) => r.id).join())
+		{
+
+			setDragRows(null)
+			return
+
+		}
+
+		try
+		{
+
+			await api(`${module}/batch/position/`, {method: 'POST', body: {ids: ordered.map((r) => r.id)}})
+			dataChanged(module)
+			setReload((n) => n + 1)
+
+		}
+		catch(e)
+		{
+
+			toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+			setDragRows(null)
+
+		}
+
+	}
+
+	const dragOver = (e: React.DragEvent, target: Row) => {
+
+		if(drag_id === null)return
+		e.preventDefault()
+		if(target.id === drag_id)return
+
+		setDragRows((list) => {
+
+			const current = list ?? grid.rows
+			const from = current.findIndex((r) => r.id === drag_id)
+			const to = current.findIndex((r) => r.id === target.id)
+			if(from < 0 || to < 0)return current
+			const next = [...current]
+			next.splice(to, 0, next.splice(from, 1)[0])
+			return next
+
+		})
+
+	}
 	const from = (p.total === 0) ? 0 : (p.page - 1) * p.per_page + 1
 	const to = Math.min(p.page * p.per_page, p.total)
 	const all_selected = grid.rows.length > 0 && grid.rows.every((r) => selected.includes(r.id))
@@ -786,6 +848,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<Box component="table" sx={{width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 760}}>
 				<thead>
 					<Box component="tr" sx={{bgcolor: HEAD_BG}}>
+						{grid.position && <Box component="th" sx={{...th, width: 36, p: 0}}><Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Order')}</Box></Box>}
 						{batch && (
 							<Box component="th" sx={{...th, width: 56, p: '0 0 0 10px', textAlign: 'left'}}>
 								{selection_control}
@@ -805,8 +868,32 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					</Box>
 				</thead>
 				<tbody>
-					{grid.rows.map((row) => (
-						<Box component="tr" key={row.id} onDoubleClick={() => can_edit && onEdit(row)} sx={{bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? '#f2eeff' : '#f8f9fb'}}}>
+					{rows.map((row) => (
+						<Box component="tr" key={row.id} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? '#f2eeff' : '#f8f9fb'}}}>
+							{grid.position && (
+								<Box component="td" sx={{...td, p: '0 0 0 10px', width: 36}}>
+									{can_drag && (
+										<Box
+											draggable
+											aria-label={t('Drag to reorder')}
+											title={t('Drag to reorder')}
+											onDragStart={(e: React.DragEvent<HTMLElement>) => {
+
+												e.dataTransfer.setData('text/plain', String(row.id))
+												e.dataTransfer.effectAllowed = 'move'
+												const tr = e.currentTarget.closest('tr')
+												if(tr)e.dataTransfer.setDragImage(tr, 16, 20)
+												setDragId(row.id)
+
+											}}
+											onDragEnd={endDrag}
+											sx={{display: 'flex', cursor: 'grab', color: '#9a9fb3', '&:hover': {color: '#3a3f55'}}}
+										>
+											<DragIndicatorOutlined sx={{fontSize: 18}} />
+										</Box>
+									)}
+								</Box>
+							)}
 							{batch && <Box component="td" sx={{...td, p: '0 0 0 16px'}}><Checkbox size="small" checked={selected.includes(row.id)} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{p: 0}} /></Box>}
 							{columns.map((c, i) => (
 								<Box component="td" key={c.name} sx={{...td, pl: (i === 0 && !batch) ? 2 : 1.5, textAlign: alignOf(c), color: c.name === 'id' ? '#5b6178' : '#1f2335', fontWeight: c.name === grid.mobile.title ? 500 : 400, maxWidth: c.width ? undefined : 420, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
@@ -899,7 +986,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			</Menu>
 
 			<Menu anchorEl={columns_menu} open={!!columns_menu} onClose={() => setColumnsMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
-				{grid.columns.map((c) => (
+				{grid.columns.filter((c) => c.type !== 'position').map((c) => (
 					<MenuItem key={c.name} disabled={!hidden.includes(c.name) && columns.length === 1} onClick={() => toggleColumn(c.name)} sx={{py: 0.25}}>
 						<Checkbox size="small" checked={!hidden.includes(c.name)} tabIndex={-1} sx={{p: 0.5, mr: 1}} />
 						<ListItemText>{c.label}</ListItemText>
@@ -933,7 +1020,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				</MenuItem>
 			</Menu>
 
-			<MassEditDialog module={module} title={grid.title} ids={mass_edit} onClose={() => setMassEdit(null)} onSaved={() => { setMassEdit(null); setReload((n) => n + 1) }} />
+			<MassEditDialog module={module} title={grid.title} ids={mass_edit} onClose={() => setMassEdit(null)} onSaved={() => { setMassEdit(null); dataChanged(module); setReload((n) => n + 1) }} />
 
 			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={(grid.chips?.active && grid.filters.some((f) => f.name === grid.chips?.name)) ? [{f: grid.chips.name, o: 'eq', v: grid.chips.active}, ...grid.conditions] : grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
 

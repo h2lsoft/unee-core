@@ -3,6 +3,7 @@ import { Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, Dia
 import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
+import { MenuIcon } from './icons'
 import { useToast } from './Toast'
 
 // datetime-local works with "Y-m-dTH:i", the api with "Y-m-d H:i:s"
@@ -39,6 +40,35 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 	if(field.type === 'boolean')
 		return <Switch id={id} checked={value === 'yes'} onChange={(e) => onChange(e.target.checked ? 'yes' : 'no')} disabled={field.readonly} sx={{ml: -1}} />
+
+	// material symbol name with its preview and a link to the icon library
+	if(field.type === 'icon')
+	{
+
+		return (
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
+				<OutlinedInput id={id} value={value} error={error} fullWidth disabled={field.readonly} placeholder="settings" onChange={(e) => onChange(e.target.value.trim().toLowerCase())} inputProps={{maxLength: field.max_length, spellCheck: false}}
+					startAdornment={<InputAdornment position="start"><MenuIcon name={value || 'extension'} fontSize={22} color="#3a3f55" /></InputAdornment>} />
+				<Box component="a" href="https://fonts.google.com/icons?icon.style=Outlined" target="_blank" rel="noopener noreferrer" sx={{flexShrink: 0, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap'}}>{t('Browse icons')}</Box>
+			</Box>
+		)
+
+	}
+
+	// color picker and its hex value
+	if(field.type === 'color')
+	{
+
+		const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'
+
+		return (
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
+				<Box component="input" type="color" value={hex} disabled={field.readonly} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)} aria-label={field.label} sx={{width: 56, height: 40, p: '4px', border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fff', cursor: 'pointer'}} />
+				<OutlinedInput id={id} value={value} error={error} disabled={field.readonly} onChange={(e) => onChange(e.target.value.trim())} inputProps={{maxLength: 7, spellCheck: false}} sx={{width: 140}} />
+			</Box>
+		)
+
+	}
 
 	// select with a search field, free = the options are suggestions
 	if(field.type === 'select' && field.autocomplete)

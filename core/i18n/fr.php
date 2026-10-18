@@ -37,6 +37,8 @@ return [
 	'`[FIELD]` must be a valid JSON object' => '`[FIELD]` doit être un objet JSON valide',
 	'`[FIELD]` must contain [MIN] to [MAX] characters' => '`[FIELD]` doit contenir [MIN] à [MAX] caractères',
 	'`[FIELD]` must be a valid path' => '`[FIELD]` doit être un chemin valide',
+	'`[FIELD]` must be an icon name, ex: settings' => '`[FIELD]` doit être un nom d\'icône, ex : settings',
+	'`[FIELD]` must be a color #rrggbb' => '`[FIELD]` doit être une couleur #rrggbb',
 	'`[FIELD]` must contain letters, digits, dots, dashes and underscores only' => '`[FIELD]` doit contenir uniquement des lettres, chiffres, points, tirets et underscores',
 	'`[FIELD]` must contain letters, digits, dashes and underscores only' => '`[FIELD]` doit contenir uniquement des lettres, chiffres, tirets et underscores',
 
@@ -62,6 +64,15 @@ return [
 
 	// menu
 	'Administration' => 'Administration',
+
+	// module menu
+	'Menu' => 'Menu',
+	'category' => 'catégorie',
+	'Icon' => 'Icône',
+	'Color' => 'Couleur',
+	'Plugins' => 'Plugins',
+	'name of a Material Symbols icon, ex: settings' => 'nom d\'une icône Material Symbols, ex : settings',
+	'this category holds [COUNT] plugins, move or delete them first' => 'cette catégorie contient [COUNT] plugins, déplacez-les ou supprimez-les d\'abord',
 
 	// module globals
 	'Globals' => 'Variables globales',

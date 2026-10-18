@@ -13,12 +13,12 @@ class Menu extends \Core\Entity
 	/**
 	 * menu of the logged user: categories with the visible plugins he has a right on, names translated
 	 *
-	 * @return array [{name, icon, items: [{name, icon, route, url, rights}]}]
+	 * @return array [{name, icon, color, items: [{name, icon, route, url, rights}]}]
 	 */
 	public static function forCurrentUser():array
 	{
 
-		$recs = DB()->query("SELECT p.*, m.id AS menu_id, m.name AS menu_name, m.icon AS menu_icon
+		$recs = DB()->query("SELECT p.*, m.id AS menu_id, m.name AS menu_name, m.icon AS menu_icon, m.color AS menu_color
 							 FROM xcore_plugin p
 							 INNER JOIN xcore_menu m ON m.id = p.xcore_menu_id AND m.deleted = 'no'
 							 WHERE p.deleted = 'no' AND p.active = 'yes' AND p.visible = 'yes' AND COALESCE(p.xcore_plugin_id, 0) = 0
@@ -31,7 +31,7 @@ class Menu extends \Core\Entity
 			$rights = \Model\User::getRights($rec['route_prefix_name']);
 			if(!in_array('list', $rights, true))continue;
 
-			$menu[$rec['menu_id']] ??= ['name' => ts($rec['menu_name']), 'icon' => $rec['menu_icon'], 'items' => []];
+			$menu[$rec['menu_id']] ??= ['name' => ts($rec['menu_name']), 'icon' => $rec['menu_icon'], 'color' => $rec['menu_color'], 'items' => []];
 			$menu[$rec['menu_id']]['items'][] = [
 				'name' => ts($rec['name']),
 				'icon' => $rec['icon'],

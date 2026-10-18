@@ -288,6 +288,45 @@ abstract class CrudController extends Controller
 	}
 
 	/**
+	 * manual order of the grid (addColPosition), json body: {"ids": [3, 1, 2]} = the rows in their new order
+	 * the rows keep their positions, given in the new order: the other pages are not moved
+	 *
+	 * @param Request $request
+	 *
+	 * @return JsonResponse {"updated": 3}
+	 */
+	#[Route('/batch/position/', name: 'batch.position', methods: ['POST'])]
+	public function apiBatchPosition(Request $request):JsonResponse
+	{
+
+		if($denied = $this->deny('edit'))return $denied;
+
+		$column = $this->buildGrid()->position;
+		if($column === '')return JsonResponse::error(404, 'action not found');
+		if(!$records = $this->batchRecords($request))return JsonResponse::error(422, 'select between 1 and 500 records');
+
+		$positions = array_map(fn($r) => (int)$r[$column], $records);
+		sort($positions);
+
+		// duplicates or holes: 1..n from the smallest
+		if(count(array_unique($positions)) !== count($positions))$positions = range($positions[0], $positions[0] + count($positions) - 1);
+
+		DB()->beginTransaction();
+		foreach($records as $i => $record)
+		{
+
+			if((int)$record[$column] !== $positions[$i])
+				DB($this->table)->update([$column => $positions[$i]], (int)$record['id'], 1, $this->author());
+
+		}
+		DB()->commit();
+		\Core\Log::write('position', $this->object_label, array_column($records, 'id'), 0, 'info', $this->module);
+
+		return new JsonResponse(['updated' => count($records)]);
+
+	}
+
+	/**
 	 * switch of a boolean column declared with toggle in the grid, json body: {"column": "active", "value": "yes"}
 	 *
 	 * @param Request $request
@@ -374,6 +413,7 @@ abstract class CrudController extends Controller
 				'column' => ['type' => 'string', 'enum' => array_keys(array_filter($grid->columns, fn($c) => $c['type'] === 'boolean' && !empty($c['toggle'])))],
 				'value' => ['type' => 'string', 'enum' => ['yes', 'no']],
 			]]],
+			'apiBatchPosition' => ['requestBody' => $ids, 'response' => ['type' => 'object', 'properties' => ['updated' => ['type' => 'integer']]]],
 			'apiBatchAction' => ['requestBody' => $ids, 'path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->batch_actions)]]],
 			default => [],
 		};
@@ -532,6 +572,11 @@ abstract class CrudController extends Controller
 
 		if(!$id)
 		{
+
+			// manual order: a new record goes last
+			$position = $this->buildGrid()->position;
+			if($position !== '' && !isset($row[$position]))
+				$row[$position] = (int)DB()->query("SELECT COALESCE(MAX(`{$position}`), 0) + 1 FROM `{$this->table}` WHERE deleted = 'no'")->fetchOne();
 
 			$id = (int)DB($this->table)->insert($row, $this->author());
 			\Core\Log::write('add', $this->object_label, $this->masked($row), $id, 'info', $this->module);

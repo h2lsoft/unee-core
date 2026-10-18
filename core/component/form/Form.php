@@ -80,6 +80,26 @@ class Form
 
 	}
 
+	/**
+	 * material symbol name (https://fonts.google.com/icons), shown with a preview
+	 */
+	public function addIcon(string $name, string $label='', bool $required=false):static
+	{
+
+		return $this->add('icon', $name, $label, $required, ['max_length' => 64]);
+
+	}
+
+	/**
+	 * color #rrggbb with a color picker
+	 */
+	public function addColor(string $name, string $label='', bool $required=false):static
+	{
+
+		return $this->add('color', $name, $label, $required, ['default' => '#6d4aff']);
+
+	}
+
 	public function addNumber(string $name, string $label='', bool $required=false, bool $integer=false):static
 	{
 
@@ -295,6 +315,8 @@ class Form
 				'date' => ['type' => 'string', 'format' => 'date'],
 				'datetime' => ['type' => 'string', 'example' => '2026-01-31 18:30:00'],
 				'boolean' => ['type' => 'string', 'enum' => ['yes', 'no']],
+				'icon' => ['type' => 'string', 'pattern' => '^[a-z0-9_]+$', 'description' => 'material symbol name'],
+				'color' => ['type' => 'string', 'pattern' => '^#[0-9a-fA-F]{6}$'],
 				default => ['type' => 'string'],
 			};
 
@@ -361,6 +383,8 @@ class Form
 				'date' => $v->date('Y-m-d'),
 				'datetime' => $v->datetime('Y-m-d H:i:s'),
 				'boolean' => $v->in(['yes', 'no']),
+				'icon' => $v->regex('/^[a-z0-9_]+$/', '`[FIELD]` must be an icon name, ex: settings'),
+				'color' => $v->regex('/^#[0-9a-f]{6}$/i', '`[FIELD]` must be a color #rrggbb'),
 				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options']))) : null,
 				default => null,
 			};

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { Avatar, Box, ButtonBase, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
 import { BookmarkBorderOutlined, CalendarMonthOutlined, CheckOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
-import { api, type MenuCategory, type MenuItem as MenuEntry } from '../api'
+import { api, DATA_CHANGED_EVENT, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
 import { useLoginConfig } from './AuthLayout'
@@ -132,7 +132,7 @@ function RailCategory({category, active}: {category: MenuCategory, active: boole
 				onClick={(e) => (anchor) ? setAnchor(null) : open(e.currentTarget)}
 				sx={{width: 44, height: 40, borderRadius: 2, color: on ? '#4b2fd6' : '#5b6178', bgcolor: on ? '#f0ecff' : 'transparent', '&:hover': {bgcolor: on ? '#f0ecff' : '#f2f3f7'}}}
 			>
-				<MenuIcon name={category.icon} />
+				<MenuIcon name={category.icon} color={category.color || undefined} />
 			</ButtonBase>
 			<Popper open={!!anchor} anchorEl={anchor} placement="right-start" modifiers={[{name: 'offset', options: {offset: [0, 8]}}]} sx={{zIndex: 1300}} onMouseEnter={() => window.clearTimeout(timer.current)} onMouseLeave={close}>
 				<Paper role="menu" aria-label={category.name} elevation={0} sx={{width: 240, p: 1, display: 'flex', flexDirection: 'column', gap: 0.25, border: `1px solid ${BORDER}`, borderRadius: '10px', boxShadow: '0 8px 24px rgba(16, 20, 40, 0.12)'}}>
@@ -171,7 +171,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
-					<Typography component="p" sx={{m: '18px 12px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
+					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}><MenuIcon name={category.icon} fontSize={15} color={category.color || undefined} />{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={onNavigate} />
 					))}
@@ -254,7 +254,13 @@ export default function BackendLayout()
 
 	useEffect(() => {
 
-		api<{menu: MenuCategory[]}>('backend/menu/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+		const load = () => api<{menu: MenuCategory[]}>('backend/menu/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+		load()
+
+		// categories or plugins changed in their modules
+		const onChange = (e: Event) => ['menu', 'plugin'].includes(String((e as CustomEvent).detail)) && load()
+		window.addEventListener(DATA_CHANGED_EVENT, onChange)
+		return () => window.removeEventListener(DATA_CHANGED_EVENT, onChange)
 
 	}, [])
 

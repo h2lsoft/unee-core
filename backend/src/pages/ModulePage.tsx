@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router'
 import { Box, CircularProgress } from '@mui/material'
-import type { Row } from '../api'
+import { dataChanged, type Row } from '../api'
 import { useMenu } from '../components/BackendLayout'
 import DataGrid from '../components/DataGrid'
 import FormDialog from '../components/FormDialog'
@@ -43,7 +43,7 @@ export default function ModulePage()
 				label={label}
 				open={form.open}
 				onClose={() => setForm({...form, open: false})}
-				onSaved={() => { setForm({...form, open: false}); setVersion((v) => v + 1) }}
+				onSaved={() => { setForm({...form, open: false}); dataChanged(module); setVersion((v) => v + 1) }}
 			/>
 		</>
 	)

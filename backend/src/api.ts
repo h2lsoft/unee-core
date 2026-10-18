@@ -35,6 +35,16 @@ export class ApiException extends Error
 // fired on any 401: the auth provider goes back to the login page
 export const UNAUTHORIZED_EVENT = 'unee:unauthorized'
 
+// fired after a write in a module (detail = module): the menu reloads when its own modules change
+export const DATA_CHANGED_EVENT = 'unee:data-changed'
+
+export function dataChanged(module: string)
+{
+
+	window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT, {detail: module}))
+
+}
+
 /**
  * call the api, path without /api/ and with a final slash (rule), ex: api<{user: User}>('auth/me/')
  */
@@ -93,6 +103,7 @@ export type MenuItem = {
 export type MenuCategory = {
 	name: string
 	icon: string
+	color: string
 	items: MenuItem[]
 }
 
@@ -102,12 +113,14 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
 	colors?: Record<string, string>
 	toggle?: boolean
+	color_column?: string
+	icon?: string
 }
 
 export type GridFilter = {
@@ -137,6 +150,7 @@ export type Grid = {
 	per_page_options: number[]
 	batch: {edit: string[], actions: {name: string, label: string, icon: string, right: string}[]} | null
 	mobile: {title: string, subtitle: string}
+	position: string | null
 }
 
 // saved filter of a grid (GET /api/backend/filters/?module=), personal or shared with the group
@@ -152,7 +166,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color'
 	label: string
 	required: boolean
 	width: number
