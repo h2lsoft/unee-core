@@ -49,8 +49,9 @@ Rules for any AI agent or developer working on this repository. Read them before
 ## Routes
 
 - Rule: every route ends with a slash (`/users/`, `/api/users/{id}/`). Files are the only exception (`/robots.txt`). A route without a final slash throws an exception.
-- Routes are declared in route files (config `routes`) or with the attribute `#[\Core\Route(path, methods, name, controller)]` on public controller methods (repeatable). Placeholders in the path and the name: `@backend` (config `backend.dirname`), `@module` (folder of the module). Routes declared on a parent class are inherited (`\Core\CrudController`).
-- `{id}` and `{page}` are digits only. A route declared with several methods gets one name per method (`<name>.get`, `<name>.post`): prefer one method per route.
+- Routes are declared in route files (config `routes`) or with the symfony attribute `Symfony\Component\Routing\Attribute\Route` on public controller methods (loader `AttributeClassLoader`, symfony/config). Each module controller declares its prefix and name prefix on the class: `#[Route('/api/globals', name: 'api.globals.')]`; method routes are relative (`#[Route('/{id}/', name: 'update', methods: ['PUT'])]` gives `api.globals.update`). Always set `methods` (no methods = any method). Routes declared on a parent class are inherited (`\Core\CrudController`).
+- `{id}` and `{page}` are digits unless the route sets its own requirement.
+- API documentation: OpenAPI 3.1 built from the routes (`\Core\OpenApi`): summary = first line of the docblock, description = the next lines, a controller adds details with `apiDoc(string $method)` (CrudController: schemas from the grid and the form). `GET /api/openapi.json` and Swagger UI `GET /api/docs/`, superadmin only.
 - `.htaccess`: missing final slash redirects with 301, and with 308 under `/api/` (method and body are kept).
 
 ## API

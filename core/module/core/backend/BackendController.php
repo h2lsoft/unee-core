@@ -2,11 +2,13 @@
 
 namespace Plugin\Core;
 
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * shell of the react backend
  */
+#[Route('/api/backend', name: 'api.backend.')]
 class BackendController extends \Core\Controller
 {
 
@@ -15,7 +17,7 @@ class BackendController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"menu": [{"name", "icon", "items": [{"name", "icon", "route", "url", "rights"}]}]}
 	 */
-	#[\Core\Route('/api/backend/menu/', name: 'api.backend.menu')]
+	#[Route('/menu/', name: 'menu', methods: ['GET'])]
 	public function menu():\Core\JsonResponse
 	{
 
@@ -30,7 +32,7 @@ class BackendController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"filters": [{"id", "name", "shared", "mine", "match", "conditions"}]}
 	 */
-	#[\Core\Route('/api/backend/filters/', name: 'api.backend.filters')]
+	#[Route('/filters/', name: 'filters', methods: ['GET'])]
 	public function filters(Request $request):\Core\JsonResponse
 	{
 
@@ -70,7 +72,7 @@ class BackendController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse 201 {"id"}
 	 */
-	#[\Core\Route('/api/backend/filters/', methods: 'POST', name: 'api.backend.filters.create')]
+	#[Route('/filters/', name: 'filters.create', methods: ['POST'])]
 	public function filterCreate(Request $request):\Core\JsonResponse
 	{
 
@@ -120,7 +122,7 @@ class BackendController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse 204
 	 */
-	#[\Core\Route('/api/backend/filters/{id}/', methods: 'DELETE', name: 'api.backend.filters.delete')]
+	#[Route('/filters/{id}/', name: 'filters.delete', methods: ['DELETE'])]
 	public function filterDelete(int $id):\Core\JsonResponse
 	{
 

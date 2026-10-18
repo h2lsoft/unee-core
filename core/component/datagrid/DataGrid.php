@@ -337,6 +337,49 @@ class DataGrid
 
 	}
 
+	/**
+	 * json schema of a row and the query parameters of the list (OpenAPI documentation)
+	 *
+	 * @return array {row: schema, parameters: [...]}
+	 */
+	public function apiDoc():array
+	{
+
+		$properties = ['id' => ['type' => 'integer']];
+		foreach($this->columns as $name => $c)
+		{
+
+			$properties[$name] = match($c['type'])
+			{
+				'number' => ['type' => 'number'],
+				'boolean' => ['type' => 'string', 'enum' => ['yes', 'no']],
+				'date' => ['type' => 'string', 'format' => 'date'],
+				'datetime' => ['type' => 'string'],
+				default => ($name === 'id') ? ['type' => 'integer'] : ['type' => 'string'],
+			} + ['title' => ts($c['label'])];
+
+		}
+
+		$filters = [];
+		foreach($this->filters as $name => $f)
+			$filters[] = "{$name} (".implode(', ', self::OPERATORS[$f['type']]).')';
+
+		$sortable = array_keys(array_filter($this->columns, fn($c) => $c['sortable']));
+
+		$parameters = [
+			['name' => 'search[]', 'in' => 'query', 'style' => 'form', 'explode' => true, 'schema' => ['type' => 'array', 'items' => ['type' => 'string']],
+			 'description' => "column||value (equal), column||operator||value, q||text (search box)\n\nfilters: ".implode(', ', $filters).(($this->chips) ? "\n\ntabs: {$this->chips['name']}||value" : '')],
+			['name' => 'match', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['all', 'any'], 'default' => 'all']],
+			['name' => 'sort', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => array_values(array_unique(array_merge([$this->order_by], $sortable))), 'default' => $this->order_by]],
+			['name' => 'dir', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['asc', 'desc'], 'default' => $this->order_dir]],
+			['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'default' => 1]],
+			['name' => 'per_page', 'in' => 'query', 'schema' => ['type' => 'integer', 'enum' => $this->per_page_options, 'default' => $this->per_page]],
+		];
+
+		return ['row' => ['type' => 'object', 'properties' => $properties], 'parameters' => $parameters];
+
+	}
+
 	// render **********************************************************************************************************
 
 	/**

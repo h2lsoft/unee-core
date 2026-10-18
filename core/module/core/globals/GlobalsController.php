@@ -3,12 +3,14 @@
 namespace Plugin\Core;
 
 use Component\DataGrid;
+use Symfony\Component\Routing\Attribute\Route;
 use Component\Form;
 
 /**
  * globals (xcore_globals): settings of the instance, read by App()->globals, category = first part of the name
  * values of globals named like a password are never sent to the browser
  */
+#[Route('/api/globals', name: 'api.globals.')]
 class GlobalsController extends \Core\CrudController
 {
 

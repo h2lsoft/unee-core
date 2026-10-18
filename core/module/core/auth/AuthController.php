@@ -2,12 +2,14 @@
 
 namespace Plugin\Core;
 
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * api authentication for the react backend, session cookie (HttpOnly, SameSite=Lax)
  * errors: 401 invalid credentials, 422 missing fields, 429 throttled
  */
+#[Route('/api/auth', name: 'api.auth.')]
 class AuthController extends \Core\Controller
 {
 
@@ -18,7 +20,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"user": {...}}
 	 */
-	#[\Core\Route('/api/auth/login/', methods: 'POST', name: 'api.auth.login')]
+	#[Route('/login/', name: 'login', methods: ['POST'])]
 	public function login(Request $request):\Core\JsonResponse
 	{
 
@@ -51,7 +53,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse 204 no content
 	 */
-	#[\Core\Route('/api/auth/logout/', methods: 'POST', name: 'api.auth.logout')]
+	#[Route('/logout/', name: 'logout', methods: ['POST'])]
 	public function logout():\Core\JsonResponse
 	{
 
@@ -67,7 +69,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"message"}
 	 */
-	#[\Core\Route('/api/auth/password/forgot/', methods: 'POST', name: 'api.auth.password.forgot')]
+	#[Route('/password/forgot/', name: 'password.forgot', methods: ['POST'])]
 	public function passwordForgot(Request $request):\Core\JsonResponse
 	{
 
@@ -100,7 +102,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"message"}, 400 when the link is invalid or expired
 	 */
-	#[\Core\Route('/api/auth/password/reset/', methods: 'POST', name: 'api.auth.password.reset')]
+	#[Route('/password/reset/', name: 'password.reset', methods: ['POST'])]
 	public function passwordReset(Request $request):\Core\JsonResponse
 	{
 
@@ -125,7 +127,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"name", "login_key", "logo", "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
 	 */
-	#[\Core\Route('/api/auth/config/', name: 'api.auth.config')]
+	#[Route('/config/', name: 'config', methods: ['GET'])]
 	public function config():\Core\JsonResponse
 	{
 
@@ -152,7 +154,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"user": {...}}
 	 */
-	#[\Core\Route('/api/auth/me/', name: 'api.auth.me')]
+	#[Route('/me/', name: 'me', methods: ['GET'])]
 	public function me():\Core\JsonResponse
 	{
 
@@ -167,7 +169,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @return \Core\JsonResponse {"user": {...}}
 	 */
-	#[\Core\Route('/api/auth/me/', methods: 'PATCH', name: 'api.auth.me.update')]
+	#[Route('/me/', name: 'me.update', methods: ['PATCH'])]
 	public function meUpdate(Request $request):\Core\JsonResponse
 	{
 

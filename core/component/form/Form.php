@@ -270,6 +270,51 @@ class Form
 	}
 
 	/**
+	 * json schema of the body written by the form (OpenAPI documentation)
+	 *
+	 * @param bool $with_required false for a partial body (mass edit)
+	 *
+	 * @return array
+	 */
+	public function schema(bool $with_required=true):array
+	{
+
+		$properties = [];
+		$required = [];
+		foreach($this->fields as $name => $f)
+		{
+
+			if(!empty($f['readonly']))continue;
+
+			$property = match($f['type'])
+			{
+				'number' => ['type' => 'number'],
+				'integer' => ['type' => 'integer'],
+				'email' => ['type' => 'string', 'format' => 'email'],
+				'password' => ['type' => 'string', 'format' => 'password', 'writeOnly' => true],
+				'date' => ['type' => 'string', 'format' => 'date'],
+				'datetime' => ['type' => 'string', 'example' => '2026-01-31 18:30:00'],
+				'boolean' => ['type' => 'string', 'enum' => ['yes', 'no']],
+				default => ['type' => 'string'],
+			};
+
+			$property['title'] = ts($f['label']);
+			if(isset($f['help']))$property['description'] = ts($f['help']);
+			if(isset($f['max_length']))$property['maxLength'] = $f['max_length'];
+			if($f['type'] === 'select' && empty($f['free']))$property['enum'] = array_map('strval', array_keys($f['options']));
+			if($f['type'] === 'select' && !empty($f['free']))$property['examples'] = array_map('strval', array_keys($f['options']));
+			if($f['type'] === 'html')$property['contentMediaType'] = 'text/html';
+
+			$properties[$name] = $property;
+			if($with_required && $f['required'] && $f['type'] !== 'password')$required[] = $name;
+
+		}
+
+		return ['type' => 'object', 'properties' => (object)$properties] + (($required) ? ['required' => $required] : []);
+
+	}
+
+	/**
 	 * default values of a new record
 	 *
 	 * @return array

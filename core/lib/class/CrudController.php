@@ -2,12 +2,14 @@
 
 namespace Core;
 
+use Symfony\Component\Routing\Attribute\Route;
 use Component\DataGrid;
 use Component\Form;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * json crud of a module for the react backend, the routes are inherited (@module = folder of the module)
+ * json crud of a module for the react backend, the routes are inherited and relative to the class prefix of the module:
+ * #[Route('/api/globals', name: 'api.globals.')] gives /api/globals/{id}/ named api.globals.update
  * rights (xcore_plugin.route_prefix_name = folder of the module): list, add, edit, delete
  *
  * a module declares $table, grid() and form(), then overrides the hooks it needs:
@@ -55,7 +57,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"title", "label", "rights", "columns", "filters", "rows", "pagination", ...}
 	 */
-	#[\Core\Route('/api/@module/', name: 'api.@module.list')]
+	#[Route('/', name: 'list', methods: ['GET'])]
 	public function apiList(Request $request):JsonResponse
 	{
 
@@ -71,7 +73,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"form": {"fields"}, "record": {...defaults}}
 	 */
-	#[\Core\Route('/api/@module/form/', name: 'api.@module.form')]
+	#[Route('/form/', name: 'form', methods: ['GET'])]
 	public function apiForm():JsonResponse
 	{
 
@@ -89,7 +91,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"form": {"fields"}, "record": {...}}
 	 */
-	#[\Core\Route('/api/@module/{id}/', name: 'api.@module.read')]
+	#[Route('/{id}/', name: 'read', methods: ['GET'])]
 	public function apiRead(int $id):JsonResponse
 	{
 
@@ -112,7 +114,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse 201 {"id"}, 422 {"fields"}
 	 */
-	#[\Core\Route('/api/@module/', methods: 'POST', name: 'api.@module.create')]
+	#[Route('/', name: 'create', methods: ['POST'])]
 	public function apiCreate(Request $request):JsonResponse
 	{
 
@@ -129,7 +131,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"id"}, 422 {"fields"}
 	 */
-	#[\Core\Route('/api/@module/{id}/', methods: 'PUT', name: 'api.@module.update')]
+	#[Route('/{id}/', name: 'update', methods: ['PUT'])]
 	public function apiUpdate(Request $request, int $id):JsonResponse
 	{
 
@@ -147,7 +149,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse 204, 422 when a rule refuses
 	 */
-	#[\Core\Route('/api/@module/{id}/', methods: 'DELETE', name: 'api.@module.delete')]
+	#[Route('/{id}/', name: 'delete', methods: ['DELETE'])]
 	public function apiDelete(int $id):JsonResponse
 	{
 
@@ -167,7 +169,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"deleted": 2}, 422 with the first refusal
 	 */
-	#[\Core\Route('/api/@module/batch/delete/', methods: 'POST', name: 'api.@module.batch.delete')]
+	#[Route('/batch/delete/', name: 'batch.delete', methods: ['POST'])]
 	public function apiBatchDelete(Request $request):JsonResponse
 	{
 
@@ -209,7 +211,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"form": {"fields"}}
 	 */
-	#[\Core\Route('/api/@module/batch/form/', name: 'api.@module.batch.form')]
+	#[Route('/batch/form/', name: 'batch.form', methods: ['GET'])]
 	public function apiBatchForm():JsonResponse
 	{
 
@@ -228,7 +230,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"updated": 2}, 422 {"fields"}
 	 */
-	#[\Core\Route('/api/@module/batch/update/', methods: 'POST', name: 'api.@module.batch.update')]
+	#[Route('/batch/update/', name: 'batch.update', methods: ['POST'])]
 	public function apiBatchUpdate(Request $request):JsonResponse
 	{
 
@@ -293,7 +295,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse {"id", "column", "value"}
 	 */
-	#[\Core\Route('/api/@module/{id}/toggle/', methods: 'PATCH', name: 'api.@module.toggle')]
+	#[Route('/{id}/toggle/', name: 'toggle', methods: ['PATCH'])]
 	public function apiToggle(Request $request, int $id):JsonResponse
 	{
 
@@ -322,7 +324,7 @@ abstract class CrudController extends Controller
 	 *
 	 * @return JsonResponse what batch<Action>() returns, ex: {"message"}
 	 */
-	#[\Core\Route('/api/@module/batch/{action}/', methods: 'POST', name: 'api.@module.batch.action')]
+	#[Route('/batch/{action}/', name: 'batch.action', methods: ['POST'], priority: -1)]
 	public function apiBatchAction(Request $request, string $action):JsonResponse
 	{
 
@@ -334,6 +336,47 @@ abstract class CrudController extends Controller
 		if(!$records = $this->batchRecords($request))return JsonResponse::error(422, 'select between 1 and 500 records');
 
 		return $this->$method($records);
+
+	}
+
+	/**
+	 * OpenAPI details of the crud routes (\Core\OpenApi), built from the grid and the form
+	 *
+	 * @param string $method name of the controller method
+	 *
+	 * @return array parameters, requestBody, response (schema of the 200 answer)
+	 */
+	public function apiDoc(string $method):array
+	{
+
+		$grid = $this->buildGrid();
+		$grid_doc = $grid->apiDoc();
+		$form = $this->buildForm([]);
+		$ids = ['type' => 'object', 'required' => ['ids'], 'properties' => ['ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'minItems' => 1, 'maxItems' => 500]]];
+		$form_answer = ['type' => 'object', 'properties' => ['form' => ['type' => 'object'], 'record' => $form->schema(false)]];
+
+		return match($method)
+		{
+			'apiList' => ['parameters' => $grid_doc['parameters'], 'response' => ['type' => 'object', 'properties' => [
+				'title' => ['type' => 'string'],
+				'rights' => ['type' => 'array', 'items' => ['type' => 'string']],
+				'rows' => ['type' => 'array', 'items' => $grid_doc['row']],
+				'pagination' => ['type' => 'object', 'properties' => ['total' => ['type' => 'integer'], 'page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer'], 'last_page' => ['type' => 'integer']]],
+			]]],
+			'apiForm', 'apiRead' => ['response' => $form_answer],
+			'apiCreate' => ['requestBody' => $form->schema(), 'status' => 201, 'response' => ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]]],
+			'apiUpdate' => ['requestBody' => $form->schema(), 'response' => ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]]],
+			'apiDelete' => ['status' => 204],
+			'apiBatchDelete' => ['requestBody' => $ids, 'response' => ['type' => 'object', 'properties' => ['deleted' => ['type' => 'integer']]]],
+			'apiBatchForm' => ['response' => ['type' => 'object', 'properties' => ['form' => ['type' => 'object']]]],
+			'apiBatchUpdate' => ['requestBody' => ['type' => 'object', 'required' => ['ids', 'values'], 'properties' => $ids['properties'] + ['values' => $this->batchForm()->schema(false)]], 'response' => ['type' => 'object', 'properties' => ['updated' => ['type' => 'integer']]]],
+			'apiToggle' => ['requestBody' => ['type' => 'object', 'required' => ['column', 'value'], 'properties' => [
+				'column' => ['type' => 'string', 'enum' => array_keys(array_filter($grid->columns, fn($c) => $c['type'] === 'boolean' && !empty($c['toggle'])))],
+				'value' => ['type' => 'string', 'enum' => ['yes', 'no']],
+			]]],
+			'apiBatchAction' => ['requestBody' => $ids, 'path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->batch_actions)]]],
+			default => [],
+		};
 
 	}
 

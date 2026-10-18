@@ -109,30 +109,36 @@ $routes = new RouteCollection();
 foreach(\Core\Config::get('routes', []) as $route_file)
 	include $route_file;
 
-// controller routes from #[\Core\Route] attributes (inherited methods included)
+// controller routes from the symfony #[Route] attributes (inherited methods included, prefix and name prefix on the class)
+$route_loader = new class extends \Symfony\Component\Routing\Loader\AttributeClassLoader
+{
+	protected function configureRoute(\Symfony\Component\Routing\Route $route, \ReflectionClass $class, \ReflectionMethod $method, object $attr):void
+	{
+		$route->setDefault('_controller', $class->getName().'::'.$method->getName());
+	}
+};
+
 foreach(\Core\Controller::getAll() as $c_controller)
 {
-	$info = \Core\Controller::getInfo($c_controller);
-	$module = $info['paths'][1];
-
-	$class = new ReflectionClass($info['class_path']);
+	$class = new ReflectionClass(\Core\Controller::getInfo($c_controller)['class_path']);
 	if($class->isAbstract())continue;
 
-	foreach($class->getMethods(ReflectionMethod::IS_PUBLIC) as $method)
+	$controller_routes = $route_loader->load($class->getName());
+	foreach($controller_routes->all() as $route_name => $route)
 	{
-		foreach($method->getAttributes(\Core\Route::class) as $attribute)
-		{
-			$route = $attribute->newInstance();
-			$uri = str_replace('/@module/', "/{$module}/", $route->path);
-			$name = str_replace('@module', $module, $route->name);
-			$method_name = ($route->controller !== '') ? $route->controller : $method->getName();
+		// rule: a route ends with a slash (files like /api/openapi.json excepted)
+		if(!str_ends_with($route->getPath(), '/') && !str_contains(basename($route->getPath()), '.'))
+			throw new \LogicException("Route \"{$route->getPath()}\" ({$route_name}) must end with a slash");
 
-			if($route->methods == ['ANY'])
-				\Core\Router::any($uri, $class->getName()."::{$method_name}", $name);
-			else
-				\Core\Router::match($route->methods, $uri, $class->getName()."::{$method_name}", $name);
+		// {id} and {page} are digits unless the route says otherwise
+		foreach(['id', 'page'] as $placeholder)
+		{
+			if(str_contains($route->getPath(), '{'.$placeholder.'}') && !$route->hasRequirement($placeholder))
+				$route->setRequirement($placeholder, '\d+');
 		}
 	}
+
+	$routes->addCollection($controller_routes);
 }
 
 // frontend routes (not for backend urls)
