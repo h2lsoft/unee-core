@@ -544,10 +544,18 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 		const tabs = grid?.chips?.name ?? ''
 
-		// search box and active tab kept, conditions replaced (an equal on the tabs column stays explicit: not a tab)
+		// search box kept, the first equal on the tabs column becomes the active tab (always combined with AND), the others stay explicit
+		let tab_done = false
 		setSearchEntries((list) => [
-			...list.filter((raw) => raw.startsWith('q||') || (tabs !== '' && isShort(raw) && raw.startsWith(`${tabs}||`))),
-			...conditions.filter((c) => no_value(c.o) || c.v !== '').map((c) => (c.o === 'eq' && c.f === tabs) ? `${c.f}||eq||${c.v}` : entry(c.f, c.o, c.v)),
+			...list.filter((raw) => raw.startsWith('q||')),
+			...conditions.filter((c) => no_value(c.o) || c.v !== '').map((c) => {
+
+				if(c.o !== 'eq' || c.f !== tabs)return entry(c.f, c.o, c.v)
+				if(tab_done)return `${c.f}||eq||${c.v}`
+				tab_done = true
+				return `${c.f}||${c.v}`
+
+			}),
 		], {match: match === 'any' ? 'any' : ''})
 		setFiltersAnchor(null)
 
@@ -863,7 +871,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				</MenuItem>
 			</Menu>
 
-			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
+			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={(grid.chips?.active && grid.filters.some((f) => f.name === grid.chips?.name)) ? [{f: grid.chips.name, o: 'eq', v: grid.chips.active}, ...grid.conditions] : grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
 
 			<SaveFilterDialog module={module} draft={save_draft} onClose={() => setSaveDraft(null)} onSaved={() => { const draft = save_draft; setSaveDraft(null); setSavedVersion((v) => v + 1); if(draft)applyConditions(draft.conditions, draft.match) }} />
 
