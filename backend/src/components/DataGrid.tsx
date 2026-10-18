@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import {
-	Box, Button, ButtonBase, Checkbox, CircularProgress, Dialog, DialogActions, DialogTitle, Divider, IconButton, InputBase,
+	Box, Button, ButtonBase, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
 	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, BookmarkBorderOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-	CloseOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
+	CloseOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 } from '@mui/icons-material'
-import { api, ApiException, type Grid, type GridColumn, type GridFilter, type Row } from '../api'
+import { api, ApiException, type Grid, type GridColumn, type GridFilter, type Row, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
 import { useToast } from './Toast'
@@ -159,7 +159,7 @@ function ConfirmDialog({open, title, onCancel, onConfirm, busy}: {open: boolean,
 }
 
 // advanced filters: list of conditions (column, operator, value) matched all or any
-function FiltersPanel({anchor, filters, conditions, match, onClose, onApply}: {anchor: HTMLElement | null, filters: GridFilter[], conditions: Condition[], match: 'all' | 'any', onClose: () => void, onApply: (conditions: Condition[], match: 'all' | 'any') => void})
+function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onSave}: {anchor: HTMLElement | null, filters: GridFilter[], conditions: Condition[], match: 'all' | 'any', onClose: () => void, onApply: (conditions: Condition[], match: 'all' | 'any') => void, onSave: (conditions: Condition[], match: 'all' | 'any') => void})
 {
 
 	const empty = (): Condition => ({f: filters[0]?.name ?? '', o: filters[0]?.operators[0] ?? 'eq', v: ''})
@@ -249,8 +249,7 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply}: {a
 				<Button type="button" startIcon={<AddCircleOutlineOutlined />} onClick={() => setDraft([...draft, empty()])} sx={{alignSelf: 'flex-start', height: 30, px: 0.75, fontWeight: 500}}>{t('Add condition')}</Button>
 
 				<Box sx={{display: 'flex', alignItems: 'center', gap: 1, pt: 1.5, borderTop: `1px solid ${ROW_BORDER}`}}>
-					{/* saved filters: Filters module (personal or shared with the group) */}
-					<Button type="button" color="inherit" startIcon={<SaveOutlined />} disabled sx={{fontWeight: 500}}>{t('Save filter')}</Button>
+					<Button type="button" color="inherit" startIcon={<SaveOutlined />} disabled={!draft.some((c) => no_value(c.o) || c.v !== '')} onClick={() => onSave(draft.filter((c) => no_value(c.o) || c.v !== ''), draft_match)} sx={{fontWeight: 500}}>{t('Save filter')}</Button>
 					<Box sx={{flexGrow: 1}} />
 					{/* reset clears the form only, Search applies it */}
 					<Button type="button" color="inherit" onClick={() => { setDraft([empty()]); setDraftMatch('all') }} sx={{fontWeight: 500}}>{t('Reset')}</Button>
@@ -276,6 +275,72 @@ function RowMenu({row, can_edit, can_delete, onEdit, onDelete}: {row: Row, can_e
 				{can_delete && <MenuItem onClick={() => { setAnchor(null); onDelete(row) }} sx={{color: 'error.main'}}><ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon><ListItemText>{t('Delete')}</ListItemText></MenuItem>}
 			</Menu>
 		</>
+	)
+
+}
+
+// name of a saved filter, personal or shared with the group of the user
+function SaveFilterDialog({module, draft, onClose, onSaved}: {module: string, draft: {conditions: Condition[], match: 'all' | 'any'} | null, onClose: () => void, onSaved: () => void})
+{
+
+	const toast = useToast()
+	const [name, setName] = useState('')
+	const [shared, setShared] = useState(false)
+	const [error, setError] = useState('')
+	const [saving, setSaving] = useState(false)
+
+	useEffect(() => {
+
+		if(!draft)return
+		setName('')
+		setShared(false)
+		setError('')
+
+	}, [draft])
+
+	const submit = async (e: FormEvent) => {
+
+		e.preventDefault()
+		if(!draft)return
+		setSaving(true)
+		setError('')
+
+		try
+		{
+
+			await api('backend/filters/', {method: 'POST', body: {module, name, shared, ...draft}})
+			toast(t('Filter saved'))
+			onSaved()
+
+		}
+		catch(err)
+		{
+
+			const api_error = (err instanceof ApiException) ? err.error : null
+			setError(api_error?.fields?.name?.join(', ') ?? api_error?.message ?? t('network error, please retry'))
+
+		}
+		finally
+		{
+
+			setSaving(false)
+
+		}
+
+	}
+
+	return (
+		<Dialog open={!!draft} onClose={onClose} maxWidth="xs" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true} as object}}>
+			<DialogTitle sx={{fontSize: 17, fontWeight: 600}}>{t('Save filter')}</DialogTitle>
+			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.5}}>
+				{error && <Box role="alert" sx={{px: 2, py: 1.25, borderRadius: '6px', bgcolor: '#fdecee', color: '#b3261e', fontSize: 14}}>{error}</Box>}
+				<OutlinedInput autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Filter name')} error={!!error} inputProps={{maxLength: 255, 'aria-label': t('Filter name')}} />
+				<FormControlLabel control={<Checkbox size="small" checked={shared} onChange={(e) => setShared(e.target.checked)} />} label={t('Share with my group')} slotProps={{typography: {sx: {fontSize: 14}}}} />
+			</DialogContent>
+			<DialogActions sx={{px: 3, pb: 2.5}}>
+				<Button type="submit" variant="contained" disabled={saving || name.trim() === ''}>{saving ? <CircularProgress size={20} color="inherit" /> : t('Save')}</Button>
+			</DialogActions>
+		</Dialog>
 	)
 
 }
@@ -350,6 +415,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const [grid_menu, setGridMenu] = useState<HTMLElement | null>(null)
 	const [columns_menu, setColumnsMenu] = useState<HTMLElement | null>(null)
 	const [selection_menu, setSelectionMenu] = useState<HTMLElement | null>(null)
+	const [saved, setSaved] = useState<SavedFilter[]>([])
+	const [save_draft, setSaveDraft] = useState<{conditions: Condition[], match: 'all' | 'any'} | null>(null)
+	const [saved_version, setSavedVersion] = useState(0)
 
 	const query = params.toString()
 
@@ -376,6 +444,13 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	// onTitle is a callback of the parent, not a dependency of the data
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [module, query, version, reload])
+
+	// saved filters of the grid (own and shared with the group)
+	useEffect(() => {
+
+		api<{filters: SavedFilter[]}>(`backend/filters/?module=${encodeURIComponent(module)}`).then((data) => setSaved(data.filters)).catch(() => setSaved([]))
+
+	}, [module, saved_version])
 
 	// search typed: applied after a short pause
 	useEffect(() => {
@@ -425,6 +500,25 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 		next.delete('page')
 		setParams(next, {replace: true})
 		setFiltersAnchor(null)
+
+	}
+
+	const deleteSaved = async (filter: SavedFilter) => {
+
+		try
+		{
+
+			await api(`backend/filters/${filter.id}/`, {method: 'DELETE'})
+			setSavedVersion((v) => v + 1)
+			toast(t('Deleted'))
+
+		}
+		catch(e)
+		{
+
+			toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+
+		}
 
 	}
 
@@ -690,7 +784,14 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 			<Menu anchorEl={grid_menu} open={!!grid_menu} onClose={() => setGridMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
 				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{t('Saved filters')}</Typography>
-				<MenuItem disabled sx={{fontSize: 14}}>{t('No saved filter')}</MenuItem>
+				{saved.length === 0 && <MenuItem disabled sx={{fontSize: 14}}>{t('No saved filter')}</MenuItem>}
+				{saved.map((f) => (
+					<MenuItem key={f.id} onClick={() => { setGridMenu(null); applyConditions(f.conditions, f.match) }} sx={{pr: 0.5}}>
+						<ListItemIcon>{f.shared ? <GroupOutlined fontSize="small" titleAccess={t('Shared with my group')} /> : <FilterAltOutlined fontSize="small" />}</ListItemIcon>
+						<ListItemText>{f.name}</ListItemText>
+						{f.mine && <IconButton size="small" aria-label={`${t('Delete')} ${f.name}`} onClick={(e) => { e.stopPropagation(); deleteSaved(f) }} sx={{ml: 1, color: '#5b6178'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>}
+					</MenuItem>
+				))}
 			</Menu>
 
 			<Menu anchorEl={columns_menu} open={!!columns_menu} onClose={() => setColumnsMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
@@ -712,7 +813,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				</MenuItem>
 			</Menu>
 
-			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} />
+			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
+
+			<SaveFilterDialog module={module} draft={save_draft} onClose={() => setSaveDraft(null)} onSaved={() => { const draft = save_draft; setSaveDraft(null); setSavedVersion((v) => v + 1); if(draft)applyConditions(draft.conditions, draft.match) }} />
 
 			<ConfirmDialog
 				open={!!to_delete}

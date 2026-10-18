@@ -63,4 +63,7 @@ return [
 	'invalid json array' => 'tableau JSON invalide',
 	'invalid json object' => 'objet JSON invalide',
 
+	// saved filters
+	'add at least one condition' => 'ajoutez au moins une condition',
+
 ];

@@ -138,6 +138,16 @@ export type Grid = {
 	mobile: {title: string, subtitle: string}
 }
 
+// saved filter of a grid (GET /api/backend/filters/?module=), personal or shared with the group
+export type SavedFilter = {
+	id: number
+	name: string
+	shared: boolean
+	mine: boolean
+	match: 'all' | 'any'
+	conditions: {f: string, o: string, v: string}[]
+}
+
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
