@@ -60,6 +60,7 @@ return [
 	'existing category or a new one' => 'catégorie existante ou nouvelle',
 	'letters, digits, dashes and underscores only' => 'lettres, chiffres, tirets et underscores uniquement',
 	'url (https://...) or path starting with /' => 'url (https://...) ou chemin commençant par /',
+	'invalid path' => 'chemin invalide',
 	'leave empty to keep the current value' => 'laisser vide pour conserver la valeur actuelle',
 	'letters, digits, dots, dashes and underscores only' => 'lettres, chiffres, points, tirets et underscores uniquement',
 	'true, false, 1 or 0' => 'true, false, 1 ou 0',

@@ -79,7 +79,8 @@ class GlobalsController extends \Core\CrudController
 			'boolean' => $v->in(['true', 'false', '1', '0'], 'true, false, 1 or 0'),
 			'json-array' => $v->jsonArray('invalid json array'),
 			'json-object' => $v->jsonObject('invalid json object'),
-			'url' => $v->custom(fn($value) => str_starts_with((string)$value, '/') || filter_var($value, FILTER_VALIDATE_URL) !== false, 'url (https://...) or path starting with /'),
+			// a path of the site (/upload/logo.png) or an absolute url
+			'url' => (str_starts_with((string)$v->inputGet('value'), '/')) ? $v->regex('#^/[^\s]*$#', 'invalid path') : $v->url(0, 'url (https://...) or path starting with /'),
 			default => null,
 		};
 
