@@ -23,6 +23,7 @@ class MenuController extends \Core\CrudController
 		$grid->setSearch(['name'], 'Search name...');
 		$grid->addFilter('name', 'Name');
 		$grid->setMobile('name');
+		$grid->setBatchMode(false);
 		$grid->qSelect("(SELECT COUNT(*) FROM xcore_plugin p WHERE p.xcore_menu_id = xcore_menu.id AND p.deleted = 'no')", 'plugins');
 
 		$grid->addColPosition();
