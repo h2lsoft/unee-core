@@ -286,7 +286,7 @@ class Form
 	}
 
 	/**
-	 * automatic rules from the declaration (short messages, shown under the fields)
+	 * automatic rules from the declaration, messages of h2lsoft/validator (translated, [FIELD] = label)
 	 *
 	 * @param \Core\Validator $v
 	 * @param string $table
@@ -305,18 +305,18 @@ class Form
 			$v->input($name, ts($f['label']));
 
 			// password kept when empty on update
-			if($f['required'] && !($f['type'] === 'password' && $id))$v->required('required');
-			if(isset($f['max_length']))$v->maxLength($f['max_length'], '[LENGTH] characters maximum');
+			if($f['required'] && !($f['type'] === 'password' && $id))$v->required();
+			if(isset($f['max_length']))$v->maxLength($f['max_length']);
 
 			match($f['type'])
 			{
-				'email' => $v->email('invalid email address'),
-				'number' => $v->float(false, 'invalid number'),
-				'integer' => $v->integer(false, 'invalid number'),
-				'date' => $v->date('Y-m-d', 'invalid date'),
-				'datetime' => $v->datetime('Y-m-d H:i:s', 'invalid date'),
-				'boolean' => $v->in(['yes', 'no'], 'invalid value'),
-				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options'])), 'invalid value') : null,
+				'email' => $v->email(),
+				'number' => $v->float(false),
+				'integer' => $v->integer(false),
+				'date' => $v->date('Y-m-d'),
+				'datetime' => $v->datetime('Y-m-d H:i:s'),
+				'boolean' => $v->in(['yes', 'no']),
+				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options']))) : null,
 				default => null,
 			};
 

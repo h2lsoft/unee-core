@@ -23,20 +23,28 @@ return [
 	'select between 1 and 500 records' => 'Sélectionnez entre 1 et 500 enregistrements',
 	'column not editable' => 'Colonne non modifiable',
 	'deletion refused' => 'Suppression refusée',
+	'invalid value' => 'Valeur invalide',
 	'missing header X-Requested-With: XMLHttpRequest' => 'En-tête X-Requested-With: XMLHttpRequest manquant',
 	'invalid json body' => 'Corps JSON invalide',
 	'internal server error' => 'Erreur interne du serveur',
 
-	// validator (short messages, shown under the fields)
-	'required' => 'obligatoire',
-	'invalid value' => 'valeur invalide',
-	'invalid email address' => 'adresse e-mail invalide',
-	'invalid number' => 'nombre invalide',
-	'invalid date' => 'date invalide',
-	'already used' => 'déjà utilisé',
-	'[LENGTH] characters maximum' => '[LENGTH] caractères maximum',
-	'[MIN] to [MAX] characters' => '[MIN] à [MAX] caractères',
-	'passwords do not match' => 'les mots de passe ne correspondent pas',
+	// validator: messages missing in h2lsoft/validator locale, [FIELD] = label of the input
+	'`[FIELD]` is already used' => '`[FIELD]` est déjà utilisé',
+	'`[FIELD]` must be a valid JSON array' => '`[FIELD]` doit être un tableau JSON valide',
+	'`[FIELD]` must be a valid JSON object' => '`[FIELD]` doit être un objet JSON valide',
+	'`[FIELD]` must contain [MIN] to [MAX] characters' => '`[FIELD]` doit contenir [MIN] à [MAX] caractères',
+	'`[FIELD]` must be a valid path' => '`[FIELD]` doit être un chemin valide',
+	'`[FIELD]` must contain letters, digits, dots, dashes and underscores only' => '`[FIELD]` doit contenir uniquement des lettres, chiffres, points, tirets et underscores',
+	'`[FIELD]` must contain letters, digits, dashes and underscores only' => '`[FIELD]` doit contenir uniquement des lettres, chiffres, tirets et underscores',
+
+	// labels of the auth inputs
+	'Email address' => 'Adresse e-mail',
+	'Login' => 'Identifiant',
+	'Password' => 'Mot de passe',
+	'New password' => 'Nouveau mot de passe',
+	'Confirm password' => 'Confirmer le mot de passe',
+	'Language' => 'Langue',
+	'Filter name' => 'Nom du filtre',
 
 	// grid and form
 	'Search...' => 'Rechercher...',
@@ -58,14 +66,7 @@ return [
 	'Search name...' => 'Rechercher un nom...',
 	'ex: backend.logo' => 'ex : backend.logo',
 	'existing category or a new one' => 'catégorie existante ou nouvelle',
-	'letters, digits, dashes and underscores only' => 'lettres, chiffres, tirets et underscores uniquement',
-	'url (https://...) or path starting with /' => 'url (https://...) ou chemin commençant par /',
-	'invalid path' => 'chemin invalide',
 	'leave empty to keep the current value' => 'laisser vide pour conserver la valeur actuelle',
-	'letters, digits, dots, dashes and underscores only' => 'lettres, chiffres, points, tirets et underscores uniquement',
-	'true, false, 1 or 0' => 'true, false, 1 ou 0',
-	'invalid json array' => 'tableau JSON invalide',
-	'invalid json object' => 'objet JSON invalide',
 
 	// saved filters
 	'add at least one condition' => 'ajoutez au moins une condition',

@@ -131,13 +131,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 
 	}, [open, module, id])
 
-	// field errors on top: "label: message"
-	const summary = Object.entries(errors).flatMap(([name, messages]) => {
-
-		const label = data?.form.fields.find((f) => f.name === name)?.label ?? name
-		return messages.map((message) => t('[FIELD]: [MESSAGE]', {FIELD: label, MESSAGE: message}))
-
-	})
+	// field errors on top, messages of h2lsoft/validator (they hold the label of the field)
+	const summary = Object.values(errors).flat()
 
 	const submit = async (e: FormEvent) => {
 

@@ -77,7 +77,7 @@ class BackendController extends \Core\Controller
 		$module = (string)$request->request->get('module');
 		if(!\Model\User::hasRight($module, 'list'))return \Core\JsonResponse::error(403, 'access denied');
 
-		$this->validator->input('name')->required('required')->maxLength(255, '[LENGTH] characters maximum');
+		$this->validator->input('name', ts('Filter name'))->required()->maxLength(255);
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
 
@@ -93,7 +93,13 @@ class BackendController extends \Core\Controller
 
 		$name = trim((string)$request->request->get('name'));
 		$found = DB()->query("SELECT id FROM xcore_user_filter WHERE deleted = 'no' AND xcore_user_id = :user_id AND plugin = :plugin AND name = :name", ['user_id' => \Model\User::getUID(), 'plugin' => $module, 'name' => $name])->fetchOne();
-		if($found)return \Core\JsonResponse::error(422, 'validation failed', ['fields' => ['name' => [ts('already used')]]]);
+		if($found)
+		{
+
+			$this->validator->input('name', ts('Filter name'))->addError('`[FIELD]` is already used');
+			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
+
+		}
 
 		$id = (int)DB('xcore_user_filter')->insert([
 			'xcore_user_id' => \Model\User::getUID(),

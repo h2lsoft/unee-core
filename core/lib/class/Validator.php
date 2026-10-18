@@ -25,7 +25,7 @@ class Validator extends \h2lsoft\Data\Validator
 	 *
 	 * @return self
 	 */
-	public function unique(string $table, string $column='', int $exclude_id=0, string $message='already used'):self
+	public function unique(string $table, string $column='', int $exclude_id=0, string $message='`[FIELD]` is already used'):self
 	{
 
 		if($this->escapeChecking())return $this;

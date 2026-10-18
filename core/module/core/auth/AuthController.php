@@ -22,8 +22,9 @@ class AuthController extends \Core\Controller
 	public function login(Request $request):\Core\JsonResponse
 	{
 
-		$this->validator->input('login')->required('required');
-		$this->validator->input('password')->required('required');
+		$login_label = (\Core\Config::get('auth/backend/key') === 'login') ? ts('Login') : ts('Email address');
+		$this->validator->input('login', $login_label)->required();
+		$this->validator->input('password', ts('Password'))->required();
 
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
@@ -70,7 +71,8 @@ class AuthController extends \Core\Controller
 	public function passwordForgot(Request $request):\Core\JsonResponse
 	{
 
-		$this->validator->input('login')->required('required');
+		$login_label = (\Core\Config::get('auth/backend/key') === 'login') ? ts('Login') : ts('Email address');
+		$this->validator->input('login', $login_label)->required();
 
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
@@ -104,10 +106,9 @@ class AuthController extends \Core\Controller
 
 		$password_cfg = \Core\Config::get('auth/security/password');
 
-		// short messages: they are shown under the fields
-		$this->validator->input('token')->required('required');
-		$this->validator->input('password')->required('required')->regex($password_cfg['regex'], ts('[MIN] to [MAX] characters', ['MIN' => $password_cfg['min_length'], 'MAX' => $password_cfg['max_length']]));
-		$this->validator->input('password_confirmation')->required('required')->sameAs('password', 'passwords do not match');
+		$this->validator->input('token')->required();
+		$this->validator->input('password', ts('New password'))->required()->regex($password_cfg['regex'], ts('`[FIELD]` must contain [MIN] to [MAX] characters', ['MIN' => $password_cfg['min_length'], 'MAX' => $password_cfg['max_length']]));
+		$this->validator->input('password_confirmation', ts('Confirm password'))->required()->sameAs('password');
 
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
@@ -170,7 +171,7 @@ class AuthController extends \Core\Controller
 	public function meUpdate(Request $request):\Core\JsonResponse
 	{
 
-		$this->validator->input('language')->required('required')->in(array_keys(\Core\Config::get('backend.languages')), 'invalid value');
+		$this->validator->input('language', ts('Language'))->required()->in(array_keys(\Core\Config::get('backend.languages')));
 
 		if($this->validator->fails())
 			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);

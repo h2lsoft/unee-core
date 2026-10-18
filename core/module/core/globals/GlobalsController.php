@@ -68,19 +68,19 @@ class GlobalsController extends \Core\CrudController
 	protected function rulesOnSubmit(\Core\Validator $v, array $record):void
 	{
 
-		$v->input('name')->regex('/^[a-z0-9_\-]+(\.[a-z0-9_\-]+)*$/i', 'letters, digits, dots, dashes and underscores only');
-		$v->input('category')->regex('/^[a-z0-9_\-]+$/i', 'letters, digits, dashes and underscores only');
+		$v->input('name')->regex('/^[a-z0-9_\-]+(\.[a-z0-9_\-]+)*$/i', '`[FIELD]` must contain letters, digits, dots, dashes and underscores only');
+		$v->input('category')->regex('/^[a-z0-9_\-]+$/i', '`[FIELD]` must contain letters, digits, dashes and underscores only');
 
 		$v->input('value');
 		match((string)$v->inputGet('type'))
 		{
-			'int' => $v->integer(false, 'invalid number'),
-			'float' => $v->float(false, 'invalid number'),
-			'boolean' => $v->in(['true', 'false', '1', '0'], 'true, false, 1 or 0'),
-			'json-array' => $v->jsonArray('invalid json array'),
-			'json-object' => $v->jsonObject('invalid json object'),
+			'int' => $v->integer(false),
+			'float' => $v->float(false),
+			'boolean' => $v->in(['true', 'false', '1', '0']),
+			'json-array' => $v->jsonArray(),
+			'json-object' => $v->jsonObject(),
 			// a path of the site (/upload/logo.png) or an absolute url
-			'url' => (str_starts_with((string)$v->inputGet('value'), '/')) ? $v->regex('#^/[^\s]*$#', 'invalid path') : $v->url(0, 'url (https://...) or path starting with /'),
+			'url' => (str_starts_with((string)$v->inputGet('value'), '/')) ? $v->regex('#^/[^\s]*$#', '`[FIELD]` must be a valid path') : $v->url(0),
 			default => null,
 		};
 
