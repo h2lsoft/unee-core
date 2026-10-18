@@ -158,7 +158,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 	{
 
 		return (
-			<Box component="nav" aria-label={t('Main menu')} sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5}}>
+			<Box component="nav" aria-label={t('Main menu')} sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0}}>
 				<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed onClick={onNavigate} />
 				<Box sx={{width: 32, height: '1px', my: 0.75, bgcolor: BORDER}} />
 				{menu?.map((category) => <RailCategory key={category.name} category={category} active={category.items.some((i) => i.route === current)} />)}
@@ -168,7 +168,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 	}
 
 	return (
-		<Box component="nav" aria-label={t('Main menu')} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
+		<Box component="nav" aria-label={t('Main menu')} sx={{display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0}}>
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
@@ -400,22 +400,21 @@ export default function BackendLayout()
 					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 35}, width: 'auto', ml: {md: '-5px'}}} /></Box>
 					<Box sx={{flexGrow: 1}} />
 					{/* calendar: module calendar (hidden from the menus), shown with its list right */}
-					{!is_mobile && (
-						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-							{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
-							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
-							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
-						</Box>
-					)}
+					<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
+						{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
+						<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
+						{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
+					</Box>
 					<UserMenu compact={is_mobile} />
 				</Box>
 
 				<Box sx={{flexGrow: 1, display: 'flex', minHeight: 0}}>
 					{is_mobile
 						? (
-							<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5}}}}>
+							<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5, display: 'flex', flexDirection: 'column'}}}}>
 								<Box sx={{px: 1, pb: 1.5, pt: 0.5}}><Box component="img" src={logo} alt="logo" sx={{height: 26, width: 'auto'}} /></Box>
 								<Sidebar menu={visible_menu} collapsed={false} onNavigate={() => setDrawer(false)} />
+								<Box sx={{display: 'flex', flexDirection: 'column', mt: 'auto', pt: 1.5}}><ThemeButton collapsed={false} /></Box>
 							</Drawer>
 						)
 						: (

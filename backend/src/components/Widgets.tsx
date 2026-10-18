@@ -51,7 +51,7 @@ function RowsView({rows, empty}: Rows)
 					{row.map((cell, j) => {
 
 						const c = typeof cell === 'string' ? {} : cell
-						return <Box key={j} sx={{minWidth: 0, flex: c.grow ? '1 1 0' : '0 0 auto', width: c.grow ? undefined : c.width, display: 'flex', justifyContent: c.align === 'right' ? 'flex-end' : 'flex-start'}}><CellView cell={cell} /></Box>
+						return <Box key={j} sx={{minWidth: 0, flex: c.grow ? '1 1 0' : '0 1 auto', width: c.grow ? undefined : c.width, overflow: 'hidden', display: 'flex', justifyContent: c.align === 'right' ? 'flex-end' : 'flex-start'}}><CellView cell={cell} /></Box>
 
 					})}
 				</Box>
