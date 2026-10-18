@@ -1,6 +1,6 @@
 <?php
 
-namespace Plugin\Core;
+namespace Plugin\Core_Backend;
 
 use Component\DataGrid;
 use Component\Form;

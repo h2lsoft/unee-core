@@ -1,20 +1,113 @@
-import { Typography } from '@mui/material'
-import { useAuth } from '../auth'
-import { PageHeader } from '../components/BackendLayout'
+import { useEffect, useState } from 'react'
+import { Link as RouterLink } from 'react-router'
+import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
+import { api, type MenuCategory, type MenuItem } from '../api'
 import { useDocumentTitle } from '../components/AuthLayout'
+import { MenuIcon } from '../components/icons'
 import { t } from '../i18n'
 
-// placeholder until the widgets
+const TABS = ['dashboard', 'menu'] as const
+type DashboardTab = typeof TABS[number]
+
+// active tab, per browser (storage may be blocked)
+function readTab(): DashboardTab
+{
+
+	try
+	{
+
+		const value = localStorage.getItem('unee.dashboard.tab')
+		return (TABS as readonly string[]).includes(value ?? '') ? value as DashboardTab : 'dashboard'
+
+	}
+	catch
+	{
+
+		return 'dashboard'
+
+	}
+
+}
+
+function writeTab(tab: DashboardTab)
+{
+
+	try
+	{
+
+		localStorage.setItem('unee.dashboard.tab', tab)
+
+	}
+	catch
+	{
+
+		// private mode: not remembered
+
+	}
+
+}
+
+// plugin of the menu tab: icon and name (two lines), external link for url plugins
+function PluginTile({item}: {item: MenuItem})
+{
+
+	const link = item.url ? {component: 'a', href: item.url, target: '_blank', rel: 'noopener noreferrer'} : {component: RouterLink, to: `/${item.route}/`}
+
+	return (
+		<Box {...link} sx={{height: 120, px: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.25, bgcolor: '#fff', border: '1px solid #e6e8ee', borderRadius: 2, color: '#1f2335', textDecoration: 'none', textAlign: 'center', transition: 'border-color .15s, background-color .15s', '&:hover': {borderColor: '#c9bdff', bgcolor: '#f7f5ff'}}}>
+			<Box component="span" sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={item.icon} fontSize={22} /></Box>
+			<Box component="span" sx={{minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 13.5, fontWeight: 500, lineHeight: 1.3}}>{item.name}</Box>
+		</Box>
+	)
+
+}
+
+/**
+ * home page of the backend (module core-backend/dashboard): tab dashboard (widgets, later), tab menu (plugins allowed, by category)
+ */
 export default function Dashboard()
 {
 
-	const {user} = useAuth()
+	const [tab, setTab] = useState<DashboardTab>(readTab)
+	const [menu, setMenu] = useState<MenuCategory[] | null>(null)
 	useDocumentTitle(t('Dashboard'))
+
+	useEffect(() => {
+
+		api<{menu: MenuCategory[]}>('dashboard/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+
+	}, [])
+
+	const change = (value: DashboardTab) => {
+
+		setTab(value)
+		writeTab(value)
+
+	}
 
 	return (
 		<>
-			<PageHeader title={t('Welcome, [NAME]', {NAME: user?.firstname || user?.login || ''})} />
-			<Typography sx={{fontSize: 14, color: 'text.secondary'}}>{t('Your modules are in the menu.')}</Typography>
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
+				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name="speed" /></Box>
+				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{t('Dashboard')}</Typography>
+			</Box>
+
+			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -1, borderBottom: '1px solid #e6e8ee', '& .MuiTab-root': {minHeight: 40, px: 1.5, textTransform: 'none', fontSize: 14, fontWeight: 500}}}>
+				<Tab value="dashboard" label={t('Dashboard')} />
+				<Tab value="menu" label={t('Menu')} />
+			</Tabs>
+
+			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
+			{tab === 'menu' && menu?.map((category) => (
+				<Box component="section" key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 1.25}}>
+					<Typography component="h2" sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 12, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>
+						<MenuIcon name={category.icon} fontSize={16} />{category.name}
+					</Typography>
+					<Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1.25}}>
+						{category.items.map((item) => <PluginTile key={item.route + (item.url ?? '')} item={item} />)}
+					</Box>
+				</Box>
+			))}
 		</>
 	)
 

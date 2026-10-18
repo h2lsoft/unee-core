@@ -1,6 +1,6 @@
 <?php
 
-namespace Plugin\Core;
+namespace Plugin\Core_Backend;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
