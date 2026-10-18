@@ -100,7 +100,7 @@ export default function Dashboard()
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 			{tab === 'menu' && menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0).map((category) => (
 				<Box component="section" key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 1.25}}>
-					<Typography component="h2" sx={{fontSize: 14, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
+					<Typography component="h2" sx={{fontSize: 13, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
 					<Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1.25}}>
 						{category.items.map((item) => <PluginTile key={item.route + (item.url ?? '')} item={item} />)}
 					</Box>
