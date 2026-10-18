@@ -40,15 +40,15 @@ export default function DetailDialog({module, id, onClose}: {module: string, id:
 					<>
 						<Box component="dl" sx={{m: 0, display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '1fr 1fr'}, columnGap: 3.5}}>
 							{short.map((f) => (
-								<Box key={f.label} sx={{display: 'grid', gridTemplateColumns: '110px 1fr', gap: 1.5, py: 0.75, borderBottom: '1px solid #f1f2f6', fontSize: 13.5}}>
-									<Box component="dt" sx={{color: '#6b7088'}}>{f.label}</Box>
-									<Box component="dd" sx={{m: 0, minWidth: 0, overflowWrap: 'anywhere'}}>{f.value === '' ? <Box component="span" sx={{color: '#9a9fb3'}}>-</Box> : (f.type === 'badge' ? <Badge value={f.value} color={f.color} /> : f.value)}</Box>
+								<Box key={f.label} sx={{display: 'grid', gridTemplateColumns: '110px 1fr', gap: 1.5, py: 0.75, borderBottom: '1px solid var(--u-hover)', fontSize: 13.5}}>
+									<Box component="dt" sx={{color: 'var(--u-muted)'}}>{f.label}</Box>
+									<Box component="dd" sx={{m: 0, minWidth: 0, overflowWrap: 'anywhere'}}>{f.value === '' ? <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box> : (f.type === 'badge' ? <Badge value={f.value} color={f.color} /> : f.value)}</Box>
 								</Box>
 							))}
 						</Box>
 						{wide.map((f) => (
 							<Box key={f.label} sx={{mt: 2}}>
-								<Typography sx={{mb: 0.75, fontSize: 13, fontWeight: 600, color: '#3a3f55'}}>{f.label}</Typography>
+								<Typography sx={{mb: 0.75, fontSize: 13, fontWeight: 600, color: 'var(--u-text2)'}}>{f.label}</Typography>
 								{f.type === 'code'
 									? <CodeEditor value={f.value} language={f.language} readOnly height={Math.min(320, 40 + f.value.split('\n').length * 18)} />
 									: <Typography sx={{fontSize: 14, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'}}>{f.value}</Typography>}

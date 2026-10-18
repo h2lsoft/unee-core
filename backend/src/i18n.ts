@@ -30,6 +30,10 @@ const fr: Record<string, string> = {
 	// layout
 	'Dashboard': 'Tableau de bord',
 	'Collapse menu': 'Réduire le menu',
+	'Theme': 'Thème',
+	'Light': 'Clair',
+	'Dark': 'Sombre',
+	'System': 'Système',
 	'Expand menu': 'Déplier le menu',
 	'Open menu': 'Ouvrir le menu',
 	'Main menu': 'Menu principal',

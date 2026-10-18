@@ -16,6 +16,7 @@ class LayoutController extends \Core\CrudController
 	public string $table = 'xcore_layout';
 	public string $title = 'Layouts';
 	public string $object_label = 'layout';
+	public array $ucfirst = ['category', 'description']; # name is a key, ex: core.mail
 
 	protected function grid(DataGrid $grid):void
 	{

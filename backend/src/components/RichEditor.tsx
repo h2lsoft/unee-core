@@ -62,7 +62,7 @@ export default function RichEditor({id, value, error = false, readOnly = false, 
 		<Tooltip title={label}>
 			<span>
 				<IconButton size="small" aria-label={label} aria-pressed={active} disabled={disabled || readOnly} onMouseDown={(e) => e.preventDefault()} onClick={onClick}
-					sx={{width: 30, height: 30, borderRadius: 1.5, color: active ? 'primary.main' : '#3a3f55', bgcolor: active ? '#f0ecff' : 'transparent'}}>{icon}</IconButton>
+					sx={{width: 30, height: 30, borderRadius: 1.5, color: active ? 'primary.main' : 'var(--u-text2)', bgcolor: active ? 'var(--u-accent-bg)' : 'transparent'}}>{icon}</IconButton>
 			</span>
 		</Tooltip>
 	)
@@ -80,9 +80,9 @@ export default function RichEditor({id, value, error = false, readOnly = false, 
 
 	return (
 		<Box sx={full
-			? {position: 'fixed', inset: 0, zIndex: 1400, bgcolor: '#fff', display: 'flex', flexDirection: 'column'}
-			: {border: '1px solid', borderColor: error ? 'error.main' : '#d5d8e3', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff', '&:focus-within': {borderColor: error ? 'error.main' : 'primary.main'}}}>
-			<Box role="toolbar" aria-label={t('Format')} sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.25, px: 0.75, py: 0.5, bgcolor: '#f5f6f8', borderBottom: '1px solid #e6e8ee'}}>
+			? {position: 'fixed', inset: 0, zIndex: 1400, bgcolor: 'var(--u-paper)', display: 'flex', flexDirection: 'column'}
+			: {border: '1px solid', borderColor: error ? 'error.main' : 'var(--u-border-strong)', borderRadius: 2, overflow: 'hidden', bgcolor: 'var(--u-paper)', '&:focus-within': {borderColor: error ? 'error.main' : 'primary.main'}}}>
+			<Box role="toolbar" aria-label={t('Format')} sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.25, px: 0.75, py: 0.5, bgcolor: 'var(--u-head)', borderBottom: '1px solid var(--u-border)'}}>
 				{button(t('Bold'), <FormatBoldOutlined fontSize="small" />, () => chain().toggleBold().run(), state?.bold, in_source)}
 				{button(t('Underline'), <FormatUnderlinedOutlined fontSize="small" />, () => chain().toggleUnderline().run(), state?.underline, in_source)}
 				{button(t('Italic'), <FormatItalicOutlined fontSize="small" />, () => chain().toggleItalic().run(), state?.italic, in_source)}
@@ -102,12 +102,12 @@ export default function RichEditor({id, value, error = false, readOnly = false, 
 
 			{source
 				? <Box component="textarea" id={id} value={value} readOnly={readOnly} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value)} spellCheck={false}
-					sx={{display: 'block', width: '100%', minHeight: full ? 'calc(100vh - 42px)' : 220, boxSizing: 'border-box', p: 1.5, border: 0, outline: 0, resize: 'vertical', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 12.5, lineHeight: 1.6, color: '#1f2335'}} />
+					sx={{display: 'block', width: '100%', minHeight: full ? 'calc(100vh - 42px)' : 220, boxSizing: 'border-box', p: 1.5, border: 0, outline: 0, resize: 'vertical', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 12.5, lineHeight: 1.6, color: 'var(--u-text)'}} />
 				: <Box sx={{flexGrow: 1, overflowY: 'auto', '& .tiptap': {minHeight: full ? 'calc(100vh - 42px)' : 220, boxSizing: 'border-box', px: 1.75, py: 1.25, outline: 0, fontSize: 14, lineHeight: 1.6}, '& .tiptap p': {m: '0 0 8px'}, '& .tiptap ul, & .tiptap ol': {pl: 3, m: '0 0 8px'}, '& .tiptap mark': {bgcolor: '#fff3a3', px: '2px'}, '& .tiptap a': {color: 'primary.main'}}}>
 					<EditorContent editor={editor} id={id} />
 				</Box>}
 
-			<Popover open={!!link_anchor} anchorEl={link_anchor} onClose={() => setLinkAnchor(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'left'}} slotProps={{paper: {sx: {mt: 0.5, p: 1.25, display: 'flex', gap: 1, border: '1px solid #e6e8ee', boxShadow: '0 12px 32px rgba(16, 20, 40, 0.14)'}}}}>
+			<Popover open={!!link_anchor} anchorEl={link_anchor} onClose={() => setLinkAnchor(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'left'}} slotProps={{paper: {sx: {mt: 0.5, p: 1.25, display: 'flex', gap: 1, border: '1px solid var(--u-border)', boxShadow: '0 12px 32px rgba(16, 20, 40, 0.14)'}}}}>
 				<OutlinedInput autoFocus size="small" value={link} onChange={(e) => setLink(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter'){ e.preventDefault(); applyLink() } }} placeholder="https://" inputProps={{'aria-label': t('Link')}} sx={{width: 280, height: 36}} />
 				<Button variant="contained" onClick={applyLink} sx={{height: 36}}>{t('Apply')}</Button>
 			</Popover>

@@ -8,7 +8,7 @@ export default function RichText(props: ComponentProps<typeof Editor>)
 {
 
 	return (
-		<Suspense fallback={<Box sx={{height: 264, border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fff'}} />}>
+		<Suspense fallback={<Box sx={{height: 264, border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)'}} />}>
 			<Editor {...props} />
 		</Suspense>
 	)

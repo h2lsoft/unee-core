@@ -1,17 +1,17 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { useColorScheme } from '@mui/material/styles'
 import { Avatar, Box, Button, ButtonBase, Dialog, DialogActions, DialogTitle, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DeleteOutlineOutlined, PersonOutlined, TaskAltOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
+import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DarkModeOutlined, LightModeOutlined, SettingsBrightnessOutlined, DeleteOutlineOutlined, PersonOutlined, TaskAltOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
 import { api, DATA_CHANGED_EVENT, type Bookmark, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
-import { useLoginConfig } from './AuthLayout'
+import { useLoginConfig, useLogo } from './AuthLayout'
 import { MenuIcon } from './icons'
 import FormDialog from './FormDialog'
 
-const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
 const COLLAPSED_KEY = 'unee.menu.collapsed'
-const BORDER = '#eceef3'
+const BORDER = 'var(--u-border)'
 
 type MenuState = {menu: MenuCategory[] | null, find: (route: string) => MenuEntry | null, bookmarks: Bookmark[], toggleBookmark: (route: string) => Promise<void>}
 const MenuContext = createContext<MenuState>({menu: null, find: () => null, bookmarks: [], toggleBookmark: async () => {}})
@@ -80,14 +80,14 @@ function SideLink({to, icon, label, collapsed, onClick, external}: {to: string, 
 		alignItems: 'center',
 		gap: 1.5,
 		borderRadius: 2,
-		color: '#3a3f55',
+		color: 'var(--u-text2)',
 		fontSize: 14,
 		textDecoration: 'none',
 		justifyContent: collapsed ? 'center' : 'flex-start',
 		width: collapsed ? 44 : 'auto',
 		px: collapsed ? 0 : 1.5,
-		'&:hover': {bgcolor: '#f2f3f7', color: '#1f2335'},
-		'&.active': {bgcolor: '#f0ecff', color: '#4b2fd6', fontWeight: 500},
+		'&:hover': {bgcolor: 'var(--u-hover)', color: 'var(--u-text)'},
+		'&.active': {bgcolor: 'var(--u-accent-bg)', color: 'var(--u-accent-text)', fontWeight: 500},
 	}
 
 	const content = (external)
@@ -131,13 +131,13 @@ function RailCategory({category, active}: {category: MenuCategory, active: boole
 				onMouseEnter={(e) => open(e.currentTarget)}
 				onMouseLeave={close}
 				onClick={(e) => (anchor) ? setAnchor(null) : open(e.currentTarget)}
-				sx={{width: 44, height: 40, borderRadius: 2, color: on ? '#4b2fd6' : '#5b6178', bgcolor: on ? '#f0ecff' : 'transparent', '&:hover': {bgcolor: on ? '#f0ecff' : '#f2f3f7'}}}
+				sx={{width: 44, height: 40, borderRadius: 2, color: on ? 'var(--u-accent-text)' : 'var(--u-text3)', bgcolor: on ? 'var(--u-accent-bg)' : 'transparent', '&:hover': {bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-hover)'}}}
 			>
 				<MenuIcon name={category.icon} />
 			</ButtonBase>
 			<Popper open={!!anchor} anchorEl={anchor} placement="right-start" modifiers={[{name: 'offset', options: {offset: [0, 8]}}]} sx={{zIndex: 1300}} onMouseEnter={() => window.clearTimeout(timer.current)} onMouseLeave={close}>
 				<Paper role="menu" aria-label={category.name} elevation={0} sx={{width: 240, p: 1, display: 'flex', flexDirection: 'column', gap: 0.25, border: `1px solid ${BORDER}`, borderRadius: '10px', boxShadow: '0 8px 24px rgba(16, 20, 40, 0.12)'}}>
-					<Typography component="p" sx={{m: '4px 12px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
+					<Typography component="p" sx={{m: '4px 12px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={() => setAnchor(null)} />
 					))}
@@ -172,7 +172,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
-					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}><MenuIcon name={category.icon} fontSize={15} />{category.name}</Typography>
+					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}><MenuIcon name={category.icon} fontSize={15} />{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={onNavigate} />
 					))}
@@ -200,15 +200,49 @@ function BookmarksMenu({bookmarks, onRemove}: {bookmarks: Bookmark[], onRemove: 
 
 	return (
 		<>
-			<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} onClick={(e) => setAnchor(e.currentTarget)} sx={{width: 40, height: 40, borderRadius: 2, color: anchor ? 'primary.main' : '#5b6178'}}>{bookmarks.length ? <BookmarkOutlined sx={{fontSize: 24}} /> : <BookmarkBorderOutlined sx={{fontSize: 24}} />}</IconButton></Tooltip>
+			<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} onClick={(e) => setAnchor(e.currentTarget)} sx={{width: 40, height: 40, borderRadius: 2, color: anchor ? 'primary.main' : 'var(--u-text3)'}}>{bookmarks.length ? <BookmarkOutlined sx={{fontSize: 24}} /> : <BookmarkBorderOutlined sx={{fontSize: 24}} />}</IconButton></Tooltip>
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={{paper: {sx: {minWidth: 260, maxWidth: 340, mt: 0.5}}}}>
-				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{t('Bookmarks')}</Typography>
-				{bookmarks.length === 0 && <Typography component="li" sx={{listStyle: 'none', px: 2, py: 1, fontSize: 13, color: '#6b7088', whiteSpace: 'normal'}}>{t('No bookmark yet: use the bookmark icon next to the title of a module.')}</Typography>}
+				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{t('Bookmarks')}</Typography>
+				{bookmarks.length === 0 && <Typography component="li" sx={{listStyle: 'none', px: 2, py: 1, fontSize: 13, color: 'var(--u-muted)', whiteSpace: 'normal'}}>{t('No bookmark yet: use the bookmark icon next to the title of a module.')}</Typography>}
 				{bookmarks.map((b) => (
 					<MenuItem key={b.route} onClick={() => open(b)} sx={{pr: 0.5}}>
 						<ListItemIcon><MenuIcon name={b.icon} fontSize={20} /></ListItemIcon>
 						<ListItemText>{b.name}</ListItemText>
-						<IconButton size="small" aria-label={`${t('Remove')} ${b.name}`} onClick={(e) => { e.stopPropagation(); onRemove(b.route) }} sx={{ml: 1, color: '#5b6178'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>
+						<IconButton size="small" aria-label={`${t('Remove')} ${b.name}`} onClick={(e) => { e.stopPropagation(); onRemove(b.route) }} sx={{ml: 1, color: 'var(--u-text3)'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>
+					</MenuItem>
+				))}
+			</Menu>
+		</>
+	)
+
+}
+
+const THEMES = [
+	{mode: 'light', label: 'Light', icon: LightModeOutlined},
+	{mode: 'dark', label: 'Dark', icon: DarkModeOutlined},
+	{mode: 'system', label: 'System', icon: SettingsBrightnessOutlined},
+] as const
+
+// theme of the interface (above the collapse button): light by default, dark or the setting of the system
+function ThemeButton({collapsed}: {collapsed: boolean})
+{
+
+	const {mode, setMode} = useColorScheme()
+	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+	const current = THEMES.find((th) => th.mode === mode) ?? THEMES[0]
+	const Icon = current.icon
+
+	return (
+		<>
+			<ButtonBase onClick={(e) => setAnchor(e.currentTarget)} aria-label={t('Theme')} aria-haspopup="menu" sx={{mt: 'auto', height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: 'var(--u-text3)', fontSize: 13, '&:hover': {bgcolor: 'var(--u-hover)'}}}>
+				<Icon sx={{fontSize: 20}} />{!collapsed && t('Theme')}
+			</ButtonBase>
+			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} anchorOrigin={{vertical: 'top', horizontal: 'right'}} transformOrigin={{vertical: 'bottom', horizontal: 'left'}} slotProps={{paper: {sx: {minWidth: 180, ml: 1}}}}>
+				{THEMES.map((th) => (
+					<MenuItem key={th.mode} selected={th.mode === current.mode} onClick={() => { setMode(th.mode); setAnchor(null) }} sx={{fontSize: 14}}>
+						<ListItemIcon><th.icon fontSize="small" /></ListItemIcon>
+						<ListItemText disableTypography>{t(th.label)}</ListItemText>
+						{th.mode === current.mode && <CheckOutlined fontSize="small" sx={{ml: 2, color: 'primary.main'}} />}
 					</MenuItem>
 				))}
 			</Menu>
@@ -241,7 +275,7 @@ function UserMenu({compact}: {compact: boolean})
 							<Typography component="span" sx={{fontSize: 13, fontWeight: 600}}>{name}</Typography>
 							<Typography component="span" sx={{fontSize: 12, color: 'text.secondary'}}>{user.group_name}</Typography>
 						</Box>
-						<KeyboardArrowDownOutlined sx={{fontSize: 18, color: '#5b6178'}} />
+						<KeyboardArrowDownOutlined sx={{fontSize: 18, color: 'var(--u-text3)'}} />
 					</>
 				)}
 			</ButtonBase>
@@ -355,20 +389,20 @@ export default function BackendLayout()
 	const find = (route: string) => menu?.flatMap((c) => c.items).find((i) => i.route === route) ?? null
 	// hidden plugins (ex: my tasks) open by their page, they are not listed
 	const visible_menu = menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0) ?? null
-	const logo = config?.logo || DEFAULT_LOGO
+	const logo = useLogo(config)
 
 	return (
 		<MenuContext.Provider value={{menu, find, bookmarks, toggleBookmark}}>
-			<Box sx={{minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f7f8fb', color: 'text.primary'}}>
+			<Box sx={{minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'var(--u-bg)', color: 'text.primary'}}>
 
-				<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || '#fff', borderBottom: `1px solid ${BORDER}`, boxShadow: '0 2px 6px rgba(16, 20, 40, 0.06)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
+				<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-paper)', borderBottom: `1px solid ${BORDER}`, boxShadow: '0 2px 6px rgba(16, 20, 40, 0.06)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
 					{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
 					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 35}, width: 'auto', ml: {md: '-5px'}}} /></Box>
 					<Box sx={{flexGrow: 1}} />
 					{/* calendar: placeholder until the agenda module */}
 					{!is_mobile && (
 						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
+							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
 							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
 							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
 						</Box>
@@ -385,9 +419,10 @@ export default function BackendLayout()
 							</Drawer>
 						)
 						: (
-							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: '#fff', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto', overflowX: 'hidden'}}>
+							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: 'var(--u-paper)', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto', overflowX: 'hidden'}}>
 								<Sidebar menu={visible_menu} collapsed={collapsed} />
-								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{mt: 'auto', height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: '#5b6178', fontSize: 13, '&:hover': {bgcolor: '#f2f3f7'}}}>
+								<ThemeButton collapsed={collapsed} />
+								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: 'var(--u-text3)', fontSize: 13, '&:hover': {bgcolor: 'var(--u-hover)'}}}>
 									{collapsed ? <MenuOpenOutlined sx={{fontSize: 20, transform: 'scaleX(-1)'}} /> : <><MenuOpenOutlined sx={{fontSize: 20}} />{t('Collapse menu')}</>}
 								</ButtonBase>
 							</Box>

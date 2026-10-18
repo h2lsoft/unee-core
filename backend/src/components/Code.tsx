@@ -8,7 +8,7 @@ export default function Code(props: ComponentProps<typeof Editor>)
 {
 
 	return (
-		<Suspense fallback={<Box sx={{height: props.height ?? 260, border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fbfbfd'}} />}>
+		<Suspense fallback={<Box sx={{height: props.height ?? 260, border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-head)'}} />}>
 			<Editor {...props} />
 		</Suspense>
 	)

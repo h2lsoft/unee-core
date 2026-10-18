@@ -17,19 +17,19 @@ import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
 
-const BORDER = '#e6e8ee'
-const ROW_BORDER = '#eef0f4'
-const HEAD_BG = '#f5f6f8'
+const BORDER = 'var(--u-border)'
+const ROW_BORDER = 'var(--u-border-soft)'
+const HEAD_BG = 'var(--u-head)'
 
 // badge palette (DataGrid::addColBadge colors)
 const BADGES: Record<string, {bg: string, fg: string}> = {
-	grey: {bg: '#eef0f5', fg: '#3a3f55'},
-	orange: {bg: '#fbf1e6', fg: '#9a5a1e'},
-	red: {bg: '#fde4e8', fg: '#b0164e'},
-	green: {bg: '#e3f4ef', fg: '#0f6a55'},
-	blue: {bg: '#e6f0fd', fg: '#1d4f91'},
-	purple: {bg: '#efe9ff', fg: '#4b2fd6'},
-	yellow: {bg: '#fff6d6', fg: '#7a5b00'},
+	grey: {bg: 'var(--u-border-soft)', fg: 'var(--u-text2)'},
+	orange: {bg: 'var(--u-orange-bg)', fg: 'var(--u-orange)'},
+	red: {bg: 'var(--u-red-bg)', fg: 'var(--u-red)'},
+	green: {bg: 'var(--u-green-bg)', fg: 'var(--u-green)'},
+	blue: {bg: 'var(--u-blue-bg)', fg: 'var(--u-blue)'},
+	purple: {bg: 'var(--u-accent-bg)', fg: 'var(--u-accent-text)'},
+	yellow: {bg: 'var(--u-yellow-bg)', fg: 'var(--u-yellow)'},
 	cyan: {bg: '#1fb3e6', fg: '#ffffff'},
 }
 
@@ -69,13 +69,13 @@ const tab_sx = (on: boolean) => ({
 	gap: 0.75,
 	flexShrink: 0,
 	border: '1px solid',
-	borderColor: on ? '#c9bdff' : '#e3e5ec',
+	borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)',
 	borderRadius: 1,
-	bgcolor: on ? '#f0ecff' : HEAD_BG,
-	color: on ? '#4b2fd6' : '#3a3f55',
+	bgcolor: on ? 'var(--u-accent-bg)' : HEAD_BG,
+	color: on ? 'var(--u-accent-text)' : 'var(--u-text2)',
 	fontWeight: on ? 500 : 400,
 	fontSize: 13,
-	'&:hover': {bgcolor: on ? '#f0ecff' : '#eceef3'},
+	'&:hover': {bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-border)'},
 })
 
 const menu_paper = {paper: {sx: {minWidth: 230, mt: 0.5, border: `1px solid ${BORDER}`, boxShadow: '0 12px 32px rgba(16, 20, 40, 0.14)'}}}
@@ -183,7 +183,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	}
 
-	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: '#9a9fb3'}}>-</Box>
+	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
 
 	const text = String(value)
 
@@ -198,10 +198,10 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	if(column.type === 'chip')return <ListChip label={text} className={String(row[column.class_column ?? ''] ?? '')} css={String(row[column.style_column ?? ''] ?? '')} icon={String(row[column.icon_column ?? ''] ?? '')} />
 	if(column.type === 'badge')return <Badge value={column.labels?.[text] ?? text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
-	if(column.type === 'tags')return <Box component="span" sx={{display: 'inline-flex', flexWrap: 'wrap', gap: 0.5}}>{text.split('|').map((tag) => <Chip key={tag} label={tag} size="small" sx={{height: 20, fontSize: 11, bgcolor: '#eef0f5'}} />)}</Box>
+	if(column.type === 'tags')return <Box component="span" sx={{display: 'inline-flex', flexWrap: 'wrap', gap: 0.5}}>{text.split('|').map((tag) => <Chip key={tag} label={tag} size="small" sx={{height: 20, fontSize: 11, bgcolor: 'var(--u-border-soft)'}} />)}</Box>
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
-	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: '#3a3f55'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
+	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: 'var(--u-text2)'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
 	if(column.type === 'date' || column.type === 'datetime')return <>{formatDate(text, column.type === 'datetime')}</>
 	return <>{text}</>
 
@@ -278,7 +278,7 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 					<IconButton size="small" aria-label={t('Close')} onClick={onClose}><CloseOutlined fontSize="small" /></IconButton>
 				</Box>
 
-				<Box sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 13, color: '#5b6178'}}>
+				<Box sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 13, color: 'var(--u-text3)'}}>
 					{t('Match')}
 					<Select size="small" value={draft_match} onChange={(e) => setDraftMatch(e.target.value as 'all' | 'any')} sx={{...control, width: 170}} inputProps={{'aria-label': t('Match')}}>
 						<MenuItem value="all">{t('all conditions')}</MenuItem>
@@ -307,7 +307,7 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 									</Select>
 								)
 								: <OutlinedInput size="small" disabled={no_value(c.o)} type={filter.type === 'date' ? 'date' : (filter.type === 'number' && c.o !== 'in' ? 'number' : 'text')} value={no_value(c.o) ? '' : c.v} onChange={(e) => set(i, {v: e.target.value})} sx={{...control, flexGrow: 1, minWidth: 0}} inputProps={{'aria-label': t('Value')}} />}
-							<IconButton aria-label={t('Remove condition')} onClick={() => setDraft(draft.length > 1 ? draft.filter((_, j) => j !== i) : [empty()])} sx={{width: 34, height: 34, color: '#5b6178'}}><DeleteOutlineOutlined sx={{fontSize: 18}} /></IconButton>
+							<IconButton aria-label={t('Remove condition')} onClick={() => setDraft(draft.length > 1 ? draft.filter((_, j) => j !== i) : [empty()])} sx={{width: 34, height: 34, color: 'var(--u-text3)'}}><DeleteOutlineOutlined sx={{fontSize: 18}} /></IconButton>
 						</Box>
 					)
 
@@ -336,7 +336,7 @@ function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction
 
 	return (
 		<>
-			<IconButton size="small" aria-label={t('More actions')} onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget) }} sx={{width: 34, height: 34, color: '#5b6178'}}><MoreVertOutlined sx={{fontSize: 18}} /></IconButton>
+			<IconButton size="small" aria-label={t('More actions')} onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget) }} sx={{width: 34, height: 34, color: 'var(--u-text3)'}}><MoreVertOutlined sx={{fontSize: 18}} /></IconButton>
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}>
 				{can_edit && <MenuItem onClick={() => { setAnchor(null); onEdit(row) }}><ListItemIcon><EditOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Edit')}</ListItemText></MenuItem>}
 				{actions.map((a) => <MenuItem key={a.name} onClick={() => { setAnchor(null); onAction(row, a) }}><ListItemIcon><MenuIcon name={a.icon} fontSize={20} /></ListItemIcon><ListItemText>{a.label}</ListItemText></MenuItem>)}
@@ -404,7 +404,7 @@ function SaveFilterDialog({module, draft, onClose, onSaved}: {module: string, dr
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
 			</DialogTitle>
 			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.5}}>
-				{error && <Box role="alert" sx={{px: 2, py: 1.25, borderRadius: '6px', bgcolor: '#fdecee', color: '#b3261e', fontSize: 14}}>{error}</Box>}
+				{error && <Box role="alert" sx={{px: 2, py: 1.25, borderRadius: '6px', bgcolor: 'var(--u-error-bg)', color: 'var(--u-error)', fontSize: 14}}>{error}</Box>}
 				<OutlinedInput autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Filter name')} error={!!error} inputProps={{maxLength: 255, 'aria-label': t('Filter name')}} />
 				<FormControlLabel control={<Checkbox size="small" checked={shared} onChange={(e) => setShared(e.target.checked)} />} label={t('Share')} slotProps={{typography: {sx: {fontSize: 14}}}} />
 			</DialogContent>
@@ -452,9 +452,9 @@ function PageInput({page, last, onChange}: {page: number, last: number, onChange
 			sx={{
 				width: 52,
 				height: 30,
-				border: '1px solid #d5d8e3',
+				border: '1px solid var(--u-border-strong)',
 				borderRadius: 1,
-				bgcolor: '#fff',
+				bgcolor: 'var(--u-paper)',
 				fontSize: 13,
 				'& input': {textAlign: 'center', p: 0, MozAppearance: 'textfield'},
 				'& input::-webkit-inner-spin-button, & input::-webkit-outer-spin-button': {WebkitAppearance: 'none', m: 0},
@@ -903,14 +903,14 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	// search with the grid menu and the advanced filters
 	const search_group = (
-		<Box sx={{height: 40, display: 'flex', alignItems: 'stretch', border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fff', width: {xs: '100%', md: 'auto'}, order: {xs: 3, md: 0}}}>
-			<Box component="label" sx={{width: {xs: 'auto', md: 300}, flexGrow: {xs: 1, md: 0}, display: 'flex', alignItems: 'center', gap: 1, px: 1.5, color: '#6b7088'}}>
+		<Box sx={{height: 40, display: 'flex', alignItems: 'stretch', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', width: {xs: '100%', md: 'auto'}, order: {xs: 3, md: 0}}}>
+			<Box component="label" sx={{width: {xs: 'auto', md: 300}, flexGrow: {xs: 1, md: 0}, display: 'flex', alignItems: 'center', gap: 1, px: 1.5, color: 'var(--u-muted)'}}>
 				<SearchOutlined sx={{fontSize: 18}} />
 				<InputBase type="search" placeholder={grid.search?.placeholder ?? t('Search')} disabled={!grid.search} value={search} onChange={(e) => setSearch(e.target.value)} inputProps={{'aria-label': t('Search')}} sx={{flexGrow: 1, fontSize: 14}} />
 			</Box>
-			<ButtonBase aria-label={t('Grid menu')} onClick={(e) => setGridMenu(e.currentTarget)} sx={{width: 40, borderLeft: '1px solid #e3e5ec', color: '#5b6178'}}><MoreVertOutlined sx={{fontSize: 18}} /></ButtonBase>
+			<ButtonBase aria-label={t('Grid menu')} onClick={(e) => setGridMenu(e.currentTarget)} sx={{width: 40, borderLeft: '1px solid var(--u-border)', color: 'var(--u-text3)'}}><MoreVertOutlined sx={{fontSize: 18}} /></ButtonBase>
 			{grid.filters.length > 0 && (
-				<ButtonBase aria-label={t('Advanced filters')} aria-pressed={filters_on} onClick={(e) => setFiltersAnchor(e.currentTarget.parentElement)} sx={{width: 40, borderLeft: '1px solid #e3e5ec', borderRadius: '0 8px 8px 0', bgcolor: (filters_on || filters_anchor) ? '#f0ecff' : 'transparent', color: (filters_on || filters_anchor) ? '#4b2fd6' : '#5b6178'}}>
+				<ButtonBase aria-label={t('Advanced filters')} aria-pressed={filters_on} onClick={(e) => setFiltersAnchor(e.currentTarget.parentElement)} sx={{width: 40, borderLeft: '1px solid var(--u-border)', borderRadius: '0 8px 8px 0', bgcolor: (filters_on || filters_anchor) ? 'var(--u-accent-bg)' : 'transparent', color: (filters_on || filters_anchor) ? 'var(--u-accent-text)' : 'var(--u-text3)'}}>
 					{filters_on ? <FilterAltOutlined sx={{fontSize: 18}} /> : <KeyboardArrowDownOutlined sx={{fontSize: 20}} />}
 				</ButtonBase>
 			)}
@@ -919,16 +919,16 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	const sort_icon = (c: GridColumn) => {
 
-		if(grid.sort.column !== c.name)return <ArrowDropDownOutlined sx={{fontSize: 18, color: '#c4c7d4'}} />
-		return (grid.sort.dir === 'asc') ? <ArrowDropUpOutlined sx={{fontSize: 18, color: 'primary.main'}} /> : <ArrowDropDownOutlined sx={{fontSize: 18, color: '#1f2335'}} />
+		if(grid.sort.column !== c.name)return <ArrowDropDownOutlined sx={{fontSize: 18, color: 'var(--u-border-strong)'}} />
+		return (grid.sort.dir === 'asc') ? <ArrowDropUpOutlined sx={{fontSize: 18, color: 'primary.main'}} /> : <ArrowDropDownOutlined sx={{fontSize: 18, color: 'var(--u-text)'}} />
 
 	}
 
 	// checkbox of the page and the menu of the batch actions
 	const selection_control = (
-		<Box sx={{height: 30, display: 'inline-flex', alignItems: 'center', border: '1px solid #e3e5ec', borderRadius: 1.5, bgcolor: '#fff'}}>
+		<Box sx={{height: 30, display: 'inline-flex', alignItems: 'center', border: '1px solid var(--u-border)', borderRadius: 1.5, bgcolor: 'var(--u-paper)'}}>
 			<Checkbox size="small" checked={all_selected} indeterminate={!all_selected && selected.length > 0} onChange={() => setSelected(all_selected ? [] : grid.rows.map((r) => r.id))} slotProps={{input: {'aria-label': t('Select page')}}} sx={{p: '0 2px 0 6px'}} />
-			<ButtonBase aria-label={t('Selection menu')} onClick={(e) => setSelectionMenu(e.currentTarget)} sx={{height: '100%', pr: 0.25, color: '#5b6178'}}><ArrowDropDownOutlined sx={{fontSize: 18}} /></ButtonBase>
+			<ButtonBase aria-label={t('Selection menu')} onClick={(e) => setSelectionMenu(e.currentTarget)} sx={{height: '100%', pr: 0.25, color: 'var(--u-text3)'}}><ArrowDropDownOutlined sx={{fontSize: 18}} /></ButtonBase>
 		</Box>
 	)
 
@@ -936,21 +936,21 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	if(grid.rows.length === 0)
 	{
 
-		body = <Box sx={{py: 6, textAlign: 'center', color: '#6b7088', fontSize: 14}}>{t('No results')}</Box>
+		body = <Box sx={{py: 6, textAlign: 'center', color: 'var(--u-muted)', fontSize: 14}}>{t('No results')}</Box>
 
 	}
 	else if(is_mobile)
 	{
 
 		body = grid.rows.map((row) => (
-			<Box key={row.id} onClick={() => grid.detail ? setDetailId(row.id) : (can_edit && onEdit(row))} sx={{display: 'flex', alignItems: 'center', gap: 1.5, p: '12px 8px 12px 16px', borderBottom: `1px solid ${ROW_BORDER}`, cursor: (can_edit || grid.detail) ? 'pointer' : 'default', bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent'}}>
+			<Box key={row.id} onClick={() => grid.detail ? setDetailId(row.id) : (can_edit && onEdit(row))} sx={{display: 'flex', alignItems: 'center', gap: 1.5, p: '12px 8px 12px 16px', borderBottom: `1px solid ${ROW_BORDER}`, cursor: (can_edit || grid.detail) ? 'pointer' : 'default', bgcolor: selected.includes(row.id) ? 'var(--u-accent-hover)' : 'transparent'}}>
 				{batch && <Checkbox size="small" checked={selected.includes(row.id)} onClick={(e) => e.stopPropagation()} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{ml: -1}} />}
 				<Box sx={{flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5}}>
 					<Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
 						<Typography component="span" noWrap sx={{fontSize: 14, fontWeight: 500}}>{String(row[mobile_title.name] ?? '')}</Typography>
 						{mobile_badge && mobile_badge !== mobile_title && row[mobile_badge.name] ? <Badge value={String(row[mobile_badge.name])} color={mobile_badge.colors?.[String(row[mobile_badge.name])]} /> : null}
 					</Box>
-					{mobile_subtitle && <Typography component="span" noWrap sx={{fontSize: 13, color: '#5b6178'}}><Cell column={mobile_subtitle} row={row} can_edit={can_edit} onToggle={toggle} /></Typography>}
+					{mobile_subtitle && <Typography component="span" noWrap sx={{fontSize: 13, color: 'var(--u-text3)'}}><Cell column={mobile_subtitle} row={row} can_edit={can_edit} onToggle={toggle} /></Typography>}
 				</Box>
 				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} />
 			</Box>
@@ -960,7 +960,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	else
 	{
 
-		const th = {height: 38, p: '0 12px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, fontWeight: 600, color: '#5b6178', textTransform: 'uppercase' as const, letterSpacing: '0.04em', whiteSpace: 'nowrap' as const}
+		const th = {height: 38, p: '0 12px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, fontWeight: 600, color: 'var(--u-text3)', textTransform: 'uppercase' as const, letterSpacing: '0.04em', whiteSpace: 'nowrap' as const}
 		const td = {height: 40, p: '0 12px', borderBottom: `1px solid ${ROW_BORDER}`}
 
 		body = (
@@ -976,19 +976,19 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 						{columns.map((c, i) => (
 							<Box component="th" key={c.name} sx={{...th, width: c.width, textAlign: alignOf(c), pl: (i === 0 && !batch) ? 2 : 1.5}} aria-sort={grid.sort.column === c.name ? (grid.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
 								{c.sortable
-									? <ButtonBase onClick={() => sortBy(c)} sx={{font: 'inherit', color: grid.sort.column === c.name ? '#1f2335' : 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', gap: 0.25}}>{sort_icon(c)}{c.label}</ButtonBase>
+									? <ButtonBase onClick={() => sortBy(c)} sx={{font: 'inherit', color: grid.sort.column === c.name ? 'var(--u-text)' : 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', gap: 0.25}}>{sort_icon(c)}{c.label}</ButtonBase>
 									: c.label}
 							</Box>
 						))}
 						<Box component="th" sx={{...th, width: 84, pr: 1.5, textAlign: 'right'}}>
 							<Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Actions')}</Box>
-							<IconButton aria-label={t('Columns')} title={t('Columns')} onClick={(e) => setColumnsMenu(e.currentTarget)} sx={{width: 30, height: 30, color: columns_menu || hidden.length ? 'primary.main' : '#5b6178'}}><ViewColumnOutlined sx={{fontSize: 18}} /></IconButton>
+							<IconButton aria-label={t('Columns')} title={t('Columns')} onClick={(e) => setColumnsMenu(e.currentTarget)} sx={{width: 30, height: 30, color: columns_menu || hidden.length ? 'primary.main' : 'var(--u-text3)'}}><ViewColumnOutlined sx={{fontSize: 18}} /></IconButton>
 						</Box>
 					</Box>
 				</thead>
 				<tbody>
 					{rows.map((row) => (
-						<Box component="tr" key={row.id} onClick={() => grid.detail && setDetailId(row.id)} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{cursor: grid.detail ? 'pointer' : 'default', opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? '#f7f5ff' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? '#f2eeff' : '#f8f9fb'}}}>
+						<Box component="tr" key={row.id} onClick={() => grid.detail && setDetailId(row.id)} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{cursor: grid.detail ? 'pointer' : 'default', opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? 'var(--u-accent-hover)' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? 'var(--u-accent-bg)' : 'var(--u-head)'}}}>
 							{grid.position && (
 								<Box component="td" sx={{...td, p: '0 0 0 10px', width: 36}}>
 									{can_drag && (
@@ -1006,7 +1006,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 											}}
 											onDragEnd={endDrag}
-											sx={{display: 'flex', cursor: 'grab', color: '#9a9fb3', '&:hover': {color: '#3a3f55'}}}
+											sx={{display: 'flex', cursor: 'grab', color: 'var(--u-faint)', '&:hover': {color: 'var(--u-text2)'}}}
 										>
 											<DragIndicatorOutlined sx={{fontSize: 18}} />
 										</Box>
@@ -1015,7 +1015,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 							)}
 							{batch && <Box component="td" sx={{...td, p: '0 0 0 16px'}}><Checkbox size="small" checked={selected.includes(row.id)} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{p: 0}} /></Box>}
 							{columns.map((c, i) => (
-								<Box component="td" key={c.name} sx={{...td, pl: (i === 0 && !batch) ? 2 : 1.5, textAlign: alignOf(c), color: c.name === 'id' ? '#5b6178' : '#1f2335', fontWeight: c.name === grid.mobile.title ? 500 : 400, maxWidth: c.width ? undefined : 420, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+								<Box component="td" key={c.name} sx={{...td, pl: (i === 0 && !batch) ? 2 : 1.5, textAlign: alignOf(c), color: c.name === 'id' ? 'var(--u-text3)' : 'var(--u-text)', fontWeight: c.name === grid.mobile.title ? 500 : 400, maxWidth: c.width ? undefined : 420, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
 									<Cell column={c} row={row} can_edit={can_edit} onToggle={toggle} />
 								</Box>
 							))}
@@ -1033,21 +1033,21 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	}
 
-	const pg_btn = {width: 30, height: 30, borderRadius: 1.5, color: '#3a3f55', '&:hover': {bgcolor: '#eceef3', color: 'primary.main'}, '&.Mui-disabled': {color: '#c4c7d4'}}
+	const pg_btn = {width: 30, height: 30, borderRadius: 1.5, color: 'var(--u-text2)', '&:hover': {bgcolor: 'var(--u-border)', color: 'primary.main'}, '&.Mui-disabled': {color: 'var(--u-border-strong)'}}
 
 	const footer = (
-		<Box sx={{display: {xs: 'flex', md: 'grid'}, flexDirection: 'column', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: {xs: 1.25, md: 2}, px: 2, py: 1.25, bgcolor: HEAD_BG, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: '#5b6178'}}>
+		<Box sx={{display: {xs: 'flex', md: 'grid'}, flexDirection: 'column', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: {xs: 1.25, md: 2}, px: 2, py: 1.25, bgcolor: HEAD_BG, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: 'var(--u-text3)'}}>
 			<Box sx={{display: {xs: 'none', md: 'block'}}} />
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
 				<IconButton aria-label={t('Previous page')} disabled={p.page <= 1} onClick={() => update({page: p.page === 2 ? '' : String(p.page - 1)})} sx={pg_btn}><ChevronLeftOutlined sx={{fontSize: 20}} /></IconButton>
-				<Box component="label" sx={{display: 'flex', alignItems: 'center', gap: 0.75, color: '#3a3f55'}}>
+				<Box component="label" sx={{display: 'flex', alignItems: 'center', gap: 0.75, color: 'var(--u-text2)'}}>
 					{t('Page')} <PageInput page={p.page} last={p.last_page} onChange={(n) => update({page: n === 1 ? '' : String(n)})} /> / {p.last_page}
 				</Box>
 				<IconButton aria-label={t('Next page')} disabled={p.page >= p.last_page} onClick={() => update({page: String(p.page + 1)})} sx={pg_btn}><ChevronRightOutlined sx={{fontSize: 20}} /></IconButton>
 			</Box>
 			<Box component="label" sx={{justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 1}}>
 				{t('Rows per page')}
-				<Select size="small" value={p.per_page} onChange={(e) => update({per_page: String(e.target.value), page: ''})} sx={{height: 30, fontSize: 13, bgcolor: '#fff'}} inputProps={{'aria-label': t('Rows per page')}}>
+				<Select size="small" value={p.per_page} onChange={(e) => update({per_page: String(e.target.value), page: ''})} sx={{height: 30, fontSize: 13, bgcolor: 'var(--u-paper)'}} inputProps={{'aria-label': t('Rows per page')}}>
 					{grid.per_page_options.map((n) => <MenuItem key={n} value={n} sx={{fontSize: 13}}>{n}</MenuItem>)}
 				</Select>
 			</Box>
@@ -1058,7 +1058,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 		<>
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5}}>
 				<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0}}>
-					<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
+					<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
 					{/* the title goes back to the index of the module: search, tabs, filters, sort and page cleared */}
 					<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 						<ButtonBase onClick={() => { setSearch(''); navigate({search: ''}) }} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{grid.title}</ButtonBase>
@@ -1067,7 +1067,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				</Box>
 				{search_group}
 				{grid_actions.map((a) => (
-					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.confirm ? setConfirmAction(a) : gridAction(a)} sx={{bgcolor: '#fff'}}>{a.label}</Button>
+					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.confirm ? setConfirmAction(a) : gridAction(a)} sx={{bgcolor: 'var(--u-paper)'}}>{a.label}</Button>
 				))}
 				{can_add && <Button variant="contained" startIcon={<AddCircleOutlineOutlined />} onClick={onAdd}>{is_mobile ? t('Add') : `${t('Add')} ${grid.label}`}</Button>}
 			</Box>
@@ -1079,16 +1079,16 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 						{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={tab_sx(chip === o.value)} onClick={() => setTab(o.value)}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>)}
 					</>
 				)}
-				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: '#5b6178', display: 'flex', alignItems: 'center', gap: 1}}>
+				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: 'var(--u-text3)', display: 'flex', alignItems: 'center', gap: 1}}>
 					{loading && <CircularProgress size={12} />}
 					{p.total > 0 && t('[FROM] to [TO] (total [TOTAL])', {FROM: from, TO: to, TOTAL: p.total})}
 				</Box>
 			</Box>
 
-			<Box sx={{bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
+			<Box sx={{bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
 				{/* mobile: no table header, the selection control is on top of the cards */}
 				{is_mobile && batch && grid.rows.length > 0 && (
-					<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, bgcolor: HEAD_BG, borderBottom: `1px solid ${BORDER}`, fontSize: 13, color: '#5b6178'}}>
+					<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, bgcolor: HEAD_BG, borderBottom: `1px solid ${BORDER}`, fontSize: 13, color: 'var(--u-text3)'}}>
 						{selection_control}
 						{selected.length > 0 && t('[COUNT] selected', {COUNT: selected.length})}
 					</Box>
@@ -1098,13 +1098,13 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			</Box>
 
 			<Menu anchorEl={grid_menu} open={!!grid_menu} onClose={() => setGridMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
-				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{t('Saved filters')}</Typography>
+				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{t('Saved filters')}</Typography>
 				{saved.length === 0 && <MenuItem disabled sx={{fontSize: 14}}>{t('No saved filter')}</MenuItem>}
 				{saved.map((f) => (
 					<MenuItem key={f.id} onClick={() => { setGridMenu(null); applyConditions(f.conditions, f.match) }} sx={{pr: 0.5}}>
 						<ListItemIcon>{f.shared ? <GroupOutlined fontSize="small" titleAccess={t('Shared with my group')} /> : <FilterAltOutlined fontSize="small" />}</ListItemIcon>
 						<ListItemText>{f.name}</ListItemText>
-						{f.mine && <IconButton size="small" aria-label={`${t('Delete')} ${f.name}`} onClick={(e) => { e.stopPropagation(); deleteSaved(f) }} sx={{ml: 1, color: '#5b6178'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>}
+						{f.mine && <IconButton size="small" aria-label={`${t('Delete')} ${f.name}`} onClick={(e) => { e.stopPropagation(); deleteSaved(f) }} sx={{ml: 1, color: 'var(--u-text3)'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>}
 					</MenuItem>
 				))}
 			</Menu>
@@ -1170,6 +1170,6 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 function TabCount({value, on}: {value: number, on: boolean})
 {
 
-	return <Box component="span" sx={{minWidth: 16, px: 0.5, borderRadius: 0.75, fontSize: 10.5, fontWeight: 600, lineHeight: '16px', textAlign: 'center', bgcolor: on ? '#e2d9ff' : '#e6e8ee', color: on ? '#4b2fd6' : '#5b6178'}}>{value}</Box>
+	return <Box component="span" sx={{minWidth: 16, px: 0.5, borderRadius: 0.75, fontSize: 10.5, fontWeight: 600, lineHeight: '16px', textAlign: 'center', bgcolor: on ? 'var(--u-accent-bg2)' : 'var(--u-border)', color: on ? 'var(--u-accent-text)' : 'var(--u-text3)'}}>{value}</Box>
 
 }

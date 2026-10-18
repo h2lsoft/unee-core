@@ -1,0 +1,58 @@
+/* colors of the interface by theme (class light / dark on <html>, set by the mui color scheme) */
+:root {
+	--u-paper: #fff;
+	--u-bg: #f7f8fb;
+	--u-text: #1f2335;
+	--u-text2: #3a3f55;
+	--u-text3: #5b6178;
+	--u-muted: #6b7088;
+	--u-faint: #9a9fb3;
+	--u-border: #e6e8ee;
+	--u-border-soft: #eef0f5;
+	--u-border-strong: #d5d8e3;
+	--u-hover: #f2f3f7;
+	--u-head: #f5f6f8;
+	--u-accent-bg: #f0ecff;
+	--u-accent-bg2: #e2d9ff;
+	--u-accent-hover: #f7f5ff;
+	--u-accent-border: #c9bdff;
+	--u-accent-text: #4b2fd6;
+	--u-accent-soft: #d9cfff;
+	--u-error-bg: #fdecee;
+	--u-error: #b3261e;
+	--u-orange-bg: #fbf1e6; --u-orange: #9a5a1e;
+	--u-red-bg: #fde4e8; --u-red: #b0164e;
+	--u-green-bg: #e3f4ef; --u-green: #0f6a55;
+	--u-blue-bg: #e6f0fd; --u-blue: #1d4f91;
+	--u-yellow-bg: #fff6d6; --u-yellow: #7a5b00;
+	--u-shadow: rgba(16, 20, 40, 0.06);
+}
+
+.dark {
+	--u-paper: #1b1e29;
+	--u-bg: #12141c;
+	--u-text: #e7e9f1;
+	--u-text2: #c9ccd8;
+	--u-text3: #a4a9bd;
+	--u-muted: #8e93a8;
+	--u-faint: #6e7389;
+	--u-border: #2a2e3c;
+	--u-border-soft: #242836;
+	--u-border-strong: #3a3f52;
+	--u-hover: #252937;
+	--u-head: #1f2230;
+	--u-accent-bg: #2b2550;
+	--u-accent-bg2: #3a3170;
+	--u-accent-hover: #221f3d;
+	--u-accent-border: #5a48c4;
+	--u-accent-text: #b9a9ff;
+	--u-accent-soft: #4a3f8a;
+	--u-error-bg: #3a1d22;
+	--u-error: #ff8a80;
+	--u-orange-bg: #3a2a1a; --u-orange: #f0b27a;
+	--u-red-bg: #3d1c27; --u-red: #ff8fb0;
+	--u-green-bg: #17332b; --u-green: #6fd6b5;
+	--u-blue-bg: #1a2a44; --u-blue: #8fb8f5;
+	--u-yellow-bg: #3a3216; --u-yellow: #f0cf6a;
+	--u-shadow: rgba(0, 0, 0, 0.4);
+}

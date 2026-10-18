@@ -123,7 +123,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 		return (
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
 				<OutlinedInput id={id} value={value} error={error} fullWidth disabled={field.readonly} placeholder="settings" onChange={(e) => onChange(e.target.value.trim().toLowerCase())} inputProps={{maxLength: field.max_length, spellCheck: false}}
-					startAdornment={<InputAdornment position="start"><MenuIcon name={value || 'extension'} fontSize={22} color="#3a3f55" /></InputAdornment>} />
+					startAdornment={<InputAdornment position="start"><MenuIcon name={value || 'extension'} fontSize={22} color="var(--u-text2)" /></InputAdornment>} />
 				<Box component="a" href="https://fonts.google.com/icons?icon.style=Outlined" target="_blank" rel="noopener noreferrer" sx={{flexShrink: 0, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap'}}>{t('Browse icons')}</Box>
 			</Box>
 		)
@@ -138,7 +138,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 		return (
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
-				<Box component="input" type="color" value={hex} disabled={field.readonly} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)} aria-label={field.label} sx={{width: 56, height: 40, p: '4px', border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fff', cursor: 'pointer'}} />
+				<Box component="input" type="color" value={hex} disabled={field.readonly} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)} aria-label={field.label} sx={{width: 56, height: 40, p: '4px', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', cursor: 'pointer'}} />
 				<OutlinedInput id={id} value={value} error={error} disabled={field.readonly} onChange={(e) => onChange(e.target.value.trim())} inputProps={{maxLength: 7, spellCheck: false}} sx={{width: 140}} />
 			</Box>
 		)
@@ -209,7 +209,7 @@ function FieldRow({field, value, errors, onChange}: {field: FormField, value: st
 
 	return (
 		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
-			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: '#3a3f55', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '40px'}}}>
+			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '40px'}}}>
 				{field.label}{field.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 			</InputLabel>
 			<Box sx={{minWidth: 0}}>
@@ -346,7 +346,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 			<DialogContent sx={{pt: 1}}>
 				{!data && !error && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 				{(error || summary.length > 0) && (
-					<Box role="alert" sx={{mb: 2.5, px: 2, py: 1.5, borderRadius: '6px', bgcolor: '#fdecee', color: '#b3261e', fontSize: 14}}>
+					<Box role="alert" sx={{mb: 2.5, px: 2, py: 1.5, borderRadius: '6px', bgcolor: 'var(--u-error-bg)', color: 'var(--u-error)', fontSize: 14}}>
 						{error && <div>{error}</div>}
 						{summary.length > 0 && <Box component="ul" sx={{m: 0, pl: 2.25}}>{summary.map((line) => <li key={line}>{line}</li>)}</Box>}
 					</Box>
@@ -356,13 +356,13 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 						{fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)).map(row)}
 						{first_tab >= 0 && (
 							<>
-								<Box role="tablist" sx={{display: 'flex', gap: 2.75, borderBottom: '1px solid #eceef3', mt: 0.5, overflowX: 'auto'}}>
+								<Box role="tablist" sx={{display: 'flex', gap: 2.75, borderBottom: '1px solid var(--u-border)', mt: 0.5, overflowX: 'auto'}}>
 									{tabs.filter((tb) => fields.some((f) => f.tab === tb.key)).map((tb) => {
 
 										const on = (tb.key === tab)
 										const has_error = fields.some((f) => f.tab === tb.key && errors[f.name])
 										return (
-											<ButtonBase key={tb.key} role="tab" aria-selected={on} onClick={() => setTab(tb.key)} sx={{height: 40, gap: 1, px: 0.25, borderBottom: '2px solid', borderColor: on ? 'primary.main' : 'transparent', color: has_error ? 'error.main' : (on ? '#4b2fd6' : '#5b6178'), fontSize: 14, fontWeight: on ? 600 : 400, whiteSpace: 'nowrap'}}>
+											<ButtonBase key={tb.key} role="tab" aria-selected={on} onClick={() => setTab(tb.key)} sx={{height: 40, gap: 1, px: 0.25, borderBottom: '2px solid', borderColor: on ? 'primary.main' : 'transparent', color: has_error ? 'error.main' : (on ? 'var(--u-accent-text)' : 'var(--u-text3)'), fontSize: 14, fontWeight: on ? 600 : 400, whiteSpace: 'nowrap'}}>
 												{tb.flag && <Flag code={tb.flag} />}{tb.label}
 											</ButtonBase>
 										)
@@ -370,7 +370,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 									})}
 								</Box>
 								{fields.filter((f) => f.tab === tab).map(row)}
-								{fields.some((f, i) => !f.tab && i > first_tab) && <Box sx={{height: '1px', bgcolor: '#f1f2f6', my: 0.25}} />}
+								{fields.some((f, i) => !f.tab && i > first_tab) && <Box sx={{height: '1px', bgcolor: 'var(--u-hover)', my: 0.25}} />}
 								{fields.filter((f, i) => !f.tab && i > first_tab).map(row)}
 							</>
 						)}
@@ -380,7 +380,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 			<DialogActions sx={{px: 3, pt: 1, pb: 2.5, gap: 1}}>
 				{id > 0 && data?.form.actions?.map((a) => (
-					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: '#d5d8e3', color: '#3a3f55', fontWeight: 500}}>{a.label}</Button>
+					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{a.label}</Button>
 				))}
 				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>
 			</DialogActions>

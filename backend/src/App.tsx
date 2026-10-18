@@ -8,6 +8,7 @@ import '@fontsource/ibm-plex-sans/latin-500.css'
 import '@fontsource/ibm-plex-sans/latin-ext-500.css'
 import '@fontsource/ibm-plex-sans/latin-600.css'
 import '@fontsource/ibm-plex-sans/latin-ext-600.css'
+import './colors.css'
 import { AuthProvider, useAuth } from './auth'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
@@ -19,10 +20,12 @@ import BackendLayout from './components/BackendLayout'
 import { ToastProvider } from './components/Toast'
 
 // corporate theme: primary color from the unee logo gradient, compact controls (40px), ibm plex sans
+// light and dark schemes (class on <html>, mode kept by mui in localStorage), the other colors are the --u-* variables of colors.css
 const theme = createTheme({
-	palette: {
-		primary: {main: '#6d4aff'},
-		text: {primary: '#1f2335', secondary: '#5b6178'},
+	cssVariables: {colorSchemeSelector: 'class'},
+	colorSchemes: {
+		light: {palette: {primary: {main: '#6d4aff'}, text: {primary: '#1f2335', secondary: '#5b6178'}, background: {default: '#f7f8fb', paper: '#fff'}}},
+		dark: {palette: {primary: {main: '#8b6dff'}, text: {primary: '#e7e9f1', secondary: '#a4a9bd'}, background: {default: '#12141c', paper: '#1b1e29'}, divider: '#2a2e3c'}},
 	},
 	typography: {
 		fontFamily: '"IBM Plex Sans", system-ui, sans-serif',
@@ -37,9 +40,11 @@ const theme = createTheme({
 		MuiOutlinedInput: {
 			styleOverrides: {
 				root: {height: 40, fontSize: 14},
-				notchedOutline: {borderColor: '#d5d8e3'},
+				notchedOutline: {borderColor: 'var(--u-border-strong)'},
 			},
 		},
+		// no light overlay on the papers in dark mode: the dialogs keep the color of the cards
+		MuiPaper: {styleOverrides: {root: {backgroundImage: 'none'}}},
 		MuiAlert: {styleOverrides: {root: {fontSize: 13, borderRadius: 8}}},
 		// dialogs at the top of the screen, not centered (full screen dialogs on mobile unchanged)
 		MuiDialog: {
@@ -90,7 +95,7 @@ export default function App()
 {
 
 	return (
-		<ThemeProvider theme={theme}>
+		<ThemeProvider theme={theme} defaultMode="light">
 			<CssBaseline />
 			<ToastProvider>
 				<AuthProvider>

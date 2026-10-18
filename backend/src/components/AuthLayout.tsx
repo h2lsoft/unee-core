@@ -1,12 +1,22 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router'
 import { Alert, Box, Link, Typography } from '@mui/material'
+import { useColorScheme } from '@mui/material/styles'
 import { ArrowBack } from '@mui/icons-material'
 import { api, type LoginConfig } from '../api'
 import LockIllustration from './LockIllustration'
 import { t } from '../i18n'
 
-const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
+/**
+ * logo of the global backend.logo, otherwise the unee logo (white text in dark mode)
+ */
+export function useLogo(config: LoginConfig | null):string
+{
+
+	const {colorScheme} = useColorScheme()
+	return config?.logo || `${import.meta.env.BASE_URL}${(colorScheme === 'dark') ? 'logo-dark.svg' : 'logo.svg'}`
+
+}
 
 /**
  * public settings of the auth pages (logo, texts, maintenance message), null until loaded or when the api fails
@@ -65,11 +75,11 @@ export function useDocumentTitle(page: string, name?: string | null)
 export default function AuthLayout({config, title, subtitle, documentTitle, children}: {config: LoginConfig | null, title: string, subtitle: string, documentTitle: string, children: ReactNode})
 {
 
-	const logo = config?.logo || DEFAULT_LOGO
+	const logo = useLogo(config)
 	useDocumentTitle(documentTitle, config?.name)
 
 	return (
-		<Box sx={{minHeight: '100vh', display: 'flex', bgcolor: '#fff', color: 'text.primary'}}>
+		<Box sx={{minHeight: '100vh', display: 'flex', bgcolor: 'var(--u-paper)', color: 'text.primary'}}>
 
 			<Box sx={{flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', px: {xs: 4, md: 3}, py: {xs: 3, md: 2.5}}}>
 				{/* desktop: logo in the corner */}

@@ -11,7 +11,7 @@ export function Field({id, label, errors, ...input}: FieldProps)
 
 	return (
 		<Box sx={{display: 'flex', flexDirection: 'column', gap: 0.75}}>
-			<InputLabel htmlFor={id} sx={{fontSize: 13, fontWeight: 500, color: '#3a3f55'}}>{label}</InputLabel>
+			<InputLabel htmlFor={id} sx={{fontSize: 13, fontWeight: 500, color: 'var(--u-text2)'}}>{label}</InputLabel>
 			<OutlinedInput id={id} fullWidth error={!!errors} {...input} />
 			{errors && <FormHelperText error sx={{m: 0}}>{errors.join(', ')}</FormHelperText>}
 		</Box>

@@ -8,7 +8,7 @@ import { MenuIcon } from '../components/icons'
 import BookmarkButton from '../components/BookmarkButton'
 import { useToast } from '../components/Toast'
 
-const BORDER = '#e6e8ee'
+const BORDER = 'var(--u-border)'
 
 /**
  * rights of a group (module right): one card per menu, one row per plugin, one switch per action, saved at once
@@ -92,40 +92,40 @@ export default function RightsPage({icon}: {icon: string})
 	return (
 		<>
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
-				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
+				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
 				<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 					<ButtonBase onClick={() => navigate({search: ''})} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{data.title}</ButtonBase>
 				</Typography>
 				<BookmarkButton module="right" />
 			</Box>
 
-			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>
-				<Box component="label" htmlFor="rights-group" sx={{fontSize: 14, fontWeight: 500, color: '#3a3f55'}}>{t('Group')}</Box>
+			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>
+				<Box component="label" htmlFor="rights-group" sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)'}}>{t('Group')}</Box>
 				<Select id="rights-group" value={data.groups.length ? data.group : ''} onChange={(e) => navigate({search: `?group=${e.target.value}`}, {replace: true})} sx={{width: {xs: '100%', sm: 320}, height: 40, fontSize: 14}}>
 					{data.groups.map((g) => <MenuItem key={g.id} value={g.id}>{g.name} (#{g.id})</MenuItem>)}
 				</Select>
-				<Typography sx={{fontSize: 13, color: '#6b7088'}}>{t('Super admin has every right, it is not listed.')}</Typography>
+				<Typography sx={{fontSize: 13, color: 'var(--u-muted)'}}>{t('Super admin has every right, it is not listed.')}</Typography>
 				{data.can_edit && <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />} disabled={saving || !dirty || !data.groups.length} onClick={save} sx={{ml: 'auto'}}>{t('Save')}</Button>}
 			</Box>
 
-			{data.groups.length === 0 && <Typography sx={{fontSize: 14, color: '#6b7088'}}>{t('No group with a backend access.')}</Typography>}
+			{data.groups.length === 0 && <Typography sx={{fontSize: 14, color: 'var(--u-muted)'}}>{t('No group with a backend access.')}</Typography>}
 
 			{data.groups.length > 0 && data.menus.map((menu) => {
 
 				const all = menu.plugins.flatMap(keys)
 				return (
-					<Box component="section" key={menu.name} sx={{bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
-						<Box sx={{display: 'flex', alignItems: 'center', gap: 1, height: 36, px: 1.5, bgcolor: '#f5f6f8', borderBottom: `1px solid ${BORDER}`}}>
+					<Box component="section" key={menu.name} sx={{bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
+						<Box sx={{display: 'flex', alignItems: 'center', gap: 1, height: 36, px: 1.5, bgcolor: 'var(--u-head)', borderBottom: `1px solid ${BORDER}`}}>
 							{box(all, menu.name)}
 							<MenuIcon name={menu.icon} fontSize={18} color={menu.color || undefined} />
-							<Typography component="h2" sx={{fontSize: 12.5, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: '#3a3f55'}}>{menu.name}</Typography>
-							<Typography sx={{ml: 'auto', fontSize: 12, color: '#6b7088'}}>{t('[COUNT] of [TOTAL] actions', {COUNT: all.filter((k) => rights.has(k)).length, TOTAL: all.length})}</Typography>
+							<Typography component="h2" sx={{fontSize: 12.5, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--u-text2)'}}>{menu.name}</Typography>
+							<Typography sx={{ml: 'auto', fontSize: 12, color: 'var(--u-muted)'}}>{t('[COUNT] of [TOTAL] actions', {COUNT: all.filter((k) => rights.has(k)).length, TOTAL: all.length})}</Typography>
 						</Box>
 						{menu.plugins.map((plugin, i) => (
-							<Box key={plugin.id} sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', md: '260px 1fr'}, alignItems: 'center', columnGap: 2, rowGap: 0.5, minHeight: 34, px: 1.5, py: 0.25, borderTop: i ? '1px solid #eef0f4' : 0, '&:hover': {bgcolor: '#f8f9fb'}}}>
+							<Box key={plugin.id} sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', md: '260px 1fr'}, alignItems: 'center', columnGap: 2, rowGap: 0.5, minHeight: 34, px: 1.5, py: 0.25, borderTop: i ? '1px solid var(--u-border-soft)' : 0, '&:hover': {bgcolor: 'var(--u-head)'}}}>
 								<Box sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 13.5, minWidth: 0}}>
 									{box(keys(plugin), plugin.name)}
-									<MenuIcon name={plugin.icon} fontSize={18} color="#5b6178" />
+									<MenuIcon name={plugin.icon} fontSize={18} color="var(--u-text3)" />
 									<Box component="span" sx={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{plugin.name}</Box>
 								</Box>
 								<Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.75, py: 0.25}}>
@@ -135,7 +135,7 @@ export default function RightsPage({icon}: {icon: string})
 										const on = rights.has(key)
 										return (
 											<ButtonBase key={action} role="checkbox" aria-checked={on} aria-label={`${plugin.name}: ${action}`} disabled={!data.can_edit} onClick={() => set([key], !on)}
-												sx={{height: 24, gap: 0.75, pl: 0.5, pr: 1.25, border: '1px solid', borderColor: on ? '#c9bdff' : '#e3e5ec', borderRadius: 1.5, bgcolor: on ? '#f0ecff' : '#fff', color: on ? '#4b2fd6' : '#3a3f55', fontSize: 12.5, fontWeight: on ? 500 : 400}}>
+												sx={{height: 24, gap: 0.75, pl: 0.5, pr: 1.25, border: '1px solid', borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)', borderRadius: 1.5, bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-paper)', color: on ? 'var(--u-accent-text)' : 'var(--u-text2)', fontSize: 12.5, fontWeight: on ? 500 : 400}}>
 												<Checkbox size="small" checked={on} tabIndex={-1} sx={{p: 0, '& svg': {fontSize: 18}}} />{action}
 											</ButtonBase>
 										)
