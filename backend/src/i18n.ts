@@ -101,6 +101,7 @@ const fr: Record<string, string> = {
 	'Save': 'Enregistrer',
 	'Cancel': 'Annuler',
 	'Close': 'Fermer',
+	'[FIELD]: [MESSAGE]': '[FIELD] : [MESSAGE]',
 	'Saved': 'Enregistré',
 	'Created': 'Créé',
 	'Deleted': 'Supprimé',
