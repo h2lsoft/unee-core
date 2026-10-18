@@ -131,7 +131,7 @@ function formatDate(value: string, with_time: boolean): string
 
 	const date = new Date(value.replace(' ', 'T'))
 	if(isNaN(date.getTime()))return value
-	return new Intl.DateTimeFormat(getLanguage(), with_time ? {dateStyle: 'short', timeStyle: 'short'} : {dateStyle: 'short'}).format(date)
+	return new Intl.DateTimeFormat(getLanguage(), with_time ? {dateStyle: 'short', timeStyle: 'short', hourCycle: 'h23'} : {dateStyle: 'short'}).format(date)
 
 }
 
