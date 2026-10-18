@@ -30,6 +30,11 @@ abstract class CrudController extends Controller
 	public string $object_label = 'record';
 
 	/**
+	 * fields saved with an uppercase initial (html too: first letter of the text), [] for modules of keys (ex: globals)
+	 */
+	public array $ucfirst = ['category', 'title', 'name', 'description'];
+
+	/**
 	 * columns, filters and sql of the list
 	 *
 	 * @param DataGrid $grid
@@ -271,7 +276,7 @@ abstract class CrudController extends Controller
 
 		}
 
-		$row = $form->hydrate($values, true);
+		$row = $this->ucfirst($form->hydrate($values, true));
 
 		DB()->beginTransaction();
 		foreach($records as $record)
@@ -559,6 +564,28 @@ abstract class CrudController extends Controller
 	protected function onSaveAfterEdit(int $id, array $row, array $changed):void{}
 	protected function onDeleteAfter(array $record):void{}
 
+	/**
+	 * uppercase initial of the fields of $ucfirst, leading spaces and html tags skipped
+	 *
+	 * @param array $row
+	 *
+	 * @return array
+	 */
+	protected function ucfirst(array $row):array
+	{
+
+		foreach(array_intersect_key($row, array_flip($this->ucfirst)) as $name => $value)
+		{
+
+			if(is_string($value))
+				$row[$name] = preg_replace_callback('/^((?:\s|<[^>]*>)*)(\p{Ll})/u', fn($m) => $m[1].mb_strtoupper($m[2]), $value);
+
+		}
+
+		return $row;
+
+	}
+
 	// internals *******************************************************************************************************
 
 	/**
@@ -673,7 +700,7 @@ abstract class CrudController extends Controller
 		if($v->fails())
 			return JsonResponse::error(422, 'validation failed', ['fields' => $v->result()['error_stack_deep']]);
 
-		$row = $this->onSaveBefore($form->hydrate($request->request->all(), $id > 0), $record);
+		$row = $this->onSaveBefore($this->ucfirst($form->hydrate($request->request->all(), $id > 0)), $record);
 
 		if(!$id)
 		{

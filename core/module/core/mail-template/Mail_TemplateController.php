@@ -18,6 +18,7 @@ class Mail_TemplateController extends \Core\CrudController
 	public string $table = 'xcore_mail_template';
 	public string $title = 'Mail templates';
 	public string $object_label = 'template';
+	public array $ucfirst = ['category', 'description']; # name is a key of the code
 
 	/**
 	 * flag of a language (country code of backend/src/components/Flag.tsx)

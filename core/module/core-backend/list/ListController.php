@@ -16,6 +16,7 @@ class ListController extends \Core\CrudController
 	public string $table = 'xcore_list';
 	public string $title = 'Lists';
 	public string $object_label = 'value';
+	public array $ucfirst = [];
 
 	/**
 	 * mui chip: color and variant, ex: success outlined

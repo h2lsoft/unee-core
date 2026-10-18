@@ -352,7 +352,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 					</Box>
 				)}
 				{data && (
-					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5}}>
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, '& .MuiOutlinedInput-input': {px: '10px'}, '& .MuiAutocomplete-root .MuiOutlinedInput-root': {pl: '5px'}}}>
 						{fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)).map(row)}
 						{first_tab >= 0 && (
 							<>

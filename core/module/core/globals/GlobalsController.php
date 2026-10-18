@@ -17,6 +17,7 @@ class GlobalsController extends \Core\CrudController
 	public string $table = 'xcore_globals';
 	public string $title = 'Globals';
 	public string $object_label = 'global';
+	public array $ucfirst = [];
 
 	public const array TYPES = ['text', 'int', 'float', 'boolean', 'json-array', 'json-object', 'list', 'url'];
 
