@@ -174,7 +174,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 	}
 
 	return (
-		<Dialog open={open} onClose={onClose} fullScreen={full_screen} maxWidth="md" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: 760}}} as object}}>
+		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="md" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: 760}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{id ? t('Edit') : t('Add')} {label}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>

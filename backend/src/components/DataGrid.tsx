@@ -160,7 +160,7 @@ function ConfirmDialog({open, title, onCancel, onConfirm, busy}: {open: boolean,
 {
 
 	return (
-		<Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
+		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onCancel()} maxWidth="xs" fullWidth>
 			<DialogTitle sx={{fontSize: 17, fontWeight: 600}}>{title}</DialogTitle>
 			<DialogActions sx={{px: 3, pb: 2.5}}>
 				<Button onClick={onCancel} color="inherit">{t('Cancel')}</Button>
@@ -343,7 +343,7 @@ function SaveFilterDialog({module, draft, onClose, onSaved}: {module: string, dr
 	}
 
 	return (
-		<Dialog open={!!draft} onClose={onClose} maxWidth="xs" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true} as object}}>
+		<Dialog open={!!draft} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} maxWidth="xs" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{t('Save filter')}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
