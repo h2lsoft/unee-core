@@ -79,6 +79,7 @@ Rules for any AI agent or developer working on this repository. Read them before
 - Mails: `\Core\Mailer::sendTemplate()` with templates in `xcore_mail_template` (en, fr, other languages fall back to en) and layouts in `xcore_layout` (`[CONTENT]`). `[[vars]]` are html-escaped. Transport from globals `mailer.smtp.host` (empty = php mail()), `mailer.smtp.port`, `mailer.smtp.security` (empty, tls, ssl), `mailer.smtp.username` (empty = no authentication), `mailer.smtp.password`. Dev: mailpit on localhost:25. Mails will go through the jobber (sent outside the request).
 - Name api routes `api.<module>.<action>` (ex: `api.auth.login`).
 - React backend: sources in `backend/` (TypeScript, MUI, React Router), `npm run build` writes `core/backend/dist/` (committed: projects never need node), served under `/backend/` by the skeleton `.htaccess`. Dev: `npm run dev`, `/api` is proxied to the local site.
+- Dialogs (lightboxes) of the backend: a close cross at the top right, no Cancel button, a click on the backdrop does not close them, shown at the top of the screen.
 - Login page settings: globals `backend.logo`, `backend.login.image`, `backend.login.title`, `backend.login.subtitle`, `backend.maintenance.message` (warning under the form, empty = hidden), exposed by the public route `GET /api/auth/config/` (whitelist only).
 
 ## Models

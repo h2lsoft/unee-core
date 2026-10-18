@@ -161,9 +161,12 @@ function ConfirmDialog({open, title, onCancel, onConfirm, busy}: {open: boolean,
 
 	return (
 		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onCancel()} maxWidth="xs" fullWidth>
-			<DialogTitle sx={{fontSize: 17, fontWeight: 600}}>{title}</DialogTitle>
+			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
+				<Box component="span" sx={{flexGrow: 1}}>{title}</Box>
+				<IconButton aria-label={t('Close')} onClick={onCancel}><CloseOutlined /></IconButton>
+			</DialogTitle>
+			<DialogContent sx={{fontSize: 14, color: 'text.secondary'}}>{t('This action cannot be undone.')}</DialogContent>
 			<DialogActions sx={{px: 3, pb: 2.5}}>
-				<Button onClick={onCancel} color="inherit">{t('Cancel')}</Button>
 				<Button onClick={onConfirm} variant="contained" color="error" disabled={busy}>{busy ? <CircularProgress size={20} color="inherit" /> : t('Delete')}</Button>
 			</DialogActions>
 		</Dialog>

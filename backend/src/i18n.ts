@@ -111,6 +111,7 @@ const fr: Record<string, string> = {
 	'[COUNT] deleted': '[COUNT] supprimé(s)',
 	'Delete this [LABEL]?': 'Supprimer cet élément ([LABEL]) ?',
 	'Delete [COUNT] records?': 'Supprimer [COUNT] enregistrements ?',
+	'This action cannot be undone.': 'Cette action est irréversible.',
 }
 
 const dictionaries: Record<string, Record<string, string>> = {fr}
