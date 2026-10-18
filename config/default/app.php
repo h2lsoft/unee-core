@@ -17,6 +17,7 @@ return [
 	'backend.languages' => ['en' => 'English', 'fr' => 'Français'], # languages of the backend, the user picks one in the user menu
 	'upload_dir' => APP_PATH."/instances/".APP_DIR."/public/upload",
 	'tmp_dir' => (APP_DIR != '' && APP_DIR != '_default') ? APP_PATH."/instances/".APP_DIR."/.tmp" : APP_PATH."/.tmp",
+	'private_dir' => (APP_DIR != '' && APP_DIR != '_default') ? APP_PATH."/instances/".APP_DIR."/private" : APP_PATH."/private", # files served by the api only (\Core\File::privateDir)
 	'noreply_email' => "noreply@".explode(':', $_SERVER['HTTP_HOST'])[0],
 
 	// DEBUG ***********************************************************************************************

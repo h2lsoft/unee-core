@@ -52,13 +52,15 @@ export async function api<T>(path: string, options: {method?: string, body?: unk
 {
 
 	const has_body = (options.body !== undefined)
+	// FormData (uploads) is sent as multipart, the browser sets its boundary
+	const is_form = (options.body instanceof FormData)
 	const response = await fetch(`/api/${path}`, {
 		method: options.method ?? 'GET',
 		headers: {
 			'X-Requested-With': 'XMLHttpRequest',
-			...(has_body ? {'Content-Type': 'application/json'} : {}),
+			...(has_body && !is_form ? {'Content-Type': 'application/json'} : {}),
 		},
-		body: has_body ? JSON.stringify(options.body) : undefined,
+		body: is_form ? options.body as FormData : (has_body ? JSON.stringify(options.body) : undefined),
 		credentials: 'same-origin',
 	})
 

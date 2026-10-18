@@ -27,6 +27,28 @@ class File
 	}
 
 
+	/**
+	 * folder of private files (config private_dir), created with a deny all .htaccess: the files are served by the api after the rights
+	 *
+	 * @param string $sub ex: project/12
+	 *
+	 * @return string absolute path, without final slash
+	 */
+	public static function privateDir(string $sub=''):string
+	{
+
+		$root = rtrim((string)\Core\Config::get('private_dir'), '/');
+		if(!is_dir($root) && !@mkdir($root, 0770, true) && !is_dir($root))throw new \RuntimeException("private_dir `{$root}` cannot be created: check the rights of its parent folder");
+		if(!file_exists("{$root}/.htaccess"))file_put_contents("{$root}/.htaccess", "Require all denied\n");
+
+		$sub = trim(str_replace('..', '', $sub), '/');
+		$path = ($sub === '') ? $root : "{$root}/{$sub}";
+		if(!is_dir($path) && !@mkdir($path, 0770, true) && !is_dir($path))throw new \RuntimeException("`{$path}` cannot be created: check the rights of private_dir");
+
+		return $path;
+
+	}
+
 	public static function get($file_path, $content_type='')
 	{
 		if(!file_exists($file_path))

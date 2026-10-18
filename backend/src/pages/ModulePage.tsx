@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 import { Box, CircularProgress } from '@mui/material'
 import { dataChanged, type Row } from '../api'
 import { useMenu } from '../components/BackendLayout'
@@ -10,6 +10,7 @@ import NotFound from './NotFound'
 import RightsPage from './RightsPage'
 import SystemInfoPage from './SystemInfoPage'
 import CalendarPage from './CalendarPage'
+import ProjectBoard from '../components/ProjectBoard'
 
 /**
  * generic page of a crud module (\Core\CrudController): /backend/<module>/
@@ -19,6 +20,7 @@ export default function ModulePage()
 
 	const {module = ''} = useParams()
 	const {menu, find} = useMenu()
+	const [params] = useSearchParams()
 	const item = find(module)
 	const [form, setForm] = useState<{open: boolean, id: number}>({open: false, id: 0})
 	const [version, setVersion] = useState(0)
@@ -33,6 +35,7 @@ export default function ModulePage()
 	if(module === 'right')return <RightsPage icon={item.icon} />
 	if(module === 'system-info')return <SystemInfoPage icon={item.icon} />
 	if(module === 'calendar')return <CalendarPage icon={item.icon} />
+	if(module === 'project' && (params.get('board') || params.get('gantt')))return <ProjectBoard id={Number(params.get('board') || params.get('gantt'))} view={params.get('gantt') ? 'gantt' : 'board'} />
 
 	return (
 		<>
