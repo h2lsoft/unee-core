@@ -100,6 +100,9 @@ export type MenuItem = {
 	rights: string[]
 }
 
+// bookmark of the logged user (GET /api/backend/bookmarks/)
+export type Bookmark = {route: string, name: string, icon: string, url: string | null}
+
 export type MenuCategory = {
 	name: string
 	icon: string

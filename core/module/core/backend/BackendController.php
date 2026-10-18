@@ -133,4 +133,80 @@ class BackendController extends \Core\Controller
 
 	}
 
+	/**
+	 * bookmarks of the logged user: plugins he still has the list right on, in his order
+	 *
+	 * @return \Core\JsonResponse {"bookmarks": [{"route", "name", "icon", "url"}]}
+	 */
+	#[Route('/bookmarks/', name: 'bookmarks', methods: ['GET'])]
+	public function bookmarks():\Core\JsonResponse
+	{
+
+		$recs = DB()->query("SELECT p.route_prefix_name, p.name, p.icon, p.type, p.url
+							 FROM xcore_user_bookmark b
+							 INNER JOIN xcore_plugin p ON p.id = b.xcore_plugin_id AND p.deleted = 'no' AND p.active = 'yes'
+							 WHERE b.deleted = 'no' AND b.xcore_user_id = :user_id
+							 ORDER BY b.position, b.id", ['user_id' => \Model\User::getUID()])->fetchAll();
+
+		$bookmarks = [];
+		foreach($recs as $rec)
+		{
+
+			if(!\Model\User::hasRight($rec['route_prefix_name'], 'list'))continue;
+			$bookmarks[] = ['route' => $rec['route_prefix_name'], 'name' => ts($rec['name']), 'icon' => $rec['icon'], 'url' => ($rec['type'] === 'url') ? $rec['url'] : null];
+
+		}
+
+		return new \Core\JsonResponse(['bookmarks' => $bookmarks]);
+
+	}
+
+	/**
+	 * bookmark a module (list right), json body: {"module"}, added last, nothing done when already bookmarked
+	 *
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"module"}
+	 */
+	#[Route('/bookmarks/', name: 'bookmarks.create', methods: ['POST'])]
+	public function bookmarkCreate(Request $request):\Core\JsonResponse
+	{
+
+		$module = (string)$request->request->get('module');
+		if(!\Model\User::hasRight($module, 'list'))return \Core\JsonResponse::error(403, 'access denied');
+
+		$plugin = \Model\Plugin::findActive($module);
+		$params = ['user_id' => \Model\User::getUID(), 'plugin_id' => (int)$plugin['id']];
+		$found = DB()->query("SELECT id FROM xcore_user_bookmark WHERE deleted = 'no' AND xcore_user_id = :user_id AND xcore_plugin_id = :plugin_id", $params)->fetchOne();
+
+		if(!$found)
+		{
+
+			$position = (int)DB()->query("SELECT COALESCE(MAX(position), 0) + 1 FROM xcore_user_bookmark WHERE deleted = 'no' AND xcore_user_id = :user_id", ['user_id' => \Model\User::getUID()])->fetchOne();
+			DB('xcore_user_bookmark')->insert(['xcore_user_id' => $params['user_id'], 'xcore_plugin_id' => $params['plugin_id'], 'position' => $position], (string)\Core\Session::get('auth.login'));
+
+		}
+
+		return new \Core\JsonResponse(['module' => $module]);
+
+	}
+
+	/**
+	 * remove the bookmark of a module
+	 *
+	 * @param string $module route_prefix_name of the plugin
+	 *
+	 * @return \Core\JsonResponse 204
+	 */
+	#[Route('/bookmarks/{module}/', name: 'bookmarks.delete', methods: ['DELETE'], requirements: ['module' => '[a-z0-9]+(-[a-z0-9]+)*'])]
+	public function bookmarkDelete(string $module):\Core\JsonResponse
+	{
+
+		$plugin_id = (int)DB()->query("SELECT id FROM xcore_plugin WHERE route_prefix_name = :module AND deleted = 'no'", ['module' => $module])->fetchOne();
+		DB()->query("UPDATE xcore_user_bookmark SET deleted = 'yes', deleted_at = NOW(), deleted_by = :author WHERE deleted = 'no' AND xcore_user_id = :user_id AND xcore_plugin_id = :plugin_id", ['author' => (string)\Core\Session::get('auth.login'), 'user_id' => \Model\User::getUID(), 'plugin_id' => $plugin_id]);
+
+		return new \Core\JsonResponse(null, 204);
+
+	}
+
 }

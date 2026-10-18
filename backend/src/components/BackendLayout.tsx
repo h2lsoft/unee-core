@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Avatar, Box, Button, ButtonBase, Dialog, DialogActions, DialogTitle, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { BookmarkBorderOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
-import { api, DATA_CHANGED_EVENT, type MenuCategory, type MenuItem as MenuEntry } from '../api'
+import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DeleteOutlineOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
+import { api, DATA_CHANGED_EVENT, type Bookmark, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
 import { useLoginConfig } from './AuthLayout'
@@ -12,8 +12,8 @@ const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
 const COLLAPSED_KEY = 'unee.menu.collapsed'
 const BORDER = '#eceef3'
 
-type MenuState = {menu: MenuCategory[] | null, find: (route: string) => MenuEntry | null}
-const MenuContext = createContext<MenuState>({menu: null, find: () => null})
+type MenuState = {menu: MenuCategory[] | null, find: (route: string) => MenuEntry | null, bookmarks: Bookmark[], toggleBookmark: (route: string) => Promise<void>}
+const MenuContext = createContext<MenuState>({menu: null, find: () => null, bookmarks: [], toggleBookmark: async () => {}})
 
 /**
  * menu of the logged user, null while loading
@@ -182,6 +182,40 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 
 }
 
+// bookmarks of the user in the header, a module is bookmarked with the icon next to its title
+function BookmarksMenu({bookmarks, onRemove}: {bookmarks: Bookmark[], onRemove: (route: string) => Promise<void>})
+{
+
+	const navigate = useNavigate()
+	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+
+	const open = (b: Bookmark) => {
+
+		setAnchor(null)
+		if(b.url)window.open(b.url, '_blank', 'noopener')
+		else navigate(`/${b.route}/`)
+
+	}
+
+	return (
+		<>
+			<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} onClick={(e) => setAnchor(e.currentTarget)} sx={{width: 40, height: 40, borderRadius: 2, color: anchor ? 'primary.main' : '#5b6178'}}>{bookmarks.length ? <BookmarkOutlined sx={{fontSize: 24}} /> : <BookmarkBorderOutlined sx={{fontSize: 24}} />}</IconButton></Tooltip>
+			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={{paper: {sx: {minWidth: 260, maxWidth: 340, mt: 0.5}}}}>
+				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{t('Bookmarks')}</Typography>
+				{bookmarks.length === 0 && <Typography component="li" sx={{listStyle: 'none', px: 2, py: 1, fontSize: 13, color: '#6b7088', whiteSpace: 'normal'}}>{t('No bookmark yet: use the bookmark icon next to the title of a module.')}</Typography>}
+				{bookmarks.map((b) => (
+					<MenuItem key={b.route} onClick={() => open(b)} sx={{pr: 0.5}}>
+						<ListItemIcon><MenuIcon name={b.icon} fontSize={20} /></ListItemIcon>
+						<ListItemText>{b.name}</ListItemText>
+						<IconButton size="small" aria-label={`${t('Remove')} ${b.name}`} onClick={(e) => { e.stopPropagation(); onRemove(b.route) }} sx={{ml: 1, color: '#5b6178'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>
+					</MenuItem>
+				))}
+			</Menu>
+		</>
+	)
+
+}
+
 function UserMenu({compact}: {compact: boolean})
 {
 
@@ -263,6 +297,24 @@ export default function BackendLayout()
 	const [menu, setMenu] = useState<MenuCategory[] | null>(null)
 	const [collapsed, setCollapsed] = useState(readCollapsed)
 	const [drawer, setDrawer] = useState(false)
+	const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+
+	const loadBookmarks = () => api<{bookmarks: Bookmark[]}>('backend/bookmarks/').then((data) => setBookmarks(data.bookmarks)).catch(() => setBookmarks([]))
+
+	// bookmark of a module added or removed (icon next to the title of the module, menu of the header)
+	const toggleBookmark = async (route: string) => {
+
+		if(bookmarks.some((b) => b.route === route))await api(`backend/bookmarks/${route}/`, {method: 'DELETE'})
+		else await api('backend/bookmarks/', {method: 'POST', body: {module: route}})
+		await loadBookmarks()
+
+	}
+
+	useEffect(() => {
+
+		loadBookmarks()
+
+	}, [])
 
 	useEffect(() => {
 
@@ -290,18 +342,18 @@ export default function BackendLayout()
 	const logo = config?.logo || DEFAULT_LOGO
 
 	return (
-		<MenuContext.Provider value={{menu, find}}>
+		<MenuContext.Provider value={{menu, find, bookmarks, toggleBookmark}}>
 			<Box sx={{minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f7f8fb', color: 'text.primary'}}>
 
 				<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: '#fff', borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
 					{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
 					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 30}, width: 'auto'}} /></Box>
 					<Box sx={{flexGrow: 1}} />
-					{/* calendar and bookmarks: placeholders until the agenda and the bookmarks modules */}
+					{/* calendar: placeholder until the agenda module */}
 					{!is_mobile && (
 						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
 							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
-							<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><BookmarkBorderOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
+							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
 							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
 						</Box>
 					)}
