@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
-import { Avatar, Box, ButtonBase, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { BookmarkBorderOutlined, CalendarMonthOutlined, CheckOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
-import { api, type MenuCategory, type MenuItem as MenuEntry } from '../api'
+import { Avatar, Box, Button, ButtonBase, Dialog, DialogActions, DialogTitle, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
+import { BookmarkBorderOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
+import { api, DATA_CHANGED_EVENT, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
 import { useLoginConfig } from './AuthLayout'
@@ -171,7 +171,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
-					<Typography component="p" sx={{m: '18px 12px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{category.name}</Typography>
+					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}><MenuIcon name={category.icon} fontSize={15} />{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={onNavigate} />
 					))}
@@ -189,6 +189,7 @@ function UserMenu({compact}: {compact: boolean})
 	const config = useLoginConfig()
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 	const [language_anchor, setLanguageAnchor] = useState<HTMLElement | null>(null)
+	const [confirm, setConfirm] = useState(false)
 
 	if(!user)return null
 	const name = `${user.firstname} ${user.lastname}`.trim() || user.login
@@ -219,11 +220,22 @@ function UserMenu({compact}: {compact: boolean})
 					<ListItemText>{t('Language')}</ListItemText>
 					<Typography sx={{fontSize: 13, color: 'text.secondary'}}>{config?.languages[user.language] ?? user.language}</Typography>
 				</MenuItem>
-				<MenuItem onClick={() => { setAnchor(null); logout() }}>
+				<MenuItem onClick={() => { setAnchor(null); setConfirm(true) }}>
 					<ListItemIcon><LogoutOutlined fontSize="small" /></ListItemIcon>
 					<ListItemText>{t('Sign out')}</ListItemText>
 				</MenuItem>
 			</Menu>
+
+			{/* sign out confirmed first */}
+			<Dialog open={confirm} onClose={(_, reason) => reason !== 'backdropClick' && setConfirm(false)} maxWidth="xs" fullWidth>
+				<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 17, fontWeight: 600, pr: 1.5}}>
+					<Box component="span" sx={{flexGrow: 1}}>{t('Sign out?')}</Box>
+					<IconButton aria-label={t('Close')} onClick={() => setConfirm(false)}><CloseOutlined /></IconButton>
+				</DialogTitle>
+				<DialogActions sx={{px: 3, pb: 2.5}}>
+					<Button variant="contained" startIcon={<LogoutOutlined />} onClick={() => { setConfirm(false); logout() }}>{t('Sign out')}</Button>
+				</DialogActions>
+			</Dialog>
 
 			<Menu anchorEl={language_anchor} open={!!language_anchor} onClose={() => setLanguageAnchor(null)} anchorOrigin={{vertical: 'top', horizontal: 'left'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}>
 				{Object.entries(config?.languages ?? {}).map(([code, label]) => (
@@ -254,7 +266,13 @@ export default function BackendLayout()
 
 	useEffect(() => {
 
-		api<{menu: MenuCategory[]}>('backend/menu/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+		const load = () => api<{menu: MenuCategory[]}>('backend/menu/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+		load()
+
+		// categories, plugins or rights changed in their modules (the rights of the user's own group may change)
+		const onChange = (e: Event) => ['menu', 'plugin', 'right', 'group'].includes(String((e as CustomEvent).detail)) && load()
+		window.addEventListener(DATA_CHANGED_EVENT, onChange)
+		return () => window.removeEventListener(DATA_CHANGED_EVENT, onChange)
 
 	}, [])
 
@@ -282,8 +300,8 @@ export default function BackendLayout()
 					{/* calendar and bookmarks: placeholders until the agenda and the bookmarks modules */}
 					{!is_mobile && (
 						<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
-							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 36, height: 36, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 20}} /></IconButton></Tooltip>
-							<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} sx={{width: 36, height: 36, borderRadius: 2, color: '#5b6178'}}><BookmarkBorderOutlined sx={{fontSize: 20}} /></IconButton></Tooltip>
+							<Tooltip title={t('Calendar')}><IconButton aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
+							<Tooltip title={t('Bookmarks')}><IconButton aria-label={t('Bookmarks')} sx={{width: 40, height: 40, borderRadius: 2, color: '#5b6178'}}><BookmarkBorderOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
 							<Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />
 						</Box>
 					)}
@@ -299,7 +317,7 @@ export default function BackendLayout()
 							</Drawer>
 						)
 						: (
-							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: '#fff', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto'}}>
+							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: '#fff', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto', overflowX: 'hidden'}}>
 								<Sidebar menu={menu} collapsed={collapsed} />
 								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{mt: 'auto', height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: '#5b6178', fontSize: 13, '&:hover': {bgcolor: '#f2f3f7'}}}>
 									{collapsed ? <MenuOpenOutlined sx={{fontSize: 20, transform: 'scaleX(-1)'}} /> : <><MenuOpenOutlined sx={{fontSize: 20}} />{t('Collapse menu')}</>}
@@ -307,7 +325,7 @@ export default function BackendLayout()
 							</Box>
 						)}
 
-					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '20px 16px', md: '28px 32px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
+					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '10px 8px', md: '14px 16px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
 						<Outlet />
 					</Box>
 				</Box>
