@@ -55,7 +55,7 @@ function PluginTile({item}: {item: MenuItem})
 
 	return (
 		<Box {...link} sx={{height: 120, px: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.25, bgcolor: '#fff', border: '1px solid #e6e8ee', borderRadius: 2, color: '#1f2335', textDecoration: 'none', textAlign: 'center', transition: 'border-color .15s, background-color .15s', '&:hover': {borderColor: '#c9bdff', bgcolor: '#f7f5ff'}}}>
-			<Box component="span" sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', bgcolor: '#f0ecff', color: 'primary.main'}}><MenuIcon name={item.icon} fontSize={22} /></Box>
+			<Box component="span" sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7088'}}><MenuIcon name={item.icon} fontSize={22} /></Box>
 			<Box component="span" sx={{minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 13.5, fontWeight: 500, lineHeight: 1.3}}>{item.name}</Box>
 		</Box>
 	)
