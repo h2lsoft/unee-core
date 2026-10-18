@@ -600,7 +600,10 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 									: c.label}
 							</Box>
 						))}
-						<Box component="th" sx={{...th, width: 84}}><Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Actions')}</Box></Box>
+						<Box component="th" sx={{...th, width: 84, pr: 1.5, textAlign: 'right'}}>
+							<Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Actions')}</Box>
+							<IconButton aria-label={t('Columns')} title={t('Columns')} onClick={(e) => setColumnsMenu(e.currentTarget)} sx={{width: 30, height: 30, color: columns_menu || hidden.length ? 'primary.main' : '#5b6178'}}><ViewColumnOutlined sx={{fontSize: 18}} /></IconButton>
+						</Box>
 					</Box>
 				</thead>
 				<tbody>
@@ -687,11 +690,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<Menu anchorEl={grid_menu} open={!!grid_menu} onClose={() => setGridMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
 				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>{t('Saved filters')}</Typography>
 				<MenuItem disabled sx={{fontSize: 14}}>{t('No saved filter')}</MenuItem>
-				<Divider />
-				<MenuItem onClick={(e) => setColumnsMenu(e.currentTarget)}><ListItemIcon><ViewColumnOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Columns')}</ListItemText></MenuItem>
 			</Menu>
 
-			<Menu anchorEl={columns_menu} open={!!columns_menu} onClose={() => setColumnsMenu(null)} anchorOrigin={{vertical: 'top', horizontal: 'left'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
+			<Menu anchorEl={columns_menu} open={!!columns_menu} onClose={() => setColumnsMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
 				{grid.columns.map((c) => (
 					<MenuItem key={c.name} disabled={!hidden.includes(c.name) && columns.length === 1} onClick={() => toggleColumn(c.name)} sx={{py: 0.25}}>
 						<Checkbox size="small" checked={!hidden.includes(c.name)} tabIndex={-1} sx={{p: 0.5, mr: 1}} />
