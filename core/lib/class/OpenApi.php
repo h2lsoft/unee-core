@@ -50,6 +50,9 @@ class OpenApi
 
 			}
 
+			// route without use for this controller (ex: no batch action declared)
+			if(!empty($extra['skip']))continue;
+
 			$parameters = [];
 			preg_match_all('/\{(\w+)\}/', $path, $placeholders);
 			foreach($placeholders[1] as $placeholder)

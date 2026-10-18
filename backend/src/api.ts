@@ -123,6 +123,10 @@ export type GridColumn = {
 	icon?: string
 }
 
+// action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header
+export type RowAction = {name: string, label: string, icon: string, right: string, url: string}
+export type GridAction = {name: string, label: string, icon: string, right: string, confirm: string, danger: boolean}
+
 export type GridFilter = {
 	name: string
 	label: string
@@ -142,13 +146,15 @@ export type Grid = {
 	conditions: {f: string, o: string, v: string}[]
 	match: 'all' | 'any'
 	q: string
-	chips: {name: string, active: string, total: number, options: (Option & {count: number})[]} | null
+	chips: {name: string, all: boolean, active: string, total: number, options: (Option & {count: number})[]} | null
 	search: {placeholder: string} | null
 	sort: {column: string, dir: 'asc' | 'desc'}
 	rows: Row[]
 	pagination: {total: number, page: number, per_page: number, last_page: number}
 	per_page_options: number[]
 	batch: {edit: string[], actions: {name: string, label: string, icon: string, right: string}[]} | null
+	row_actions: RowAction[]
+	grid_actions: GridAction[]
 	mobile: {title: string, subtitle: string}
 	position: string | null
 }
@@ -166,7 +172,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags'
 	label: string
 	required: boolean
 	width: number
@@ -178,9 +184,11 @@ export type FormField = {
 	readonly?: boolean
 	autocomplete?: boolean
 	free?: boolean
+	suggestions?: string[]
+	show_if?: {field: string, values: string[]}
 }
 
 export type FormPayload = {
 	form: {fields: FormField[]}
-	record: Record<string, string>
+	record: Record<string, string | string[]>
 }

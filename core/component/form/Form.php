@@ -163,6 +163,19 @@ class Form
 
 	}
 
+	/**
+	 * list of words typed as chips, stored as a json array (ex: actions of a plugin)
+	 *
+	 * @param array $suggestions words proposed in the list
+	 * @param string $pattern regex of each word
+	 */
+	public function addTags(string $name, string $label='', bool $required=false, array $suggestions=[], string $pattern='/^[a-z0-9_-]{1,64}$/'):static
+	{
+
+		return $this->add('tags', $name, $label, $required, ['suggestions' => array_values($suggestions), 'pattern' => $pattern, 'default' => []]);
+
+	}
+
 	// modifiers of the last field *************************************************************************************
 
 	public function maxLength(int $length):static
@@ -225,6 +238,19 @@ class Form
 	}
 
 	/**
+	 * field shown only when another field has one of the values, its rules are checked only then
+	 *
+	 * @param string $field name of the other field
+	 * @param array|string $values
+	 */
+	public function showIf(string $field, array|string $values):static
+	{
+
+		return $this->set('show_if', ['field' => $field, 'values' => array_map('strval', (array)$values)]);
+
+	}
+
+	/**
 	 * shown, never written
 	 */
 	public function readonly(bool $readonly=true):static
@@ -280,7 +306,7 @@ class Form
 
 			}
 
-			unset($field['sanitize'], $field['translate'], $field['unique']);
+			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern']);
 			$fields[] = $field;
 
 		}
@@ -317,6 +343,7 @@ class Form
 				'boolean' => ['type' => 'string', 'enum' => ['yes', 'no']],
 				'icon' => ['type' => 'string', 'pattern' => '^[a-z0-9_]+$', 'description' => 'material symbol name'],
 				'color' => ['type' => 'string', 'pattern' => '^#[0-9a-fA-F]{6}$'],
+				'tags' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => trim($f['pattern'], '/')]] + (($f['suggestions']) ? ['examples' => [$f['suggestions']]] : []),
 				default => ['type' => 'string'],
 			};
 
@@ -368,6 +395,7 @@ class Form
 		{
 
 			if(!empty($f['readonly']))continue;
+			if(isset($f['show_if']) && !in_array((string)$v->inputGet($f['show_if']['field']), $f['show_if']['values'], true))continue;
 
 			$v->input($name, ts($f['label']));
 
@@ -386,6 +414,7 @@ class Form
 				'icon' => $v->regex('/^[a-z0-9_]+$/', '`[FIELD]` must be an icon name, ex: settings'),
 				'color' => $v->regex('/^#[0-9a-f]{6}$/i', '`[FIELD]` must be a color #rrggbb'),
 				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options']))) : null,
+				'tags' => $v->custom(fn($value) => is_array($value) && count($value) <= 100 && !array_filter($value, fn($w) => !is_string($w) || !preg_match($f['pattern'], trim($w))), '`[FIELD]` holds an invalid word'),
 				default => null,
 			};
 
@@ -413,6 +442,17 @@ class Form
 			if(!empty($f['readonly']))continue;
 
 			$value = $input[$name] ?? (($f['type'] === 'boolean') ? 'no' : '');
+
+			// json array of unique trimmed words
+			if($f['type'] === 'tags')
+			{
+
+				$words = array_values(array_unique(array_filter(array_map(fn($w) => trim((string)$w), (is_array($value)) ? $value : []), 'strlen')));
+				$row[$name] = json_encode($words);
+				continue;
+
+			}
+
 			if(is_array($value))$value = '';
 			$value = ($f['type'] === 'password') ? (string)$value : trim((string)$value);
 

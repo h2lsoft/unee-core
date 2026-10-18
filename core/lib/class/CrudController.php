@@ -101,7 +101,16 @@ abstract class CrudController extends Controller
 		$form = $this->buildForm($record);
 		$values = ['id' => $id];
 		foreach($form->fields as $name => $field)
-			$values[$name] = ($field['type'] === 'password') ? '' : ($record[$name] ?? '');
+		{
+
+			$values[$name] = match($field['type'])
+			{
+				'password' => '',
+				'tags' => (is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values($words) : [],
+				default => $record[$name] ?? '',
+			};
+
+		}
 
 		return new JsonResponse(['form' => $form->definition(), 'record' => $this->getRecord($values, $record)]);
 
@@ -348,6 +357,14 @@ abstract class CrudController extends Controller
 		if(!$col || $col['type'] !== 'boolean' || empty($col['toggle']))return JsonResponse::error(422, 'column not editable');
 		if(!in_array($value, ['yes', 'no'], true))return JsonResponse::error(422, 'invalid value');
 
+		// rules of the module on the record with the new value (same as the mass edit)
+		$v = new Validator(App()->locale, array_merge($record, [$column => $value]));
+		$v->addLocaleMessages(App()->locale, \Core\I18n::messages());
+		$v->setInputNames(array_map(fn($f) => ts($f['label']), $this->buildForm($record)->fields));
+		$this->rulesOnSubmit($v, $record);
+		$this->rulesOnUpdate($v, $record);
+		if($v->fails())return JsonResponse::error(422, (string)$v->result()['error_stack'][0]);
+
 		DB($this->table)->update([$column => $value], $id, 1, $this->author());
 		\Core\Log::write('toggle', "{$column} = {$value}", [$column => [$record[$column], $value]], $id, 'info', $this->module);
 
@@ -375,6 +392,51 @@ abstract class CrudController extends Controller
 		if(!$records = $this->batchRecords($request))return JsonResponse::error(422, 'select between 1 and 500 records');
 
 		return $this->$method($records);
+
+	}
+
+	/**
+	 * action of a row declared with $grid->rowAction() without url, calls row<Action>(array $record)
+	 *
+	 * @param int $id
+	 * @param string $action
+	 *
+	 * @return JsonResponse what row<Action>() returns, ex: {"message"} or {"redirect": "/backend/"} (full page reload)
+	 */
+	#[Route('/{id}/action/{action}/', name: 'row.action', methods: ['POST'], requirements: ['action' => '[a-z0-9]+(-[a-z0-9]+)*'])]
+	public function apiRowAction(int $id, string $action):JsonResponse
+	{
+
+		$declared = $this->buildGrid()->row_actions[$action] ?? null;
+		$method = 'row'.str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
+		if(!$declared || $declared['url'] !== '' || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
+
+		if($denied = $this->deny($declared['right']))return $denied;
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		return $this->$method($record);
+
+	}
+
+	/**
+	 * button of the grid declared with $grid->gridAction(), calls action<Action>(Request $request)
+	 *
+	 * @param Request $request
+	 * @param string $action
+	 *
+	 * @return JsonResponse what action<Action>() returns, ex: {"message"}
+	 */
+	#[Route('/action/{action}/', name: 'grid.action', methods: ['POST'], requirements: ['action' => '[a-z0-9]+(-[a-z0-9]+)*'])]
+	public function apiGridAction(Request $request, string $action):JsonResponse
+	{
+
+		$declared = $this->buildGrid()->grid_actions[$action] ?? null;
+		$method = 'action'.str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
+		if(!$declared || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
+
+		if($denied = $this->deny($declared['right']))return $denied;
+
+		return $this->$method($request);
 
 	}
 
@@ -413,8 +475,10 @@ abstract class CrudController extends Controller
 				'column' => ['type' => 'string', 'enum' => array_keys(array_filter($grid->columns, fn($c) => $c['type'] === 'boolean' && !empty($c['toggle'])))],
 				'value' => ['type' => 'string', 'enum' => ['yes', 'no']],
 			]]],
-			'apiBatchPosition' => ['requestBody' => $ids, 'response' => ['type' => 'object', 'properties' => ['updated' => ['type' => 'integer']]]],
-			'apiBatchAction' => ['requestBody' => $ids, 'path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->batch_actions)]]],
+			'apiBatchPosition' => ($grid->position === '') ? ['skip' => true] : ['requestBody' => $ids, 'response' => ['type' => 'object', 'properties' => ['updated' => ['type' => 'integer']]]],
+			'apiBatchAction' => ($grid->batch_actions) ? ['requestBody' => $ids, 'path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->batch_actions)]]] : ['skip' => true],
+			'apiRowAction' => ($row_actions = array_keys(array_filter($grid->row_actions, fn($a) => $a['url'] === ''))) ? ['path' => ['action' => ['type' => 'string', 'enum' => $row_actions]]] : ['skip' => true],
+			'apiGridAction' => ($grid->grid_actions) ? ['path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->grid_actions)]]] : ['skip' => true],
 			default => [],
 		};
 

@@ -9,7 +9,7 @@ import {
 	CheckBoxOutlined, CloseOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 } from '@mui/icons-material'
-import { api, ApiException, dataChanged, type Grid, type GridColumn, type GridFilter, type Row, type SavedFilter } from '../api'
+import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
 import MassEditDialog from './MassEditDialog'
@@ -151,7 +151,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: '#9a9fb3'}}>-</Box>
 
 	const text = String(value)
-	if(column.type === 'badge')return <Badge value={text} color={column.colors?.[text]} />
+	if(column.type === 'badge')return <Badge value={text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
 	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: '#3a3f55'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
@@ -160,7 +160,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 }
 
-function ConfirmDialog({open, title, onCancel, onConfirm, busy}: {open: boolean, title: string, onCancel: () => void, onConfirm: () => void, busy: boolean})
+function ConfirmDialog({open, title, onCancel, onConfirm, busy, label}: {open: boolean, title: string, onCancel: () => void, onConfirm: () => void, busy: boolean, label?: string})
 {
 
 	return (
@@ -171,7 +171,7 @@ function ConfirmDialog({open, title, onCancel, onConfirm, busy}: {open: boolean,
 			</DialogTitle>
 			<DialogContent sx={{fontSize: 14, color: 'text.secondary'}}>{t('This action cannot be undone.')}</DialogContent>
 			<DialogActions sx={{px: 3, pb: 2.5}}>
-				<Button onClick={onConfirm} variant="contained" color="error" disabled={busy}>{busy ? <CircularProgress size={20} color="inherit" /> : t('Delete')}</Button>
+				<Button onClick={onConfirm} variant="contained" color="error" disabled={busy}>{busy ? <CircularProgress size={20} color="inherit" /> : (label ?? t('Delete'))}</Button>
 			</DialogActions>
 		</Dialog>
 	)
@@ -281,17 +281,18 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 
 }
 
-function RowMenu({row, can_edit, can_delete, onEdit, onDelete}: {row: Row, can_edit: boolean, can_delete: boolean, onEdit: (row: Row) => void, onDelete: (row: Row) => void})
+function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction}: {row: Row, can_edit: boolean, can_delete: boolean, actions: RowAction[], onEdit: (row: Row) => void, onDelete: (row: Row) => void, onAction: (row: Row, action: RowAction) => void})
 {
 
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-	if(!can_edit && !can_delete)return null
+	if(!can_edit && !can_delete && !actions.length)return null
 
 	return (
 		<>
 			<IconButton size="small" aria-label={t('More actions')} onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget) }} sx={{width: 34, height: 34, color: '#5b6178'}}><MoreVertOutlined sx={{fontSize: 18}} /></IconButton>
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}>
 				{can_edit && <MenuItem onClick={() => { setAnchor(null); onEdit(row) }}><ListItemIcon><EditOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Edit')}</ListItemText></MenuItem>}
+				{actions.map((a) => <MenuItem key={a.name} onClick={() => { setAnchor(null); onAction(row, a) }}><ListItemIcon><MenuIcon name={a.icon} fontSize={20} /></ListItemIcon><ListItemText>{a.label}</ListItemText></MenuItem>)}
 				{can_delete && <MenuItem onClick={() => { setAnchor(null); onDelete(row) }} sx={{color: 'error.main'}}><ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon><ListItemText>{t('Delete')}</ListItemText></MenuItem>}
 			</Menu>
 		</>
@@ -447,6 +448,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const [running, setRunning] = useState('')
 	const [drag_rows, setDragRows] = useState<Row[] | null>(null)
 	const [drag_id, setDragId] = useState<number | null>(null)
+	const [confirm_action, setConfirmAction] = useState<GridAction | null>(null)
 
 	const query = params.toString()
 
@@ -556,6 +558,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const batch_actions = (grid?.batch?.actions ?? []).filter((a) => rights.has(a.right))
 	const can_mass_edit = can_edit && (grid?.batch?.edit.length ?? 0) > 0
 	const batch = !!grid?.batch && (can_delete || can_mass_edit || batch_actions.length > 0)
+	const row_actions = (grid?.row_actions ?? []).filter((a) => rights.has(a.right))
+	const grid_actions = (grid?.grid_actions ?? []).filter((a) => rights.has(a.right))
 
 	const applyConditions = (conditions: Condition[], match: 'all' | 'any') => {
 
@@ -589,6 +593,73 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			const data = await api<{message?: string}>(`${module}/batch/${name}/`, {method: 'POST', body: {ids: selected}})
 			toast(data?.message ?? t('Done'))
 			setSelectionMenu(null)
+			dataChanged(module)
+			setReload((n) => n + 1)
+
+		}
+		catch(e)
+		{
+
+			toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+
+		}
+		finally
+		{
+
+			setRunning('')
+
+		}
+
+	}
+
+	// action of a row: link of the backend, or call whose answer may hold a message or a redirect (full reload, ex: connect as)
+	const rowAction = async (row: Row, action: RowAction) => {
+
+		if(action.url)
+		{
+
+			navigate(`/${action.url.replaceAll('{id}', String(row.id))}`)
+			return
+
+		}
+
+		try
+		{
+
+			const data = await api<{message?: string, redirect?: string}>(`${module}/${row.id}/action/${action.name}/`, {method: 'POST', body: {}})
+			if(data?.redirect)
+			{
+
+				window.location.href = data.redirect
+				return
+
+			}
+
+			toast(data?.message ?? t('Done'))
+			dataChanged(module)
+			setReload((n) => n + 1)
+
+		}
+		catch(e)
+		{
+
+			toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+
+		}
+
+	}
+
+	// button of the grid header, confirmed first when it asks a question
+	const gridAction = async (action: GridAction) => {
+
+		setRunning(action.name)
+
+		try
+		{
+
+			const data = await api<{message?: string}>(`${module}/action/${action.name}/`, {method: 'POST', body: {}})
+			toast(data?.message ?? t('Done'))
+			setConfirmAction(null)
 			dataChanged(module)
 			setReload((n) => n + 1)
 
@@ -833,7 +904,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					</Box>
 					{mobile_subtitle && <Typography component="span" noWrap sx={{fontSize: 13, color: '#5b6178'}}><Cell column={mobile_subtitle} row={row} can_edit={can_edit} onToggle={toggle} /></Typography>}
 				</Box>
-				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} onEdit={onEdit} onDelete={(r) => setToDelete([r])} />
+				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} />
 			</Box>
 		))
 
@@ -903,7 +974,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 							<Box component="td" sx={{...td, pr: 1.5}}>
 								<Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 0.25}}>
 									{can_edit && <IconButton size="small" aria-label={t('Edit')} onClick={() => onEdit(row)} sx={{width: 34, height: 34, color: 'primary.main'}}><EditOutlined sx={{fontSize: 18}} /></IconButton>}
-									<RowMenu row={row} can_edit={false} can_delete={can_delete} onEdit={onEdit} onDelete={(r) => setToDelete([r])} />
+									<RowMenu row={row} can_edit={false} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} />
 								</Box>
 							</Box>
 						</Box>
@@ -945,13 +1016,16 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					<IconButton aria-label={t('Bookmark')} sx={{width: 34, height: 34, color: 'primary.main'}}><BookmarkBorderOutlined sx={{fontSize: 22}} /></IconButton>
 				</Box>
 				{search_group}
+				{grid_actions.map((a) => (
+					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.confirm ? setConfirmAction(a) : gridAction(a)} sx={{bgcolor: '#fff'}}>{a.label}</Button>
+				))}
 				{can_add && <Button variant="contained" startIcon={<AddCircleOutlineOutlined />} onClick={onAdd}>{is_mobile ? t('Add') : `${t('Add')} ${grid.label}`}</Button>}
 			</Box>
 
 			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: -0.5, mb: {xs: -1, md: -1.25}}}>
 				{grid.chips && (
 					<>
-						<ButtonBase sx={tab_sx(chip === '')} onClick={() => setTab('')}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>
+						{grid.chips.all && <ButtonBase sx={tab_sx(chip === '')} onClick={() => setTab('')}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>}
 						{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={tab_sx(chip === o.value)} onClick={() => setTab(o.value)}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>)}
 					</>
 				)}
@@ -1025,6 +1099,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={(grid.chips?.active && grid.filters.some((f) => f.name === grid.chips?.name)) ? [{f: grid.chips.name, o: 'eq', v: grid.chips.active}, ...grid.conditions] : grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
 
 			<SaveFilterDialog module={module} draft={save_draft} onClose={() => setSaveDraft(null)} onSaved={() => { const draft = save_draft; setSaveDraft(null); setSavedVersion((v) => v + 1); if(draft)applyConditions(draft.conditions, draft.match) }} />
+
+			<ConfirmDialog open={!!confirm_action} busy={running !== ''} title={confirm_action?.confirm ?? ''} label={confirm_action?.label} onCancel={() => setConfirmAction(null)} onConfirm={() => confirm_action && gridAction(confirm_action)} />
 
 			<ConfirmDialog
 				open={!!to_delete}

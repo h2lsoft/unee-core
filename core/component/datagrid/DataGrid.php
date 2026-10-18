@@ -45,6 +45,8 @@ class DataGrid
 	public array $batch_edit = [];
 	public string $position = '';
 	public array $batch_actions = [];
+	public array $row_actions = [];
+	public array $grid_actions = [];
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
 	private string $last = '';
@@ -88,13 +90,14 @@ class DataGrid
 	 * @param string $label
 	 * @param bool $sortable
 	 * @param array $colors value => grey, orange, red, green, blue, purple, yellow, cyan (default grey)
+	 * @param string $color_column column holding the color of each row (ex: xcore_list.color), replaces $colors
 	 *
 	 * @return static
 	 */
-	public function addColBadge(string $name, string $label='', bool $sortable=false, array $colors=[]):static
+	public function addColBadge(string $name, string $label='', bool $sortable=false, array $colors=[], string $color_column=''):static
 	{
 
-		return $this->addCol($name, $label, $sortable, 'badge', ['colors' => (object)$colors]);
+		return $this->addCol($name, $label, $sortable, 'badge', ['colors' => (object)$colors] + (($color_column !== '') ? ['color_column' => $color_column] : []));
 
 	}
 
@@ -287,6 +290,57 @@ class DataGrid
 
 	}
 
+	/**
+	 * action in the menu of each row
+	 * url: link of the backend, {id} replaced (ex: right/?group={id}), empty: POST /api/<module>/<id>/action/<name>/ calls the controller method row<Name>(array $record)
+	 *
+	 * @param string $name a-z, 0-9 and dashes, ex: connect-as calls rowConnectAs()
+	 * @param string $label english, translated
+	 * @param string $icon material symbol name
+	 * @param string $right right needed on the module (a link to another module: check its right before declaring it)
+	 * @param string $url
+	 *
+	 * @return static
+	 */
+	public function rowAction(string $name, string $label, string $icon='', string $right='edit', string $url=''):static
+	{
+
+		$this->checkActionName($name);
+		$this->row_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right, 'url' => $url];
+
+		return $this;
+
+	}
+
+	/**
+	 * button of the grid header: POST /api/<module>/action/<name>/ calls the controller method action<Name>()
+	 *
+	 * @param string $name a-z, 0-9 and dashes, ex: purge calls actionPurge()
+	 * @param string $label english, translated
+	 * @param string $icon material symbol name
+	 * @param string $right right needed on the module
+	 * @param string $confirm english question asked before (empty = no confirmation)
+	 * @param bool $danger red button
+	 *
+	 * @return static
+	 */
+	public function gridAction(string $name, string $label, string $icon='', string $right='edit', string $confirm='', bool $danger=false):static
+	{
+
+		$this->checkActionName($name);
+		$this->grid_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right, 'confirm' => $confirm, 'danger' => $danger];
+
+		return $this;
+
+	}
+
+	private function checkActionName(string $name):void
+	{
+
+		if(!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name))throw new \InvalidArgumentException("action name `{$name}` not allowed");
+
+	}
+
 	public function setBatchMode(bool $batch):static
 	{
 
@@ -374,13 +428,14 @@ class DataGrid
 	 *
 	 * @param string $name column of the table
 	 * @param array $options value => label, empty = distinct values of the column
+	 * @param bool $all tab All, false = a tab is always active (the first by default)
 	 *
 	 * @return static
 	 */
-	public function addFilterChips(string $name, array $options=[]):static
+	public function addFilterChips(string $name, array $options=[], bool $all=true):static
 	{
 
-		$this->chips = ['name' => $name, 'options' => $options];
+		$this->chips = ['name' => $name, 'options' => $options, 'all' => $all];
 		return $this;
 
 	}
@@ -503,7 +558,9 @@ class DataGrid
 		if($this->chips)
 		{
 
-			$chips = ['name' => $this->chips['name'], 'active' => $chip] + $this->chipOptions(implode(' AND ', $wheres), $binds);
+			$chips = ['name' => $this->chips['name'], 'all' => $this->chips['all']] + $this->chipOptions(implode(' AND ', $wheres), $binds);
+			if($chip === '' && !$this->chips['all'] && $chips['options'])$chip = $chips['options'][0]['value'];
+			$chips['active'] = $chip;
 
 			if($chip !== '')
 			{
@@ -574,6 +631,8 @@ class DataGrid
 				'edit' => array_values($this->batch_edit),
 				'actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->batch_actions)),
 			] : null,
+			'row_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->row_actions)),
+			'grid_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label']), 'confirm' => ($a['confirm'] !== '') ? ts($a['confirm']) : ''] + $a, $this->grid_actions)),
 			'mobile' => $this->mobile,
 			'position' => ($this->position !== '') ? $this->position : null,
 		];

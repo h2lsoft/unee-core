@@ -1,14 +1,50 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
+import { Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
 import { MenuIcon } from './icons'
 import { useToast } from './Toast'
 
-// datetime-local works with "Y-m-dTH:i", the api with "Y-m-d H:i:s"
-const toInput = (field: FormField, value: string) => (field.type === 'datetime' && value) ? value.replace(' ', 'T').slice(0, 16) : value
-const toApi = (field: FormField, value: string) => (field.type === 'datetime' && value) ? `${value.replace('T', ' ')}:00`.slice(0, 19) : value
+// datetime-local works with "Y-m-dTH:i", the api with "Y-m-d H:i:s", tags are kept as a json array in the state
+export function toInput(field: FormField, value: unknown): string
+{
+
+	if(field.type === 'tags')return JSON.stringify(Array.isArray(value) ? value : [])
+	const text = String(value ?? '')
+	return (field.type === 'datetime' && text) ? text.replace(' ', 'T').slice(0, 16) : text
+
+}
+
+export function toApi(field: FormField, value: string): unknown
+{
+
+	if(field.type === 'tags')return words(value)
+	return (field.type === 'datetime' && value) ? `${value.replace('T', ' ')}:00`.slice(0, 19) : value
+
+}
+
+function words(value: string): string[]
+{
+
+	try
+	{
+
+		const list = JSON.parse(value || '[]')
+		return Array.isArray(list) ? list.map(String) : []
+
+	}
+	catch
+	{
+
+		return []
+
+	}
+
+}
+
+// field shown only when another field has one of the values (\Component\Form::showIf)
+export const isVisible = (field: FormField, values: Record<string, string>) => !field.show_if || field.show_if.values.includes(values[field.show_if.field] ?? '')
 
 function PasswordInput(props: React.ComponentProps<typeof OutlinedInput>)
 {
@@ -37,6 +73,26 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 {
 
 	const id = `field-${field.name}`
+
+	// words typed as chips, enter or comma adds one
+	if(field.type === 'tags')
+	{
+
+		return (
+			<Autocomplete
+				id={id}
+				multiple
+				freeSolo
+				disabled={field.readonly}
+				options={field.suggestions ?? []}
+				value={words(value)}
+				onChange={(_, list) => onChange(JSON.stringify([...new Set(list.map((w) => String(w).trim()).filter(Boolean))]))}
+				renderValue={(list, getItemProps) => list.map((w, index) => <Chip {...getItemProps({index})} key={w} label={w} size="small" />)}
+				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder} sx={{'& .MuiOutlinedInput-root': {py: '3px', fontSize: 14}}} />}
+			/>
+		)
+
+	}
 
 	if(field.type === 'boolean')
 		return <Switch id={id} checked={value === 'yes'} onChange={(e) => onChange(e.target.checked ? 'yes' : 'no')} disabled={field.readonly} sx={{ml: -1}} />
@@ -154,7 +210,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 			.then((payload) => {
 
 				setData(payload)
-				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, toInput(f, String(payload.record[f.name] ?? ''))])))
+				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, toInput(f, payload.record[f.name])])))
 
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
@@ -215,7 +271,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 				)}
 				{data && (
 					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5}}>
-						{data.form.fields.map((f) => {
+						{data.form.fields.filter((f) => isVisible(f, values)).map((f) => {
 
 							// label on the first line of the control (40px), the help text stays under the control
 							return (

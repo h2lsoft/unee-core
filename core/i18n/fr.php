@@ -85,4 +85,68 @@ return [
 	// saved filters
 	'add at least one condition' => 'ajoutez au moins une condition',
 
+	// grid and form
+	'Active' => 'Actif',
+	'Label' => 'Libellé',
+	'Url' => 'Url',
+	'Code' => 'Code',
+	'Users' => 'Utilisateurs',
+	'Priority' => 'Priorité',
+	'Done' => 'Terminé',
+	'`[FIELD]` holds an invalid word' => '`[FIELD]` contient un mot invalide',
+	'`[FIELD]` must be an url (https://...) or a path (/...)' => '`[FIELD]` doit être une url (https://...) ou un chemin (/...)',
+
+	// module group
+	'Groups' => 'Groupes',
+	'group' => 'groupe',
+	'Rights' => 'Droits',
+	'Backend access' => 'Accès backend',
+	'Frontend access' => 'Accès frontend',
+	'lowest priorities are the most important' => 'les priorités les plus basses sont les plus importantes',
+	'the super admin group keeps its backend access' => 'le groupe super admin garde son accès au backend',
+	'you cannot remove the backend access of your own group' => 'vous ne pouvez pas retirer l\'accès backend de votre propre groupe',
+	'this group is used by the application, it cannot be deleted' => 'ce groupe est utilisé par l\'application, il ne peut pas être supprimé',
+	'you cannot delete your own group' => 'vous ne pouvez pas supprimer votre propre groupe',
+	'this group holds [COUNT] users, move or delete them first' => 'ce groupe contient [COUNT] utilisateurs, déplacez-les ou supprimez-les d\'abord',
+
+	// module plugin
+	'plugin' => 'plugin',
+	'Route' => 'Route',
+	'Route / url' => 'Route / url',
+	'Actions' => 'Actions',
+	'Versioning' => 'Versioning',
+	'Visible' => 'Visible',
+	'normal' => 'normal',
+	'url' => 'url',
+	'folder of the module, ex: mail-template' => 'dossier du module, ex : mail-template',
+	'rights of the module, given to the groups in the module right' => 'droits du module, donnés aux groupes dans le module Droits',
+	'keeps a copy of each version of the records' => 'garde une copie de chaque version des enregistrements',
+	'shown in the menu' => 'affiché dans le menu',
+	'`[FIELD]` must hold lowercase letters, digits and dashes, ex: mail-template' => '`[FIELD]` doit contenir des minuscules, des chiffres et des tirets, ex : mail-template',
+	'the plugin module stays active, it manages the others' => 'le module plugin reste actif, il gère les autres',
+
+	// module list
+	'Lists' => 'Listes',
+	'value' => 'valeur',
+	'value stored in the records' => 'valeur enregistrée dans les fiches',
+	'text shown, translated' => 'texte affiché, traduit',
+	'`[FIELD]` is already used in this category' => '`[FIELD]` est déjà utilisé dans cette catégorie',
+	'grey' => 'gris',
+	'orange' => 'orange',
+	'red' => 'rouge',
+	'green' => 'vert',
+	'blue' => 'bleu',
+	'purple' => 'violet',
+	'yellow' => 'jaune',
+	'cyan' => 'cyan',
+
+	// module url redirect
+	'Url redirects' => 'Redirections d\'url',
+	'rule' => 'règle',
+	'Rule' => 'Règle',
+	'Search rule, url...' => 'Rechercher une règle, une url...',
+	'php regex tested on the full url, ex: #^https?://example\.com/blog/#' => 'regex php testée sur l\'url complète, ex : #^https?://example\.com/blog/#',
+	'url or path of the redirection, ex: /new/' => 'url ou chemin de la redirection, ex : /new/',
+	'`[FIELD]` is not a valid regex: [ERROR]' => '`[FIELD]` n\'est pas une regex valide : [ERROR]',
+
 ];
