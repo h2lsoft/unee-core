@@ -92,7 +92,7 @@ export default function Dashboard()
 				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{t('Dashboard')}</Typography>
 			</Box>
 
-			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -1, borderBottom: '1px solid #e6e8ee', '& .MuiTab-root': {minHeight: 40, px: 1.5, textTransform: 'none', fontSize: 14, fontWeight: 500}}}>
+			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -1, borderBottom: '1px solid #e6e8ee', '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
 				<Tab value="dashboard" label={t('Dashboard')} />
 				<Tab value="menu" label={t('Menu')} />
 			</Tabs>

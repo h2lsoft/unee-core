@@ -39,12 +39,12 @@ class System_InfoController extends \Core\Controller
 			'title' => ts('System info'),
 			'php' => [
 				'stats' => [
-					['label' => ts('PHP version'), 'value' => PHP_VERSION],
-					['label' => ts('Interface'), 'value' => PHP_SAPI],
-					['label' => ts('Memory limit'), 'value' => (string)ini_get('memory_limit')],
-					['label' => ts('Max execution time'), 'value' => ini_get('max_execution_time').' s'],
-					['label' => ts('Upload max filesize'), 'value' => (string)ini_get('upload_max_filesize')],
-					['label' => ts('Extensions'), 'value' => (string)count($extensions)],
+					['label' => ts('PHP version'), 'value' => PHP_VERSION, 'icon' => 'code'],
+					['label' => ts('Interface'), 'value' => PHP_SAPI, 'icon' => 'settings_ethernet'],
+					['label' => ts('Memory limit'), 'value' => (string)ini_get('memory_limit'), 'icon' => 'memory_alt'],
+					['label' => ts('Max execution time'), 'value' => ini_get('max_execution_time').' s', 'icon' => 'timer'],
+					['label' => ts('Upload max filesize'), 'value' => (string)ini_get('upload_max_filesize'), 'icon' => 'upload_file'],
+					['label' => ts('Extensions'), 'value' => (string)count($extensions), 'icon' => 'extension'],
 				],
 				'ini' => $this->pairs(array_map(fn($v) => (string)$v, ini_get_all(null, false))),
 				'extensions' => array_values($extensions),
@@ -63,19 +63,23 @@ class System_InfoController extends \Core\Controller
 	}
 
 	/**
-	 * machine: host, system, cpu, load, memory, swap, disk, uptime (linux /proc, a value not readable is left out, ex: windows, open_basedir)
+	 * machine: host, system, cpu, load, memory, swap, disk, uptime (linux /proc, windows: cpu from the environment, a value not readable is left out)
 	 *
-	 * @return array [{"label", "value"}]
+	 * @return array [{"label", "value", "icon", "percent"}], percent: used part of memory, swap and disk
 	 */
 	private function serverStats():array
 	{
 
 		$stats = [];
-		$add = function(string $label, ?string $value) use (&$stats):void{if($value !== null && $value !== '')$stats[] = ['label' => ts($label), 'value' => $value];};
+		$add = function(string $label, ?string $value, string $icon, ?int $percent=null) use (&$stats):void{
 
-		$add('Host', gethostname() ?: null);
-		$add('System', php_uname('s').' '.php_uname('r').' ('.php_uname('m').')');
-		$add('Web server', $_SERVER['SERVER_SOFTWARE'] ?? null);
+			if($value !== null && $value !== '')$stats[] = ['label' => ts($label), 'value' => $value, 'icon' => $icon] + (($percent !== null) ? ['percent' => $percent] : []);
+
+		};
+
+		$add('Host', gethostname() ?: null, 'dns');
+		$add('System', php_uname('s').' '.php_uname('r').' ('.php_uname('m').')', 'computer');
+		$add('Web server', $_SERVER['SERVER_SOFTWARE'] ?? null, 'public');
 
 		// cpu: model and cores
 		$cpuinfo = (string)@file_get_contents('/proc/cpuinfo');
@@ -84,30 +88,36 @@ class System_InfoController extends \Core\Controller
 
 			preg_match('/^model name\s*:\s*(.+)$/m', $cpuinfo, $model);
 			$cores = preg_match_all('/^processor\s*:/m', $cpuinfo);
-			$add('CPU', trim(($model[1] ?? '').' - '.ts('[COUNT] cores', ['COUNT' => $cores]), ' -'));
+			$add('CPU', trim(($model[1] ?? '').' - '.ts('[COUNT] cores', ['COUNT' => $cores]), ' -'), 'memory');
+
+		}
+		elseif(getenv('PROCESSOR_IDENTIFIER'))
+		{
+
+			$add('CPU', getenv('PROCESSOR_IDENTIFIER').' - '.ts('[COUNT] cores', ['COUNT' => (int)getenv('NUMBER_OF_PROCESSORS')]), 'memory');
 
 		}
 
 		$load = (function_exists('sys_getloadavg')) ? @sys_getloadavg() : false;
-		if($load)$add('Load average', implode(' / ', array_map(fn($l) => number_format($l, 2), $load)));
+		if($load)$add('Load average', implode(' / ', array_map(fn($l) => number_format($l, 2), $load)), 'speed');
 
 		// memory and swap from /proc/meminfo (kB)
 		$meminfo = [];
 		foreach(explode("\n", (string)@file_get_contents('/proc/meminfo')) as $line)
 			if(preg_match('/^(\w+):\s+(\d+)/', $line, $m))$meminfo[$m[1]] = (int)$m[2] * 1024;
 
-		if(isset($meminfo['MemTotal'], $meminfo['MemAvailable']))$add('Memory', $this->usage($meminfo['MemTotal'] - $meminfo['MemAvailable'], $meminfo['MemTotal']));
-		if(isset($meminfo['SwapTotal'], $meminfo['SwapFree']))$add('Swap', ($meminfo['SwapTotal']) ? $this->usage($meminfo['SwapTotal'] - $meminfo['SwapFree'], $meminfo['SwapTotal']) : ts('none'));
+		if(isset($meminfo['MemTotal'], $meminfo['MemAvailable']))$add('Memory', $this->usage($meminfo['MemTotal'] - $meminfo['MemAvailable'], $meminfo['MemTotal']), 'memory_alt', $this->percent($meminfo['MemTotal'] - $meminfo['MemAvailable'], $meminfo['MemTotal']));
+		if(isset($meminfo['SwapTotal'], $meminfo['SwapFree']))$add('Swap', ($meminfo['SwapTotal']) ? $this->usage($meminfo['SwapTotal'] - $meminfo['SwapFree'], $meminfo['SwapTotal']) : ts('none'), 'swap_horiz', ($meminfo['SwapTotal']) ? $this->percent($meminfo['SwapTotal'] - $meminfo['SwapFree'], $meminfo['SwapTotal']) : null);
 
 		// disk of the application
 		$total = @disk_total_space(APP_PATH);
 		$free = @disk_free_space(APP_PATH);
-		if($total && $free !== false)$add('Disk', $this->usage($total - $free, $total));
+		if($total && $free !== false)$add('Disk', $this->usage($total - $free, $total), 'hard_drive', $this->percent($total - $free, $total));
 
 		$uptime = (float)@file_get_contents('/proc/uptime');
-		if($uptime > 0)$add('Uptime', ts('[DAYS] d [HOURS] h', ['DAYS' => intdiv((int)$uptime, 86400), 'HOURS' => intdiv((int)$uptime % 86400, 3600)]));
+		if($uptime > 0)$add('Uptime', ts('[DAYS] d [HOURS] h', ['DAYS' => intdiv((int)$uptime, 86400), 'HOURS' => intdiv((int)$uptime % 86400, 3600)]), 'timer');
 
-		$add('Server time', date('Y-m-d H:i:s T'));
+		$add('Server time', date('Y-m-d H:i:s T'), 'schedule');
 
 		return $stats;
 
@@ -119,13 +129,20 @@ class System_InfoController extends \Core\Controller
 	 * @param float $used bytes
 	 * @param float $total bytes
 	 *
-	 * @return string ex: 5.2 / 16 GB (32%)
+	 * @return string ex: 5.2 / 16 GB
 	 */
 	private function usage(float $used, float $total):string
 	{
 
 		$gb = fn($bytes) => rtrim(rtrim(number_format($bytes / 1073741824, 1, '.', ''), '0'), '.');
-		return $gb($used).' / '.$gb($total).' GB ('.round($used / $total * 100).'%)';
+		return $gb($used).' / '.$gb($total).' GB';
+
+	}
+
+	private function percent(float $used, float $total):int
+	{
+
+		return (int)round($used / $total * 100);
 
 	}
 

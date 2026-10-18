@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, CircularProgress, InputBase, Tab, Tabs, Typography } from '@mui/material'
+import { Box, CircularProgress, InputBase, LinearProgress, Tab, Tabs, Typography } from '@mui/material'
 import { SearchOutlined } from '@mui/icons-material'
 import { api, ApiException } from '../api'
 import { t } from '../i18n'
@@ -7,14 +7,42 @@ import BookmarkButton from '../components/BookmarkButton'
 import { MenuIcon } from '../components/icons'
 
 type Pair = {name: string, value: string}
+type Stat = {label: string, value: string, icon: string, percent?: number}
 type SystemInfo = {
 	title: string
-	server: {stats: {label: string, value: string}[], variables: Pair[]}
-	php: {stats: {label: string, value: string}[], ini: Pair[], extensions: string[], env: Pair[]}
+	server: {stats: Stat[], variables: Pair[]}
+	php: {stats: Stat[], ini: Pair[], extensions: string[], env: Pair[]}
 	database: {version: string, variables: Pair[]}
 }
 
 const BORDER = '#e6e8ee'
+
+// usage colors: green, orange from 70%, red from 90%
+const usageColor = (percent: number) => (percent >= 90) ? '#d32f2f' : ((percent >= 70) ? '#ed8b00' : '#0f9d75')
+
+// figure with its icon, a bar for a usage (memory, swap, disk)
+function StatCard({stat}: {stat: Stat})
+{
+
+	const color = (stat.percent !== undefined) ? usageColor(stat.percent) : ''
+
+	return (
+		<Box sx={{display: 'flex', gap: 1.5, alignItems: 'flex-start', p: 1.75, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '8px', minWidth: 0}}>
+			<Box sx={{width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', bgcolor: color ? `${color}1a` : '#f0ecff', color: color || 'primary.main'}}><MenuIcon name={stat.icon} fontSize={22} /></Box>
+			<Box sx={{flexGrow: 1, minWidth: 0}}>
+				<Box sx={{display: 'flex', alignItems: 'baseline', gap: 1}}>
+					<Typography sx={{flexGrow: 1, fontSize: 12, fontWeight: 500, letterSpacing: '.04em', textTransform: 'uppercase', color: '#6b7088'}}>{stat.label}</Typography>
+					{stat.percent !== undefined && <Typography sx={{fontSize: 13, fontWeight: 600, color}}>{stat.percent}%</Typography>}
+				</Box>
+				<Typography sx={{mt: 0.25, fontSize: 15, fontWeight: 600, lineHeight: 1.35, overflowWrap: 'anywhere'}}>{stat.value}</Typography>
+				{stat.percent !== undefined && <LinearProgress variant="determinate" value={Math.min(100, stat.percent)} sx={{mt: 1, height: 6, borderRadius: 3, bgcolor: '#eef0f5', '& .MuiLinearProgress-bar': {bgcolor: color, borderRadius: 3}}} />}
+			</Box>
+		</Box>
+	)
+
+}
+
+const stat_grid = {display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 1.25}
 
 // section with a name / value table, rows filtered by the search
 function PairTable({title, pairs, filter}: {title: string, pairs: Pair[], filter: string})
@@ -62,12 +90,6 @@ export default function SystemInfoPage({icon}: {icon: string})
 
 	const filter = search.trim().toLowerCase()
 	const extensions = filter ? data.php.extensions.filter((e) => e.toLowerCase().includes(filter)) : data.php.extensions
-	const stat = (label: string, value: string) => (
-		<Box key={label} sx={{flex: '1 1 160px', px: 1.75, py: 1.5, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>
-			<Typography sx={{fontSize: 12, color: '#6b7088'}}>{label}</Typography>
-			<Typography sx={{mt: 0.5, fontSize: 18, fontWeight: 600, overflowWrap: 'anywhere'}}>{value}</Typography>
-		</Box>
-	)
 
 	return (
 		<>
@@ -77,15 +99,15 @@ export default function SystemInfoPage({icon}: {icon: string})
 				<BookmarkButton module="system-info" />
 			</Box>
 
-			<Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{minHeight: 40, mt: -1, borderBottom: `1px solid ${BORDER}`, '& .MuiTab-root': {minHeight: 40, px: 1.5, textTransform: 'none', fontSize: 14, fontWeight: 500}}}>
+			<Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{minHeight: 40, mt: -1, borderBottom: `1px solid ${BORDER}`, '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
 				<Tab value="server" label={t('Server')} />
 				<Tab value="php" label="PHP" />
 				<Tab value="database" label={t('Database')} />
 			</Tabs>
 
-			{tab === 'server' && <Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.25}}>{data.server.stats.map((s) => stat(s.label, s.value))}</Box>}
-			{tab === 'php' && <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1.25}}>{data.php.stats.map((s) => stat(s.label, s.value))}</Box>}
-			{tab === 'database' && <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1.25}}>{stat(t('Version'), data.database.version)}</Box>}
+			{tab === 'server' && <Box sx={stat_grid}>{data.server.stats.map((s) => <StatCard key={s.label} stat={s} />)}</Box>}
+			{tab === 'php' && <Box sx={stat_grid}>{data.php.stats.map((s) => <StatCard key={s.label} stat={s} />)}</Box>}
+			{tab === 'database' && <Box sx={stat_grid}><StatCard stat={{label: t('Version'), value: data.database.version, icon: 'database'}} /></Box>}
 
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5}}>
 				<Box component="label" sx={{width: {xs: '100%', sm: 300}, height: 38, display: 'flex', alignItems: 'center', gap: 1, px: 1.5, border: '1px solid #d5d8e3', borderRadius: 2, bgcolor: '#fff', color: '#6b7088'}}>
