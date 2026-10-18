@@ -374,6 +374,7 @@ function PageInput({page, last, onChange}: {page: number, last: number, onChange
 			type="number"
 			value={value}
 			onChange={(e) => setValue(e.target.value)}
+			onFocus={(e) => e.target.select()}
 			onBlur={commit}
 			onKeyDown={(e) => e.key === 'Enter' && commit()}
 			inputProps={{min: 1, max: last, 'aria-label': t('Page number')}}
@@ -724,17 +725,17 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	}
 
-	const pg_btn = {width: 30, height: 30, border: '1.5px solid #5b6178', borderRadius: '50%', color: '#3a3f55', '&:hover': {borderColor: 'primary.main', color: 'primary.main'}, '&.Mui-disabled': {borderColor: '#d5d8e3', color: '#c4c7d4'}}
+	const pg_btn = {width: 30, height: 30, borderRadius: 1.5, color: '#3a3f55', '&:hover': {bgcolor: '#eceef3', color: 'primary.main'}, '&.Mui-disabled': {color: '#c4c7d4'}}
 
 	const footer = (
 		<Box sx={{display: {xs: 'flex', md: 'grid'}, flexDirection: 'column', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: {xs: 1.25, md: 2}, px: 2, py: 1.25, bgcolor: HEAD_BG, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: '#5b6178'}}>
 			<Box sx={{display: {xs: 'none', md: 'block'}}} />
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
-				<IconButton aria-label={t('Previous page')} disabled={p.page <= 1} onClick={() => update({page: p.page === 2 ? '' : String(p.page - 1)})} sx={pg_btn}><ChevronLeftOutlined sx={{fontSize: 18}} /></IconButton>
+				<IconButton aria-label={t('Previous page')} disabled={p.page <= 1} onClick={() => update({page: p.page === 2 ? '' : String(p.page - 1)})} sx={pg_btn}><ChevronLeftOutlined sx={{fontSize: 20}} /></IconButton>
 				<Box component="label" sx={{display: 'flex', alignItems: 'center', gap: 0.75, color: '#3a3f55'}}>
 					{t('Page')} <PageInput page={p.page} last={p.last_page} onChange={(n) => update({page: n === 1 ? '' : String(n)})} /> / {p.last_page}
 				</Box>
-				<IconButton aria-label={t('Next page')} disabled={p.page >= p.last_page} onClick={() => update({page: String(p.page + 1)})} sx={pg_btn}><ChevronRightOutlined sx={{fontSize: 18}} /></IconButton>
+				<IconButton aria-label={t('Next page')} disabled={p.page >= p.last_page} onClick={() => update({page: String(p.page + 1)})} sx={pg_btn}><ChevronRightOutlined sx={{fontSize: 20}} /></IconButton>
 			</Box>
 			<Box component="label" sx={{justifySelf: 'end', display: 'flex', alignItems: 'center', gap: 1}}>
 				{t('Rows per page')}
