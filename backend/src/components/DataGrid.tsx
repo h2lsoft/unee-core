@@ -252,7 +252,8 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply}: {a
 					{/* saved filters: Filters module (personal or shared with the group) */}
 					<Button type="button" color="inherit" startIcon={<SaveOutlined />} disabled sx={{fontWeight: 500}}>{t('Save filter')}</Button>
 					<Box sx={{flexGrow: 1}} />
-					<Button type="button" color="inherit" onClick={() => onApply([], 'all')} sx={{fontWeight: 500}}>{t('Reset')}</Button>
+					{/* reset clears the form only, Search applies it */}
+					<Button type="button" color="inherit" onClick={() => { setDraft([empty()]); setDraftMatch('all') }} sx={{fontWeight: 500}}>{t('Reset')}</Button>
 					<Button type="submit" variant="contained">{t('Search')}</Button>
 				</Box>
 			</Box>
