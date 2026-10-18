@@ -106,7 +106,7 @@ abstract class CrudController extends Controller
 			$values[$name] = match($field['type'])
 			{
 				'password' => '',
-				'tags' => (is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values($words) : [],
+				'tags' => (!empty($field['manager'])) ? \Core\Tag::get($field['manager'], $id) : ((is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values($words) : []),
 				default => $record[$name] ?? '',
 			};
 
@@ -684,6 +684,7 @@ abstract class CrudController extends Controller
 				$row[$position] = (int)DB()->query("SELECT COALESCE(MAX(`{$position}`), 0) + 1 FROM `{$this->table}` WHERE deleted = 'no'")->fetchOne();
 
 			$id = (int)DB($this->table)->insert($row, $this->author());
+			if($form->tagManager() !== '')\Core\Tag::set($form->tagManager(), $id, (array)$request->request->all('_tags'), $this->author());
 			\Core\Log::write('add', $this->object_label, $this->masked($row), $id, 'info', $this->module);
 			$this->onSaveAfterCreate($id, $row);
 
@@ -699,10 +700,21 @@ abstract class CrudController extends Controller
 
 		}
 
+		// tags of xcore_tag, logged with the other changes
+		if($form->tagManager() !== '')
+		{
+
+			$before = \Core\Tag::get($form->tagManager(), $id);
+			\Core\Tag::set($form->tagManager(), $id, (array)$request->request->all('_tags'), $this->author());
+			$after = \Core\Tag::get($form->tagManager(), $id);
+			if($before !== $after)$changed['_tags'] = [implode(', ', $before), implode(', ', $after)];
+
+		}
+
 		if($changed)
 		{
 
-			DB($this->table)->update($row, $id, 1, $this->author());
+			if(array_diff_key($changed, ['_tags' => 0]))DB($this->table)->update($row, $id, 1, $this->author());
 			\Core\Log::write('edit', $this->object_label, $this->masked($changed), $id, 'info', $this->module);
 
 		}
@@ -730,6 +742,7 @@ abstract class CrudController extends Controller
 		if($v->fails())return (string)($v->result()['error_stack'][0] ?? 'deletion refused');
 
 		DB($this->table)->delete((int)$record['id'], 1, $this->author());
+		if(($signature = $this->buildForm($record)->tagManager()) !== '')\Core\Tag::set($signature, (int)$record['id'], [], $this->author());
 		\Core\Log::write('delete', $this->object_label, [], (int)$record['id'], 'info', $this->module);
 		$this->onDeleteAfter($record);
 

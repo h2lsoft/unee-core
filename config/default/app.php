@@ -134,7 +134,7 @@ return [
 	// html fields: allowed tags and their attributes by profile (\Core\Sanitizer), javascript: links are always removed
 	'sanitizer' => [
 		'basic' => [
-			'p' => [], 'br' => [], 'b' => [], 'strong' => [], 'i' => [], 'em' => [], 'u' => [],
+			'p' => [], 'br' => [], 'b' => [], 'strong' => [], 'i' => [], 'em' => [], 'u' => [], 's' => [], 'mark' => [], 'code' => [],
 			'ul' => [], 'ol' => [], 'li' => [], 'a' => ['href', 'title', 'target'],
 		],
 	],

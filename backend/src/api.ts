@@ -98,6 +98,7 @@ export type MenuItem = {
 	route: string
 	url: string | null
 	rights: string[]
+	hidden: boolean
 }
 
 // bookmark of the logged user (GET /api/backend/bookmarks/)
@@ -116,7 +117,7 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
@@ -128,6 +129,7 @@ export type GridColumn = {
 	style_column?: string
 	icon_column?: string
 	link?: string
+	labels?: Record<string, string>
 }
 
 // action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header
@@ -180,7 +182,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags' | 'code'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio'
 	label: string
 	required: boolean
 	width: number

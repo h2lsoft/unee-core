@@ -98,7 +98,7 @@ export default function Dashboard()
 			</Tabs>
 
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
-			{tab === 'menu' && menu?.map((category) => (
+			{tab === 'menu' && menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0).map((category) => (
 				<Box component="section" key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 1.25}}>
 					<Typography component="h2" sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 12, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}>
 						<MenuIcon name={category.icon} fontSize={16} />{category.name}

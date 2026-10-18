@@ -54,12 +54,30 @@ class UserController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
+		self::accountFields($form, $record, true);
+		$form->addBoolean('active', 'Active')->defaultValue('yes');
+		$form->addTextarea('note', 'Note');
+
+	}
+
+	/**
+	 * fields of an account, shared with the profile of the logged user (module profile): identity, tab credentials, tab information
+	 *
+	 * @param Form $form
+	 * @param array $record [] on create
+	 * @param bool $with_group select of the group (not in the profile)
+	 *
+	 * @return void
+	 */
+	public static function accountFields(Form $form, array $record, bool $with_group):void
+	{
+
 		$login = \Core\Config::get('auth/security/login');
 		$password = \Core\Config::get('auth/security/password');
 		$languages = \Core\Config::get('backend.languages');
 
 		$form->addSelect('language', 'Language', $languages, true)->defaultValue(array_key_first($languages))->set('translate', false);
-		$form->addSelectSql('xcore_group_id', 'Group', 'xcore_group', 'name', true);
+		if($with_group)$form->addSelectSql('xcore_group_id', 'Group', 'xcore_group', 'name', true);
 		$form->addText('lastname', 'Last name', true)->maxLength(50);
 		$form->addText('firstname', 'First name', true)->maxLength(50);
 		$form->addEmail('email', 'Email', true)->maxLength((int)\Core\Config::get('auth/security/email/max_length', 255))->unique();
@@ -85,12 +103,28 @@ class UserController extends \Core\CrudController
 		$form->addTextarea('bio', 'Bio');
 
 		$form->tab('');
-		$form->addBoolean('active', 'Active')->defaultValue('yes');
-		$form->addTextarea('note', 'Note');
 
 	}
 
 	protected function rulesOnSubmit(\Core\Validator $v, array $record):void
+	{
+
+		self::credentialRules($v, $record);
+
+		if($record && (int)$record['id'] === \Model\User::getUID() && $v->inputGet('active', $record['active']) !== 'yes')
+			$v->input('active')->addError(ts('you cannot deactivate your own account'));
+
+	}
+
+	/**
+	 * login and password rules of config auth/security, shared with the profile
+	 *
+	 * @param \Core\Validator $v
+	 * @param array $record current record, [] on create
+	 *
+	 * @return void
+	 */
+	public static function credentialRules(\Core\Validator $v, array $record):void
 	{
 
 		$login = \Core\Config::get('auth/security/login');
@@ -105,9 +139,6 @@ class UserController extends \Core\CrudController
 		// mass edit and toggles merge the stored hash: only a typed password is checked
 		if($v->inputGet('password') !== ($record['password'] ?? null))
 			$v->input('password')->regex($password['regex'], ts('`[FIELD]` must contain [MIN] to [MAX] characters', ['MIN' => $password['min_length'], 'MAX' => $password['max_length']]));
-
-		if($record && (int)$record['id'] === \Model\User::getUID() && $v->inputGet('active', $record['active']) !== 'yes')
-			$v->input('active')->addError(ts('you cannot deactivate your own account'));
 
 	}
 
@@ -140,7 +171,19 @@ class UserController extends \Core\CrudController
 	protected function onSaveAfterEdit(int $id, array $row, array $changed):void
 	{
 
-		if($id !== \Model\User::getUID() || !$changed)return;
+		if($id === \Model\User::getUID() && $changed)self::syncSession($row);
+
+	}
+
+	/**
+	 * session of the logged user after a change of his own account (shared with the profile)
+	 *
+	 * @param array $row columns written
+	 *
+	 * @return void
+	 */
+	public static function syncSession(array $row):void
+	{
 
 		foreach(['login', 'email', 'firstname', 'lastname', 'language'] as $field)
 			if(isset($row[$field]))\Core\Session::set("auth.{$field}", $row[$field]);

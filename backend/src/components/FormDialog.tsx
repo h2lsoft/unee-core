@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
+import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import CodeEditor from './Code'
+import RichText from './RichText'
 import { Flag } from './Flag'
 import { api, ApiException, type FormAction, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
@@ -75,6 +76,20 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 {
 
 	const id = `field-${field.name}`
+
+	if(field.type === 'html')return <RichText id={id} value={value} error={error} readOnly={field.readonly} onChange={onChange} />
+
+	// radio buttons on one line
+	if(field.type === 'radio')
+	{
+
+		return (
+			<RadioGroup row id={id} value={value} onChange={(e) => onChange(e.target.value)} sx={{minHeight: 40, columnGap: 1}}>
+				{field.options?.map((o) => <FormControlLabel key={o.value} value={o.value} disabled={field.readonly} control={<Radio size="small" />} label={o.label} slotProps={{typography: {sx: {fontSize: 14}}}} sx={{mr: 1}} />)}
+			</RadioGroup>
+		)
+
+	}
 
 	if(field.type === 'code')return <CodeEditor id={id} value={value} language={field.language} error={error} readOnly={field.readonly} onChange={onChange} />
 
@@ -167,7 +182,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 	}
 
-	const multiline = (field.type === 'textarea' || field.type === 'html')
+	const multiline = (field.type === 'textarea')
 	const common = {
 		id,
 		value,
@@ -210,7 +225,7 @@ function FieldRow({field, value, errors, onChange}: {field: FormField, value: st
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
  * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
-export default function FormDialog({module, id, label, open, onClose, onSaved}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void})
+export default function FormDialog({module, id, label, open, onClose, onSaved, url, title}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string})
 {
 
 	const theme = useTheme()
@@ -231,7 +246,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 		setErrors({})
 		setError('')
 
-		api<FormPayload>(id ? `${module}/${id}/` : `${module}/form/`)
+		// url: a form of its own (ex: profile/), read with GET and saved with PUT
+		api<FormPayload>(url ?? (id ? `${module}/${id}/` : `${module}/form/`))
 			.then((payload) => {
 
 				setData(payload)
@@ -241,7 +257,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
 
-	}, [open, module, id])
+	}, [open, module, id, url])
 
 	// field errors on top, messages of h2lsoft/validator (they hold the label of the field)
 	const summary = Object.values(errors).flat()
@@ -258,8 +274,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 		try
 		{
 
-			await api(id ? `${module}/${id}/` : `${module}/`, {method: id ? 'PUT' : 'POST', body: body()})
-			toast(id ? t('Saved') : t('Created'))
+			await api(url ?? (id ? `${module}/${id}/` : `${module}/`), {method: (id || url) ? 'PUT' : 'POST', body: body()})
+			toast((id || url) ? t('Saved') : t('Created'))
 			onSaved()
 
 		}
@@ -318,12 +334,12 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 	const tabs = data?.form.tabs ?? []
 	const first_tab = fields.findIndex((f) => f.tab)
 	const row = (f: FormField) => <FieldRow key={f.name} field={f} value={values[f.name] ?? ''} errors={errors} onChange={(v) => setValues({...values, [f.name]: v})} />
-	const wide = fields.some((f) => f.type === 'code')
+	const wide = fields.some((f) => f.type === 'code' || f.type === 'html')
 
 	return (
 		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1000 : 760}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
-				<Box component="span" sx={{flexGrow: 1}}>{id ? t('Edit') : t('Add')} {label}</Box>
+				<Box component="span" sx={{flexGrow: 1}}>{title ?? `${id ? t('Edit') : t('Add')} ${label}`}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
 			</DialogTitle>
 
@@ -366,7 +382,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved}: 
 				{id > 0 && data?.form.actions?.map((a) => (
 					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: '#d5d8e3', color: '#3a3f55', fontWeight: 500}}>{a.label}</Button>
 				))}
-				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : (id ? t('Save') : t('Create'))}</Button>
+				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>
 			</DialogActions>
 		</Dialog>
 	)

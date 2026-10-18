@@ -197,7 +197,8 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	}
 
 	if(column.type === 'chip')return <ListChip label={text} className={String(row[column.class_column ?? ''] ?? '')} css={String(row[column.style_column ?? ''] ?? '')} icon={String(row[column.icon_column ?? ''] ?? '')} />
-	if(column.type === 'badge')return <Badge value={text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
+	if(column.type === 'badge')return <Badge value={column.labels?.[text] ?? text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
+	if(column.type === 'tags')return <Box component="span" sx={{display: 'inline-flex', flexWrap: 'wrap', gap: 0.5}}>{text.split('|').map((tag) => <Chip key={tag} label={tag} size="small" sx={{height: 20, fontSize: 11, bgcolor: '#eef0f5'}} />)}</Box>
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
 	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: '#3a3f55'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>

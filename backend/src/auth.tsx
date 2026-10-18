@@ -8,6 +8,7 @@ type Auth = {
 	login: (login: string, password: string) => Promise<void>
 	logout: () => Promise<void>
 	changeLanguage: (language: string) => Promise<void>
+	reload: () => Promise<void>
 }
 
 const AuthContext = createContext<Auth | null>(null)
@@ -65,7 +66,15 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	}
 
-	return <AuthContext.Provider value={{user, loading, login, logout, changeLanguage}}>{children}</AuthContext.Provider>
+	// account changed elsewhere (my profile)
+	const reload = async () => {
+
+		const data = await api<{user: User}>('auth/me/')
+		setUser(data.user)
+
+	}
+
+	return <AuthContext.Provider value={{user, loading, login, logout, changeLanguage, reload}}>{children}</AuthContext.Provider>
 
 }
 

@@ -11,9 +11,10 @@ class Menu extends \Core\Entity
 	public static string $table = 'xcore_menu';
 
 	/**
-	 * menu of the logged user: categories with the visible plugins he has a right on, names translated
+	 * menu of the logged user: categories with the plugins he has a right on, names translated
+	 * plugins not visible are sent with hidden = true: reachable by their page (ex: my tasks from the user menu), not listed
 	 *
-	 * @return array [{name, icon, color, items: [{name, icon, route, url, rights}]}]
+	 * @return array [{name, icon, color, items: [{name, icon, route, url, rights, hidden}]}]
 	 */
 	public static function forCurrentUser():array
 	{
@@ -21,7 +22,7 @@ class Menu extends \Core\Entity
 		$recs = DB()->query("SELECT p.*, m.id AS menu_id, m.name AS menu_name, m.icon AS menu_icon, m.color AS menu_color
 							 FROM xcore_plugin p
 							 INNER JOIN xcore_menu m ON m.id = p.xcore_menu_id AND m.deleted = 'no'
-							 WHERE p.deleted = 'no' AND p.active = 'yes' AND p.visible = 'yes' AND COALESCE(p.xcore_plugin_id, 0) = 0
+							 WHERE p.deleted = 'no' AND p.active = 'yes' AND COALESCE(p.xcore_plugin_id, 0) = 0
 							 ORDER BY m.position, p.position, p.name")->fetchAll();
 
 		$menu = [];
@@ -38,6 +39,7 @@ class Menu extends \Core\Entity
 				'route' => $rec['route_prefix_name'],
 				'url' => ($rec['type'] === 'url') ? $rec['url'] : null,
 				'rights' => $rights,
+				'hidden' => ($rec['visible'] !== 'yes'),
 			];
 
 		}

@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { Avatar, Box, Button, ButtonBase, Dialog, DialogActions, DialogTitle, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DeleteOutlineOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
+import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DeleteOutlineOutlined, PersonOutlined, TaskAltOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
 import { api, DATA_CHANGED_EVENT, type Bookmark, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
 import { useLoginConfig } from './AuthLayout'
 import { MenuIcon } from './icons'
+import FormDialog from './FormDialog'
 
 const DEFAULT_LOGO = `${import.meta.env.BASE_URL}logo.svg`
 const COLLAPSED_KEY = 'unee.menu.collapsed'
@@ -219,7 +220,9 @@ function BookmarksMenu({bookmarks, onRemove}: {bookmarks: Bookmark[], onRemove: 
 function UserMenu({compact}: {compact: boolean})
 {
 
-	const {user, logout, changeLanguage} = useAuth()
+	const {user, logout, changeLanguage, reload} = useAuth()
+	const navigate = useNavigate()
+	const [profile, setProfile] = useState(false)
 	const config = useLoginConfig()
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 	const [language_anchor, setLanguageAnchor] = useState<HTMLElement | null>(null)
@@ -249,6 +252,15 @@ function UserMenu({compact}: {compact: boolean})
 					<Typography sx={{fontSize: 13, color: 'text.secondary'}}>{user.email}</Typography>
 				</Box>
 				<Divider />
+				<MenuItem onClick={() => { setAnchor(null); setProfile(true) }}>
+					<ListItemIcon><PersonOutlined fontSize="small" /></ListItemIcon>
+					<ListItemText>{t('My profile')}</ListItemText>
+				</MenuItem>
+				<MenuItem onClick={() => { setAnchor(null); navigate('/user-task/') }}>
+					<ListItemIcon><TaskAltOutlined fontSize="small" /></ListItemIcon>
+					<ListItemText>{t('My tasks')}</ListItemText>
+				</MenuItem>
+				<Divider />
 				<MenuItem onClick={(e) => setLanguageAnchor(e.currentTarget)}>
 					<ListItemIcon><LanguageOutlined fontSize="small" /></ListItemIcon>
 					<ListItemText>{t('Language')}</ListItemText>
@@ -259,6 +271,8 @@ function UserMenu({compact}: {compact: boolean})
 					<ListItemText>{t('Sign out')}</ListItemText>
 				</MenuItem>
 			</Menu>
+
+			<FormDialog module="profile" id={0} label="" url="profile/" title={t('My profile')} open={profile} onClose={() => setProfile(false)} onSaved={() => { setProfile(false); reload() }} />
 
 			{/* sign out confirmed first */}
 			<Dialog open={confirm} onClose={(_, reason) => reason !== 'backdropClick' && setConfirm(false)} maxWidth="xs" fullWidth>
@@ -339,6 +353,8 @@ export default function BackendLayout()
 	}
 
 	const find = (route: string) => menu?.flatMap((c) => c.items).find((i) => i.route === route) ?? null
+	// hidden plugins (ex: my tasks) open by their page, they are not listed
+	const visible_menu = menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0) ?? null
 	const logo = config?.logo || DEFAULT_LOGO
 
 	return (
@@ -365,12 +381,12 @@ export default function BackendLayout()
 						? (
 							<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5}}}}>
 								<Box sx={{px: 1, pb: 1.5, pt: 0.5}}><Box component="img" src={logo} alt="logo" sx={{height: 26, width: 'auto'}} /></Box>
-								<Sidebar menu={menu} collapsed={false} onNavigate={() => setDrawer(false)} />
+								<Sidebar menu={visible_menu} collapsed={false} onNavigate={() => setDrawer(false)} />
 							</Drawer>
 						)
 						: (
 							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: '#fff', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto', overflowX: 'hidden'}}>
-								<Sidebar menu={menu} collapsed={collapsed} />
+								<Sidebar menu={visible_menu} collapsed={collapsed} />
 								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{mt: 'auto', height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: '#5b6178', fontSize: 13, '&:hover': {bgcolor: '#f2f3f7'}}}>
 									{collapsed ? <MenuOpenOutlined sx={{fontSize: 20, transform: 'scaleX(-1)'}} /> : <><MenuOpenOutlined sx={{fontSize: 20}} />{t('Collapse menu')}</>}
 								</ButtonBase>

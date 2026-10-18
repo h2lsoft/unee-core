@@ -121,6 +121,17 @@ class DataGrid
 	}
 
 	/**
+	 * tags of the rows (xcore_tag, \Core\Tag) shown as chips, column _tags
+	 */
+	public function addColTags(string $label='Tags'):static
+	{
+
+		$this->qSelect(\Core\Tag::sql($this->table), '_tags');
+		return $this->addCol('_tags', $label, false, 'tags');
+
+	}
+
+	/**
 	 * enum('yes','no') column, toggle = switch in the grid (PATCH /api/<module>/<id>/toggle/, edit right)
 	 *
 	 * @param string $name
@@ -217,6 +228,21 @@ class DataGrid
 	{
 
 		$this->columns[$this->last]['link'] = $url;
+		return $this;
+
+	}
+
+	/**
+	 * labels shown for the values of the last column (ex: a badge in progress => En cours), translated
+	 *
+	 * @param array $labels value => label
+	 *
+	 * @return static
+	 */
+	public function labels(array $labels):static
+	{
+
+		$this->columns[$this->last]['labels'] = $labels;
 		return $this;
 
 	}
@@ -470,6 +496,16 @@ class DataGrid
 	}
 
 	/**
+	 * filter on the tags of the rows (xcore_tag)
+	 */
+	public function addFilterTags(string $label='Tags'):static
+	{
+
+		return $this->addFilter('_tags', $label, 'text', [], \Core\Tag::sql($this->table));
+
+	}
+
+	/**
 	 * quick filter buttons on one column (equality)
 	 *
 	 * @param string $name column of the table
@@ -656,7 +692,7 @@ class DataGrid
 		}
 
 		return [
-			'columns' => array_values(array_map(fn($c) => ['label' => ts($c['label'])] + $c, $this->columns)),
+			'columns' => array_values(array_map(fn($c) => ['label' => ts($c['label'])] + ((isset($c['labels'])) ? ['labels' => (object)array_map(fn($l) => ts((string)$l), $c['labels'])] : []) + $c, $this->columns)),
 			'filters' => array_values(array_map(fn($f) => [
 				'name' => $f['name'],
 				'label' => ts($f['label']),

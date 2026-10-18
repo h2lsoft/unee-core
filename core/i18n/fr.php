@@ -239,6 +239,21 @@ return [
 	'Configuration' => 'Configuration',
 	'Website' => 'Site web',
 
+	// module user task
+	'My tasks' => 'Mes tâches',
+	'task' => 'tâche',
+	'Title' => 'Titre',
+	'Status' => 'Statut',
+	'Due date' => 'Échéance',
+	'Tags' => 'Tags',
+	'Search title...' => 'Rechercher un titre...',
+	'low' => 'basse',
+	'medium' => 'moyenne',
+	'high' => 'haute',
+	'pending' => 'en attente',
+	'in progress' => 'en cours',
+	'done' => 'terminé',
+
 	// module log
 	'Logs' => 'Logs',
 	'log' => 'log',

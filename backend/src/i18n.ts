@@ -138,6 +138,23 @@ const fr: Record<string, string> = {
 	'No group with a backend access.': "Aucun groupe n'a accès au backend.",
 	'[COUNT] of [TOTAL] actions': '[COUNT] sur [TOTAL] actions',
 
+	// user menu, rich editor
+	'My profile': 'Mon profil',
+	'My tasks': 'Mes tâches',
+	'Format': 'Mise en forme',
+	'Bold': 'Gras',
+	'Underline': 'Souligné',
+	'Italic': 'Italique',
+	'Strikethrough': 'Barré',
+	'Highlight': 'Surligner',
+	'Clear formatting': 'Effacer la mise en forme',
+	'Bulleted list': 'Liste à puces',
+	'Numbered list': 'Liste numérotée',
+	'Link': 'Lien',
+	'Remove link': 'Retirer le lien',
+	'Source': 'Source',
+	'Apply': 'Appliquer',
+
 	// system info
 	'Server': 'Serveur',
 	'Database': 'Base de données',

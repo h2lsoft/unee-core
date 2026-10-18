@@ -180,6 +180,42 @@ class Form
 	}
 
 	/**
+	 * radio buttons on one line
+	 *
+	 * @param array $options value => label (labels translated)
+	 */
+	public function addRadio(string $name, string $label='', array $options=[], bool $required=false):static
+	{
+
+		return $this->add('radio', $name, $label, $required, ['options' => $options]);
+
+	}
+
+	/**
+	 * tags of the record in xcore_tag (\Core\Tag), field _tags, suggestions = tags already used in the table
+	 *
+	 * @param string $table signature of the tags: table of the record
+	 */
+	public function addTagManager(string $table, string $label='Tags'):static
+	{
+
+		return $this->add('tags', '_tags', $label, false, ['suggestions' => \Core\Tag::suggestions($table), 'pattern' => \Core\Tag::PATTERN, 'default' => [], 'manager' => $table]);
+
+	}
+
+	/**
+	 * signature of the tag manager of the form, '' when none
+	 *
+	 * @return string
+	 */
+	public function tagManager():string
+	{
+
+		return (string)($this->fields['_tags']['manager'] ?? '');
+
+	}
+
+	/**
 	 * source code (html, json) edited with a code editor, written as typed: never shown as html in the backend
 	 *
 	 * @param string $language html, json
@@ -362,7 +398,7 @@ class Form
 
 			}
 
-			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern']);
+			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern'], $field['manager']);
 			$fields[] = $field;
 
 		}
@@ -409,7 +445,7 @@ class Form
 			$property['title'] = ts($f['label']);
 			if(isset($f['help']))$property['description'] = ts($f['help']);
 			if(isset($f['max_length']))$property['maxLength'] = $f['max_length'];
-			if($f['type'] === 'select' && empty($f['free']))$property['enum'] = array_map('strval', array_keys($f['options']));
+			if(($f['type'] === 'select' && empty($f['free'])) || $f['type'] === 'radio')$property['enum'] = array_map('strval', array_keys($f['options']));
 			if($f['type'] === 'select' && !empty($f['free']))$property['examples'] = array_map('strval', array_keys($f['options']));
 			if($f['type'] === 'html')$property['contentMediaType'] = 'text/html';
 
@@ -473,6 +509,7 @@ class Form
 				'icon' => $v->regex('/^[a-z0-9_]+$/', '`[FIELD]` must be an icon name, ex: settings'),
 				'color' => $v->regex('/^#[0-9a-f]{6}$/i', '`[FIELD]` must be a color #rrggbb'),
 				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options']))) : null,
+				'radio' => $v->in(array_map('strval', array_keys($f['options']))),
 				'tags' => $v->custom(fn($value) => is_array($value) && count($value) <= 100 && !array_filter($value, fn($w) => !is_string($w) || !preg_match($f['pattern'], trim($w))), '`[FIELD]` holds an invalid word'),
 				default => null,
 			};
@@ -498,7 +535,7 @@ class Form
 		foreach($this->fields as $name => $f)
 		{
 
-			if(!empty($f['readonly']))continue;
+			if(!empty($f['readonly']) || !empty($f['manager']))continue;
 
 			$value = $input[$name] ?? (($f['type'] === 'boolean') ? 'no' : '');
 
