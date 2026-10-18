@@ -6,12 +6,13 @@ import {
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, BookmarkBorderOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-	CloseOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
+	CheckBoxOutlined, CloseOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, type Grid, type GridColumn, type GridFilter, type Row, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
+import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
 
 const BORDER = '#e6e8ee'
@@ -439,6 +440,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const [saved, setSaved] = useState<SavedFilter[]>([])
 	const [save_draft, setSaveDraft] = useState<{conditions: Condition[], match: 'all' | 'any'} | null>(null)
 	const [saved_version, setSavedVersion] = useState(0)
+	const [mass_edit, setMassEdit] = useState<number[] | null>(null)
+	const [running, setRunning] = useState('')
 
 	const query = params.toString()
 
@@ -544,7 +547,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const can_add = rights.has('add')
 	const can_edit = rights.has('edit')
 	const can_delete = rights.has('delete')
-	const batch = !!grid?.batch && can_delete
+	const batch_actions = (grid?.batch?.actions ?? []).filter((a) => rights.has(a.right))
+	const can_mass_edit = can_edit && (grid?.batch?.edit.length ?? 0) > 0
+	const batch = !!grid?.batch && (can_delete || can_mass_edit || batch_actions.length > 0)
 
 	const applyConditions = (conditions: Condition[], match: 'all' | 'any') => {
 
@@ -564,6 +569,35 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			}),
 		], {match: match === 'any' ? 'any' : ''})
 		setFiltersAnchor(null)
+
+	}
+
+	// action of the module on the selection, the answer may hold a message
+	const runAction = async (name: string) => {
+
+		setRunning(name)
+
+		try
+		{
+
+			const data = await api<{message?: string}>(`${module}/batch/${name}/`, {method: 'POST', body: {ids: selected}})
+			toast(data?.message ?? t('Done'))
+			setSelectionMenu(null)
+			setReload((n) => n + 1)
+
+		}
+		catch(e)
+		{
+
+			toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error')
+
+		}
+		finally
+		{
+
+			setRunning('')
+
+		}
 
 	}
 
@@ -709,6 +743,14 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	}
 
+	// checkbox of the page and the menu of the batch actions
+	const selection_control = (
+		<Box sx={{height: 30, display: 'inline-flex', alignItems: 'center', border: '1px solid #e3e5ec', borderRadius: 1.5, bgcolor: '#fff'}}>
+			<Checkbox size="small" checked={all_selected} indeterminate={!all_selected && selected.length > 0} onChange={() => setSelected(all_selected ? [] : grid.rows.map((r) => r.id))} slotProps={{input: {'aria-label': t('Select page')}}} sx={{p: '0 2px 0 6px'}} />
+			<ButtonBase aria-label={t('Selection menu')} onClick={(e) => setSelectionMenu(e.currentTarget)} sx={{height: '100%', pr: 0.25, color: '#5b6178'}}><ArrowDropDownOutlined sx={{fontSize: 18}} /></ButtonBase>
+		</Box>
+	)
+
 	let body: ReactNode
 	if(grid.rows.length === 0)
 	{
@@ -746,10 +788,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					<Box component="tr" sx={{bgcolor: HEAD_BG}}>
 						{batch && (
 							<Box component="th" sx={{...th, width: 56, p: '0 0 0 10px', textAlign: 'left'}}>
-								<Box sx={{height: 30, display: 'inline-flex', alignItems: 'center', border: '1px solid #e3e5ec', borderRadius: 1.5, bgcolor: '#fff'}}>
-									<Checkbox size="small" checked={all_selected} indeterminate={!all_selected && selected.length > 0} onChange={() => setSelected(all_selected ? [] : grid.rows.map((r) => r.id))} slotProps={{input: {'aria-label': t('Select page')}}} sx={{p: '0 2px 0 6px'}} />
-									<ButtonBase aria-label={t('Selection menu')} onClick={(e) => setSelectionMenu(e.currentTarget)} sx={{height: '100%', pr: 0.25, color: '#5b6178'}}><ArrowDropDownOutlined sx={{fontSize: 18}} /></ButtonBase>
-								</Box>
+								{selection_control}
 							</Box>
 						)}
 						{columns.map((c, i) => (
@@ -836,10 +875,11 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			</Box>
 
 			<Box sx={{bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
-				{selected.length > 0 && (
-					<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 0.75, bgcolor: '#f7f5ff', borderBottom: `1px solid ${BORDER}`, fontSize: 13}}>
-						<Box component="span" sx={{fontWeight: 600, color: '#4b2fd6'}}>{t('[COUNT] selected', {COUNT: selected.length})}</Box>
-						<Button size="small" color="error" startIcon={<DeleteOutlineOutlined />} onClick={() => setToDelete(grid.rows.filter((r) => selected.includes(r.id)))} sx={{height: 30}}>{t('Delete')}</Button>
+				{/* mobile: no table header, the selection control is on top of the cards */}
+				{is_mobile && batch && grid.rows.length > 0 && (
+					<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, bgcolor: HEAD_BG, borderBottom: `1px solid ${BORDER}`, fontSize: 13, color: '#5b6178'}}>
+						{selection_control}
+						{selected.length > 0 && t('[COUNT] selected', {COUNT: selected.length})}
 					</Box>
 				)}
 				<Box sx={{overflowX: 'auto', opacity: loading ? 0.6 : 1, transition: 'opacity .15s'}}>{body}</Box>
@@ -868,14 +908,32 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			</Menu>
 
 			<Menu anchorEl={selection_menu} open={!!selection_menu} onClose={() => setSelectionMenu(null)} slotProps={menu_paper}>
-				<MenuItem onClick={() => { setSelected(grid.rows.map((r) => r.id)); setSelectionMenu(null) }}>{t('Select page')} ({grid.rows.length})</MenuItem>
-				<MenuItem onClick={() => { setSelected([]); setSelectionMenu(null) }}>{t('Clear selection')}</MenuItem>
+				{can_mass_edit && (
+					<MenuItem disabled={!selected.length} onClick={() => { setSelectionMenu(null); setMassEdit([...selected]) }}>
+						<ListItemIcon><EditOutlined fontSize="small" /></ListItemIcon>
+						<ListItemText>{t('Mass edit')} ({selected.length})</ListItemText>
+					</MenuItem>
+				)}
+				{can_delete && (
+					<MenuItem disabled={!selected.length} onClick={() => { setSelectionMenu(null); setToDelete(grid.rows.filter((r) => selected.includes(r.id))) }} sx={{color: 'error.main'}}>
+						<ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon>
+						<ListItemText>{t('Delete')} ({selected.length})</ListItemText>
+					</MenuItem>
+				)}
+				{batch_actions.map((a) => (
+					<MenuItem key={a.name} disabled={!selected.length || running !== ''} onClick={() => runAction(a.name)}>
+						<ListItemIcon>{running === a.name ? <CircularProgress size={18} /> : <MenuIcon name={a.icon} fontSize={20} />}</ListItemIcon>
+						<ListItemText>{a.label} ({selected.length})</ListItemText>
+					</MenuItem>
+				))}
 				<Divider />
-				<MenuItem disabled={!selected.length} onClick={() => { setSelectionMenu(null); setToDelete(grid.rows.filter((r) => selected.includes(r.id))) }} sx={{color: 'error.main'}}>
-					<ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon>
-					<ListItemText>{t('Delete selection')} ({selected.length})</ListItemText>
+				<MenuItem onClick={() => { setSelected(all_selected ? [] : grid.rows.map((r) => r.id)); setSelectionMenu(null) }}>
+					<ListItemIcon><CheckBoxOutlined fontSize="small" /></ListItemIcon>
+					<ListItemText>{t('Check / uncheck all')}</ListItemText>
 				</MenuItem>
 			</Menu>
+
+			<MassEditDialog module={module} title={grid.title} ids={mass_edit} onClose={() => setMassEdit(null)} onSaved={() => { setMassEdit(null); setReload((n) => n + 1) }} />
 
 			<FiltersPanel anchor={filters_anchor} filters={grid.filters} conditions={(grid.chips?.active && grid.filters.some((f) => f.name === grid.chips?.name)) ? [{f: grid.chips.name, o: 'eq', v: grid.chips.active}, ...grid.conditions] : grid.conditions} match={grid.match} onClose={() => setFiltersAnchor(null)} onApply={applyConditions} onSave={(conditions, match) => setSaveDraft({conditions, match})} />
 

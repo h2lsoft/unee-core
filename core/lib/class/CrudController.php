@@ -205,6 +205,87 @@ abstract class CrudController extends Controller
 	}
 
 	/**
+	 * form of the mass edit: the fields declared with $grid->batchEdit()
+	 *
+	 * @return JsonResponse {"form": {"fields"}}
+	 */
+	#[\Core\Route('/api/@module/batch/form/', name: 'api.@module.batch.form')]
+	public function apiBatchForm():JsonResponse
+	{
+
+		if($denied = $this->deny('edit'))return $denied;
+
+		$form = $this->batchForm();
+		return new JsonResponse(['form' => $form->definition()]);
+
+	}
+
+	/**
+	 * mass edit, json body: {"ids": [1, 2], "values": {"field": "value"}}, only the fields sent are changed, all or nothing
+	 * form rules on the values, then rulesOnSubmit and rulesOnUpdate on each record with the new values (no save hooks)
+	 *
+	 * @param Request $request
+	 *
+	 * @return JsonResponse {"updated": 2}, 422 {"fields"}
+	 */
+	#[\Core\Route('/api/@module/batch/update/', methods: 'POST', name: 'api.@module.batch.update')]
+	public function apiBatchUpdate(Request $request):JsonResponse
+	{
+
+		if($denied = $this->deny('edit'))return $denied;
+		if(!$records = $this->batchRecords($request))return JsonResponse::error(422, 'select between 1 and 500 records');
+
+		$values = (array)$request->request->all('values');
+		$form = $this->batchForm();
+		$form->fields = array_intersect_key($form->fields, $values);
+		if(!$form->fields)return JsonResponse::error(422, 'choose at least one field');
+
+		// rules of the chosen fields on the values sent (the validator reads the body)
+		$v = new Validator(App()->locale, $values);
+		$v->addLocaleMessages(App()->locale, \Core\I18n::messages());
+		$form->rules($v, $this->table, 0);
+		if($v->fails())return JsonResponse::error(422, 'validation failed', ['fields' => $v->result()['error_stack_deep']]);
+
+		// rules of the module on each record with the new values (ex: type and value of a global)
+		$labels = array_map(fn($f) => ts($f['label']), $this->buildForm([])->fields);
+		foreach($records as $record)
+		{
+
+			$vr = new Validator(App()->locale, array_merge($record, $values));
+			$vr->addLocaleMessages(App()->locale, \Core\I18n::messages());
+			$vr->setInputNames($labels);
+			$this->rulesOnSubmit($vr, $record);
+			$this->rulesOnUpdate($vr, $record);
+			if($vr->fails())return JsonResponse::error(422, ts('record #[ID]: [MESSAGE]', ['ID' => $record['id'], 'MESSAGE' => $vr->result()['error_stack'][0]]), ['id' => (int)$record['id']]);
+
+		}
+
+		$row = $form->hydrate($values, true);
+
+		DB()->beginTransaction();
+		foreach($records as $record)
+		{
+
+			$changed = [];
+			foreach($row as $key => $value)
+			{
+
+				if((string)($record[$key] ?? '') !== (string)$value)$changed[$key] = [$record[$key] ?? null, $value];
+
+			}
+
+			if(!$changed)continue;
+			DB($this->table)->update($row, (int)$record['id'], 1, $this->author());
+			\Core\Log::write('batch_edit', $this->object_label, $this->masked($changed), (int)$record['id'], 'info', $this->module);
+
+		}
+		DB()->commit();
+
+		return new JsonResponse(['updated' => count($records)]);
+
+	}
+
+	/**
 	 * switch of a boolean column declared with toggle in the grid, json body: {"column": "active", "value": "yes"}
 	 *
 	 * @param Request $request
@@ -230,6 +311,29 @@ abstract class CrudController extends Controller
 		\Core\Log::write('toggle', "{$column} = {$value}", [$column => [$record[$column], $value]], $id, 'info', $this->module);
 
 		return new JsonResponse(['id' => $id, 'column' => $column, 'value' => $value]);
+
+	}
+
+	/**
+	 * action of the module declared with $grid->batchAction(), json body: {"ids": [1, 2]}
+	 *
+	 * @param Request $request
+	 * @param string $action
+	 *
+	 * @return JsonResponse what batch<Action>() returns, ex: {"message"}
+	 */
+	#[\Core\Route('/api/@module/batch/{action}/', methods: 'POST', name: 'api.@module.batch.action')]
+	public function apiBatchAction(Request $request, string $action):JsonResponse
+	{
+
+		$declared = $this->buildGrid()->batch_actions[$action] ?? null;
+		$method = 'batch'.str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
+		if(!$declared || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
+
+		if($denied = $this->deny($declared['right']))return $denied;
+		if(!$records = $this->batchRecords($request))return JsonResponse::error(422, 'select between 1 and 500 records');
+
+		return $this->$method($records);
 
 	}
 
@@ -300,6 +404,48 @@ abstract class CrudController extends Controller
 		$this->form($form, $record);
 
 		return $form;
+
+	}
+
+	/**
+	 * mass edit form: fields of the form declared with $grid->batchEdit(), unique and readonly fields left out
+	 *
+	 * @return Form
+	 */
+	protected function batchForm():Form
+	{
+
+		$form = $this->buildForm([]);
+		$names = array_flip($this->buildGrid()->batch_edit);
+		$form->fields = array_filter(array_intersect_key($form->fields, $names), fn($f) => empty($f['unique']) && empty($f['readonly']) && $f['type'] !== 'password');
+
+		return $form;
+
+	}
+
+	/**
+	 * selected records of a batch request ({"ids"}), [] when the selection is invalid or a record is missing
+	 *
+	 * @param Request $request
+	 *
+	 * @return array
+	 */
+	protected function batchRecords(Request $request):array
+	{
+
+		$ids = array_values(array_unique(array_filter(array_map('intval', (array)$request->request->all('ids')))));
+		if(!$ids || count($ids) > 500)return [];
+
+		$records = [];
+		foreach($ids as $id)
+		{
+
+			if(!$record = $this->findRecord($id))return [];
+			$records[] = $record;
+
+		}
+
+		return $records;
 
 	}
 

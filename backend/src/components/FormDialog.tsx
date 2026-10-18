@@ -32,7 +32,7 @@ function PasswordInput(props: React.ComponentProps<typeof OutlinedInput>)
 }
 
 // control of a field, its label is in the row
-function Input({field, value, error, onChange}: {field: FormField, value: string, error: boolean, onChange: (value: string) => void})
+export function Input({field, value, error, onChange}: {field: FormField, value: string, error: boolean, onChange: (value: string) => void})
 {
 
 	const id = `field-${field.name}`

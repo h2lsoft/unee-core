@@ -42,6 +42,8 @@ class DataGrid
 	public string $order_dir = 'desc';
 	public array $per_page_options = [25, 50, 100];
 	public bool $batch = true;
+	public array $batch_edit = [];
+	public array $batch_actions = [];
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
 	private string $last = '';
@@ -198,6 +200,41 @@ class DataGrid
 	{
 
 		$this->per_page_options = array_map('intval', $options);
+		return $this;
+
+	}
+
+	/**
+	 * fields of the form editable on several records at once (selection menu: mass edit, edit right)
+	 *
+	 * @param array $fields names of form fields, a unique field is refused
+	 *
+	 * @return static
+	 */
+	public function batchEdit(array $fields):static
+	{
+
+		$this->batch_edit = $fields;
+		return $this;
+
+	}
+
+	/**
+	 * action of the module in the selection menu: POST /api/<module>/batch/<name>/ {"ids"} calls the controller method batch<Name>(array $records)
+	 *
+	 * @param string $name a-z, 0-9 and dashes, ex: send-invoice calls batchSendInvoice()
+	 * @param string $label english, translated
+	 * @param string $icon icon name (backend/src/components/icons.tsx)
+	 * @param string $right right needed on the module
+	 *
+	 * @return static
+	 */
+	public function batchAction(string $name, string $label, string $icon='', string $right='edit'):static
+	{
+
+		if(!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $name) || in_array($name, ['delete', 'update', 'form'], true))throw new \InvalidArgumentException("batch action name `{$name}` not allowed");
+		$this->batch_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right];
+
 		return $this;
 
 	}
@@ -442,7 +479,10 @@ class DataGrid
 			'rows' => $rows,
 			'pagination' => ['total' => $total, 'page' => $page, 'per_page' => $per_page, 'last_page' => $last_page],
 			'per_page_options' => $this->per_page_options,
-			'batch' => $this->batch,
+			'batch' => ($this->batch) ? [
+				'edit' => array_values($this->batch_edit),
+				'actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->batch_actions)),
+			] : null,
 			'mobile' => $this->mobile,
 		];
 

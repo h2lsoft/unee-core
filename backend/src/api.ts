@@ -135,7 +135,7 @@ export type Grid = {
 	rows: Row[]
 	pagination: {total: number, page: number, per_page: number, last_page: number}
 	per_page_options: number[]
-	batch: boolean
+	batch: {edit: string[], actions: {name: string, label: string, icon: string, right: string}[]} | null
 	mobile: {title: string, subtitle: string}
 }
 
