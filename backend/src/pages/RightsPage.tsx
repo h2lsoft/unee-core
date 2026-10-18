@@ -5,6 +5,7 @@ import { SaveOutlined } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type RightsPayload } from '../api'
 import { t } from '../i18n'
 import { MenuIcon } from '../components/icons'
+import BookmarkButton from '../components/BookmarkButton'
 import { useToast } from '../components/Toast'
 
 const BORDER = '#e6e8ee'
@@ -95,6 +96,7 @@ export default function RightsPage({icon}: {icon: string})
 				<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 					<ButtonBase onClick={() => navigate({search: ''})} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{data.title}</ButtonBase>
 				</Typography>
+				<BookmarkButton module="right" />
 			</Box>
 
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>

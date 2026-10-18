@@ -5,14 +5,14 @@ import {
 	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import {
-	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, BookmarkBorderOutlined, BookmarkOutlined, ChevronLeftOutlined, ChevronRightOutlined,
+	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
 	CheckBoxOutlined, CloseOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
-import { useMenu } from './BackendLayout'
+import BookmarkButton from './BookmarkButton'
 import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
@@ -472,8 +472,6 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const theme = useTheme()
 	const is_mobile = useMediaQuery(theme.breakpoints.down('md'))
 	const toast = useToast()
-	const {bookmarks, toggleBookmark} = useMenu()
-	const bookmarked = bookmarks.some((b) => b.route === module)
 	const [params] = useSearchParams()
 	const navigate = useNavigate()
 	const [grid, setGrid] = useState<Grid | null>(null)
@@ -1064,7 +1062,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 						<ButtonBase onClick={() => { setSearch(''); navigate({search: ''}) }} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{grid.title}</ButtonBase>
 					</Typography>
-					<IconButton aria-label={bookmarked ? t('Remove from bookmarks') : t('Add to bookmarks')} title={bookmarked ? t('Remove from bookmarks') : t('Add to bookmarks')} aria-pressed={bookmarked} onClick={() => toggleBookmark(module).then(() => toast(bookmarked ? t('Removed from bookmarks') : t('Added to bookmarks'))).catch((e) => toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error'))} sx={{width: 34, height: 34, color: 'primary.main'}}>{bookmarked ? <BookmarkOutlined sx={{fontSize: 22}} /> : <BookmarkBorderOutlined sx={{fontSize: 22}} />}</IconButton>
+					<BookmarkButton module={module} />
 				</Box>
 				{search_group}
 				{grid_actions.map((a) => (
