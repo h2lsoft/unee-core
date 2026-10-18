@@ -77,7 +77,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 	const id = `field-${field.name}`
 
-	if(field.type === 'html')return <RichText id={id} value={value} error={error} readOnly={field.readonly} onChange={onChange} />
+	if(field.type === 'html')return <RichText id={id} value={value} error={error} readOnly={field.readonly} ucfirst={field.ucfirst} onChange={onChange} />
 
 	// radio buttons on one line
 	if(field.type === 'radio')

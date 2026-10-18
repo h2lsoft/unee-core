@@ -15,7 +15,7 @@ const empty = (html: string) => (html === '<p></p>') ? '' : html
  * html editor (tiptap): bold, underline, italic, strike, highlight, lists, links, source and full screen
  * the html is cleaned by the server (\Core\Sanitizer, profile of the field)
  */
-export default function RichEditor({id, value, error = false, readOnly = false, onChange}: {id?: string, value: string, error?: boolean, readOnly?: boolean, onChange: (value: string) => void})
+export default function RichEditor({id, value, error = false, readOnly = false, ucfirst = false, onChange}: {id?: string, value: string, error?: boolean, readOnly?: boolean, ucfirst?: boolean, onChange: (value: string) => void})
 {
 
 	const [source, setSource] = useState(false)
@@ -30,6 +30,14 @@ export default function RichEditor({id, value, error = false, readOnly = false, 
 		],
 		content: value,
 		editable: !readOnly,
+		// uppercase initial: a lowercase letter typed before any text of the document
+		editorProps: ucfirst ? {handleTextInput: (view, from, to, text) => {
+
+			if(!/^\p{Ll}/u.test(text) || view.state.doc.textBetween(0, from, '\n', '\n').trim() !== '')return false
+			view.dispatch(view.state.tr.insertText(text.charAt(0).toLocaleUpperCase() + text.slice(1), from, to))
+			return true
+
+		}} : undefined,
 		onUpdate: ({editor}) => onChange(empty(editor.getHTML())),
 	})
 
