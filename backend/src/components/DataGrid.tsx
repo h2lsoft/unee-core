@@ -1037,7 +1037,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	const footer = (
 		<Box sx={{display: {xs: 'flex', md: 'grid'}, flexDirection: 'column', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: {xs: 1.25, md: 2}, px: 2, py: 1.25, bgcolor: HEAD_BG, borderTop: `1px solid ${BORDER}`, fontSize: 13, color: 'var(--u-text3)'}}>
-			<Box sx={{display: {xs: 'none', md: 'block'}}} />
+			<Box>{t('[FROM]-[TO] of [TOTAL]', {FROM: from, TO: to, TOTAL: p.total})}</Box>
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
 				<IconButton aria-label={t('Previous page')} disabled={p.page <= 1} onClick={() => update({page: p.page === 2 ? '' : String(p.page - 1)})} sx={pg_btn}><ChevronLeftOutlined sx={{fontSize: 20}} /></IconButton>
 				<Box component="label" sx={{display: 'flex', alignItems: 'center', gap: 0.75, color: 'var(--u-text2)'}}>
@@ -1081,7 +1081,6 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				)}
 				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: 'var(--u-text3)', display: 'flex', alignItems: 'center', gap: 1}}>
 					{loading && <CircularProgress size={12} />}
-					{p.total > 0 && t('[FROM] to [TO] (total [TOTAL])', {FROM: from, TO: to, TOTAL: p.total})}
 				</Box>
 			</Box>
 

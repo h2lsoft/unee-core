@@ -58,7 +58,7 @@ const fr: Record<string, string> = {
 	'Search': 'Rechercher',
 	'Filters': 'Filtres',
 	'Rows per page': 'Lignes par page',
-	'[FROM] to [TO] (total [TOTAL])': 'De [FROM] à [TO] (total [TOTAL])',
+	'[FROM]-[TO] of [TOTAL]': '[FROM]-[TO] sur [TOTAL]',
 	'Page': 'Page',
 	'Page number': 'Numéro de page',
 	'Bookmark': 'Favori',
