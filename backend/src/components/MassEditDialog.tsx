@@ -3,7 +3,7 @@ import { Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogC
 import { CloseOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField } from '../api'
 import { t } from '../i18n'
-import { Input } from './FormDialog'
+import { FIELDS_SX, Input } from './FormDialog'
 import { useToast } from './Toast'
 
 /**
@@ -79,7 +79,7 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
 			</DialogTitle>
 
-			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
+			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.75, ...FIELDS_SX}}>
 				{summary.length > 0 && (
 					<Box role="alert" sx={{px: 2, py: 1.5, borderRadius: '6px', bgcolor: 'var(--u-error-bg)', color: 'var(--u-error)', fontSize: 14}}>
 						<Box component="ul" sx={{m: 0, pl: 2.25}}>{summary.map((line) => <li key={line}>{line}</li>)}</Box>
@@ -92,9 +92,9 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 					const on = checked.includes(f.name)
 					return (
 						<Box key={f.name} sx={{display: 'grid', gridTemplateColumns: {xs: '28px 1fr', sm: '28px 150px 1fr'}, columnGap: 1.5, rowGap: 0.5, alignItems: 'start'}}>
-							<Checkbox id={`change-${f.name}`} size="small" checked={on} onChange={() => setChecked(on ? checked.filter((n) => n !== f.name) : [...checked, f.name])} slotProps={{input: {'aria-label': `${t('Change')} ${f.label}`}}} sx={{p: 0, mt: '10px'}} />
+							<Checkbox id={`change-${f.name}`} size="small" checked={on} onChange={() => setChecked(on ? checked.filter((n) => n !== f.name) : [...checked, f.name])} slotProps={{input: {'aria-label': `${t('Change')} ${f.label}`}}} sx={{p: 0, mt: '7px'}} />
 							{/* a click on the label checks or unchecks the field */}
-							<InputLabel htmlFor={`change-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: on ? 'var(--u-text2)' : 'var(--u-faint)', lineHeight: '40px', whiteSpace: 'normal', cursor: 'pointer', userSelect: 'none'}}>
+							<InputLabel htmlFor={`change-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: on ? 'var(--u-text2)' : 'var(--u-faint)', lineHeight: '34px', whiteSpace: 'normal', cursor: 'pointer', userSelect: 'none'}}>
 								{f.label}{f.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 							</InputLabel>
 							<Box sx={{minWidth: 0, gridColumn: {xs: '2', sm: 'auto'}}}>

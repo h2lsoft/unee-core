@@ -84,7 +84,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 	{
 
 		return (
-			<RadioGroup row id={id} value={value} onChange={(e) => onChange(e.target.value)} sx={{minHeight: 40, columnGap: 1}}>
+			<RadioGroup row id={id} value={value} onChange={(e) => onChange(e.target.value)} sx={{minHeight: 34, columnGap: 1}}>
 				{field.options?.map((o) => <FormControlLabel key={o.value} value={o.value} disabled={field.readonly} control={<Radio size="small" />} label={o.label} slotProps={{typography: {sx: {fontSize: 14}}}} sx={{mr: 1}} />)}
 			</RadioGroup>
 		)
@@ -138,7 +138,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 		return (
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
-				<Box component="input" type="color" value={hex} disabled={field.readonly} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)} aria-label={field.label} sx={{width: 56, height: 40, p: '4px', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', cursor: 'pointer'}} />
+				<Box component="input" type="color" value={hex} disabled={field.readonly} onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)} aria-label={field.label} sx={{width: 56, height: 34, p: '3px', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', cursor: 'pointer'}} />
 				<OutlinedInput id={id} value={value} error={error} disabled={field.readonly} onChange={(e) => onChange(e.target.value.trim())} inputProps={{maxLength: 7, spellCheck: false}} sx={{width: 140}} />
 			</Box>
 		)
@@ -174,7 +174,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 	{
 
 		return (
-			<Select id={id} value={value} displayEmpty fullWidth disabled={field.readonly} error={error} onChange={(e) => onChange(e.target.value)} sx={{height: 40, fontSize: 14}} inputProps={{'aria-labelledby': `${id}-label`}}>
+			<Select id={id} value={value} displayEmpty fullWidth disabled={field.readonly} error={error} onChange={(e) => onChange(e.target.value)} sx={{fontSize: 14}} inputProps={{'aria-labelledby': `${id}-label`}}>
 				{!field.required && <MenuItem value="">-</MenuItem>}
 				{field.options?.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
 			</Select>
@@ -203,13 +203,21 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 }
 
-// row of a field: label on the first line of the control (40px), the help text stays under the control
+// compact fields of the forms (form and mass edit dialogs): 34px high, 10px of padding
+export const FIELDS_SX = {
+	'& .MuiOutlinedInput-root:not(.MuiInputBase-multiline)': {height: 34},
+	'& .MuiOutlinedInput-input': {px: '10px'},
+	'& .MuiInputBase-multiline': {py: '7px', px: 0},
+	'& .MuiAutocomplete-root .MuiOutlinedInput-root': {pl: '5px'},
+}
+
+// row of a field: label on the first line of the control (34px), the help text stays under the control
 function FieldRow({field, value, errors, onChange}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void})
 {
 
 	return (
 		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
-			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '40px'}}}>
+			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '34px'}}}>
 				{field.label}{field.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 			</InputLabel>
 			<Box sx={{minWidth: 0}}>
@@ -352,7 +360,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 					</Box>
 				)}
 				{data && (
-					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, '& .MuiOutlinedInput-input': {px: '10px'}, '& .MuiAutocomplete-root .MuiOutlinedInput-root': {pl: '5px'}}}>
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, ...FIELDS_SX}}>
 						{fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)).map(row)}
 						{first_tab >= 0 && (
 							<>
