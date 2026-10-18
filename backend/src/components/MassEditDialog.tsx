@@ -99,7 +99,7 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 							</InputLabel>
 							<Box sx={{minWidth: 0, gridColumn: {xs: '2', sm: 'auto'}}}>
 								<Input field={{...f, readonly: !on}} value={values[f.name] ?? ''} error={!!errors[f.name]} onChange={(v) => setValues({...values, [f.name]: v})} />
-								{f.help && on && <FormHelperText sx={{m: 0, mt: 0.5}}>{f.help}</FormHelperText>}
+								{f.help && <FormHelperText sx={{m: 0, mt: 0.5}}>{f.help}</FormHelperText>}
 							</Box>
 						</Box>
 					)
