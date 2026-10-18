@@ -4,7 +4,13 @@ import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
 import { api, type MenuCategory, type MenuItem } from '../api'
 import { useDocumentTitle } from '../components/AuthLayout'
 import { MenuIcon } from '../components/icons'
+import Notes from '../components/Notes'
+import { WidgetCard, WidgetGrid, type WidgetInfo } from '../components/Widgets'
+import { useAuth } from '../auth'
 import { t } from '../i18n'
+
+// widgets from this position are below the notes
+const BELOW_NOTES = 100
 
 const TABS = ['dashboard', 'menu'] as const
 type DashboardTab = typeof TABS[number]
@@ -63,18 +69,20 @@ function PluginTile({item}: {item: MenuItem})
 }
 
 /**
- * home page of the backend (module core-backend/dashboard): tab dashboard (widgets, later), tab menu (plugins allowed, by category)
+ * home page of the backend (module core-backend/dashboard): tab dashboard (widgets, personal notes), tab plugins (plugins allowed, by category)
  */
 export default function Dashboard()
 {
 
 	const [tab, setTab] = useState<DashboardTab>(readTab)
 	const [menu, setMenu] = useState<MenuCategory[] | null>(null)
+	const [widgets, setWidgets] = useState<WidgetInfo[] | null>(null)
+	const {user} = useAuth()
 	useDocumentTitle(t('Dashboard'))
 
 	useEffect(() => {
 
-		api<{menu: MenuCategory[]}>('dashboard/').then((data) => setMenu(data.menu)).catch(() => setMenu([]))
+		api<{menu: MenuCategory[], widgets: WidgetInfo[]}>('dashboard/').then((data) => { setMenu(data.menu); setWidgets(data.widgets) }).catch(() => { setMenu([]); setWidgets([]) })
 
 	}, [])
 
@@ -87,15 +95,21 @@ export default function Dashboard()
 
 	return (
 		<>
-			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
-				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name="speed" /></Box>
-				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{t('Dashboard')}</Typography>
-			</Box>
+			<Typography component="h1" sx={{m: 0, fontSize: {xs: 21, md: 24}, fontWeight: 600, letterSpacing: '-0.01em'}}>{t('Welcome [NAME]', {NAME: user?.firstname || user?.login || ''})}</Typography>
 
 			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -1, borderBottom: '1px solid var(--u-border)', '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
 				<Tab value="dashboard" label={t('Dashboard')} />
-				<Tab value="menu" label={t('Menu')} />
+				<Tab value="menu" label={t('Plugins')} />
 			</Tabs>
+
+			{tab === 'dashboard' && !widgets && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
+			{tab === 'dashboard' && widgets && (
+				<WidgetGrid>
+					{widgets.filter((w) => w.position < BELOW_NOTES).map((w) => <WidgetCard key={w.id} widget={w} version={0} />)}
+					<Notes />
+					{widgets.filter((w) => w.position >= BELOW_NOTES).map((w) => <WidgetCard key={w.id} widget={w} version={0} />)}
+				</WidgetGrid>
+			)}
 
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 			{tab === 'menu' && menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0).map((category) => (

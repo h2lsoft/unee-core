@@ -22,7 +22,7 @@ const ROW_BORDER = 'var(--u-border-soft)'
 const HEAD_BG = 'var(--u-head)'
 
 // badge palette (DataGrid::addColBadge colors)
-const BADGES: Record<string, {bg: string, fg: string}> = {
+export const BADGES: Record<string, {bg: string, fg: string}> = {
 	grey: {bg: 'var(--u-border-soft)', fg: 'var(--u-text2)'},
 	orange: {bg: 'var(--u-orange-bg)', fg: 'var(--u-orange)'},
 	red: {bg: 'var(--u-red-bg)', fg: 'var(--u-red)'},

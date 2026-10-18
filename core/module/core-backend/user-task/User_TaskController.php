@@ -77,4 +77,33 @@ class User_TaskController extends \Core\CrudController
 
 	}
 
+	/**
+	 * widget of the dashboard: open tasks of the logged user, overdue and due first
+	 *
+	 * @return array see \Core\Widget
+	 */
+	public static function widgetMyTasks():array
+	{
+
+		$recs = DB()->query("SELECT id, category, title, priority, status, due_date FROM xcore_user_task WHERE deleted = 'no' AND xcore_user_id = :me AND status != 'done' ORDER BY due_date IS NULL, due_date, FIELD(priority, 'high', 'medium', 'low'), id LIMIT 8", ['me' => \Model\User::getUID()])->fetchAll();
+
+		$rows = [];
+		foreach($recs as $rec)
+		{
+
+			$late = ($rec['due_date'] && $rec['due_date'] <= date('Y-m-d'));
+			$rows[] = [
+				['badge' => ['low' => 'grey', 'medium' => 'blue', 'high' => 'red'][$rec['priority']] ?? 'grey', 'text' => ts($rec['priority']), 'width' => 80],
+				['text' => $rec['title'], 'grow' => true, 'strong' => true],
+				['text' => $rec['category'], 'muted' => true, 'width' => 130],
+				['badge' => ($rec['status'] === 'in progress') ? 'blue' : 'orange', 'text' => ts($rec['status']), 'width' => 100],
+				($rec['due_date']) ? ['day' => $rec['due_date'], 'align' => 'right', 'color' => ($late) ? 'error' : '', 'width' => 90] : ['text' => '', 'width' => 90],
+			];
+
+		}
+
+		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No open task')];
+
+	}
+
 }

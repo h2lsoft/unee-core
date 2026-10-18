@@ -160,4 +160,32 @@ class CronController extends \Core\CrudController
 
 	}
 
+	/**
+	 * widget of the dashboard: active tasks with their status and last run
+	 *
+	 * @return array see \Core\Widget
+	 */
+	public static function widgetCron():array
+	{
+
+		$recs = DB()->query("SELECT name, status, repetition_minutes, repetition_hours, repetition_days, repetition_months, last_execution_date_start FROM xcore_crontask WHERE deleted = 'no' AND active = 'yes' ORDER BY priority, id LIMIT 10")->fetchAll();
+
+		$rows = [];
+		foreach($recs as $rec)
+		{
+
+			$status = ($rec['status'] === '') ? 'idle' : $rec['status'];
+			$rows[] = [
+				['text' => $rec['name'], 'grow' => true, 'strong' => true],
+				['text' => "{$rec['repetition_minutes']} {$rec['repetition_hours']} {$rec['repetition_days']} {$rec['repetition_months']}", 'mono' => true, 'muted' => true],
+				['badge' => self::STATUSES[$status] ?? 'grey', 'text' => ts($status), 'width' => 80],
+				($rec['last_execution_date_start']) ? ['date' => $rec['last_execution_date_start'], 'align' => 'right', 'width' => 110] : ['text' => '-', 'muted' => true, 'align' => 'right', 'width' => 110],
+			];
+
+		}
+
+		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No active task')];
+
+	}
+
 }

@@ -356,4 +356,32 @@ return [
 	'0-59: *, a list (0,30), a range (0-10) or a step (*/5)' => '0-59 : *, une liste (0,30), un intervalle (0-10) ou un pas (*/5)',
 	'registered by the code (debug mode), listened with \\Core\\EventManager::on()' => 'enregistré par le code (mode debug), écouté avec \\Core\\EventManager::on()',
 
+
+	// dashboard: widgets, notes
+	'No open task' => 'Aucune tâche en cours',
+	'No active task' => 'Aucune tâche active',
+	'active' => 'actif',
+	'inactive' => 'inactif',
+	'last run' => 'dernière exécution',
+	'never run' => 'jamais exécuté',
+	'Backend' => 'Backend',
+	'Frontend' => 'Frontend',
+	'No connection' => 'Aucune connexion',
+	'Widgets' => 'Widgets',
+	'widget' => 'widget',
+	'full width' => 'pleine largeur',
+	'half width' => 'demi-largeur',
+	'Size' => 'Taille',
+	'Refresh' => 'Rafraîchissement',
+	'Method' => 'Méthode',
+	'Auto refresh' => 'Rafraîchissement auto',
+	'Every (seconds)' => 'Toutes les (secondes)',
+	'Search name, method...' => 'Rechercher un nom, une méthode...',
+	'Last active users' => 'Derniers utilisateurs actifs',
+	'the note is empty or longer than 2000 characters' => 'la note est vide ou dépasse 2000 caractères',
+	'`[FIELD]` must be a public static method widget... of a module controller' => '`[FIELD]` doit être une méthode publique statique widget... d\'un contrôleur de module',
+	'`[FIELD]` must be at least 5' => '`[FIELD]` doit valoir au moins 5',
+	'the list right on this plugin shows the widget, its title links to the plugin' => 'le droit list sur ce plugin affiche le widget, son titre renvoie au plugin',
+	'public static method of a module returning the data of the widget' => 'méthode publique statique d\'un module qui renvoie les données du widget',
+
 ];

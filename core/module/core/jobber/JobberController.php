@@ -184,4 +184,32 @@ class JobberController extends \Core\CrudController
 
 	}
 
+	/**
+	 * widget of the dashboard: worker state (cron task of core/cron/jobber.php run in the last 5 minutes) and jobs by status
+	 *
+	 * @return array see \Core\Widget
+	 */
+	public static function widgetJobber():array
+	{
+
+		$counts = DB()->query("SELECT status, COUNT(*) AS total FROM xcore_job_queue WHERE deleted = 'no' GROUP BY status")->fetchAll();
+		$by = array_column($counts, 'total', 'status');
+
+		$last = DB()->query("SELECT MAX(last_execution_date_start) FROM xcore_crontask WHERE deleted = 'no' AND active = 'yes' AND script_path LIKE '%cron/jobber.php'")->fetchOne();
+		$active = ($last && strtotime($last) >= time() - 300);
+
+		return [
+			'type' => 'counters',
+			'status' => ['label' => ts('Worker'), 'badge' => ['text' => ts(($active) ? 'active' : 'inactive'), 'color' => ($active) ? 'green' : 'grey']],
+			'note' => ($last) ? ['date' => $last, 'prefix' => ts('last run')] : ['text' => ts('never run')],
+			'tiles' => [
+				['value' => (int)($by['pending'] ?? 0), 'label' => ts('pending'), 'color' => 'yellow'],
+				['value' => (int)($by['processing'] ?? 0), 'label' => ts('processing'), 'color' => 'blue'],
+				['value' => (int)($by['completed'] ?? 0), 'label' => ts('completed'), 'color' => 'green'],
+				['value' => (int)($by['dead'] ?? 0), 'label' => ts('dead'), 'color' => 'red'],
+			],
+		];
+
+	}
+
 }

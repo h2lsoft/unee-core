@@ -243,4 +243,40 @@ class UserController extends \Core\CrudController
 
 	}
 
+	/**
+	 * widget of the dashboard: the 10 last connected users of the backend and of the frontend
+	 *
+	 * @return array see \Core\Widget
+	 */
+	public static function widgetLastActive():array
+	{
+
+		$tabs = [];
+		foreach(['backend' => 'Backend', 'frontend' => 'Frontend'] as $application => $label)
+		{
+
+			$recs = DB()->query("SELECT u.id, u.firstname, u.lastname, u.login, u.avatar, u.last_connection_date, u.last_connection_ip, g.name AS group_name FROM xcore_user u LEFT JOIN xcore_group g ON g.id = u.xcore_group_id WHERE u.deleted = 'no' AND u.last_connection_application = :app AND u.last_connection_date IS NOT NULL ORDER BY u.last_connection_date DESC LIMIT 10", ['app' => $application])->fetchAll();
+
+			$rows = [];
+			foreach($recs as $rec)
+			{
+
+				$rows[] = [
+					\Core\Widget::avatar($rec),
+					['text' => trim("{$rec['firstname']} {$rec['lastname']}") ?: $rec['login'], 'grow' => true, 'strong' => true],
+					['text' => ts((string)$rec['group_name']), 'muted' => true, 'width' => 140],
+					['text' => (string)$rec['last_connection_ip'], 'mono' => true, 'muted' => true, 'width' => 130],
+					['date' => $rec['last_connection_date'], 'align' => 'right', 'width' => 120],
+				];
+
+			}
+
+			$tabs[] = ['label' => ts($label), 'rows' => $rows, 'empty' => ts('No connection')];
+
+		}
+
+		return ['type' => 'tabs', 'tabs' => $tabs];
+
+	}
+
 }
