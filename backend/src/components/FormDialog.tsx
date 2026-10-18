@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
-import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import { CloseOutlined, ErrorOutlineOutlined, HistoryOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import HistoryDialog from './HistoryDialog'
 import CodeEditor from './Code'
 import RichText from './RichText'
 import { Flag } from './Flag'
@@ -233,7 +234,7 @@ function FieldRow({field, value, errors, onChange}: {field: FormField, value: st
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
  * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
-export default function FormDialog({module, id, label, open, onClose, onSaved, url, title}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string})
+export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void})
 {
 
 	const theme = useTheme()
@@ -246,6 +247,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const [saving, setSaving] = useState(false)
 	const [tab, setTab] = useState('')
 	const [running, setRunning] = useState('')
+	const [history, setHistory] = useState(false)
+	const [reload, setReload] = useState(0)
 
 	useEffect(() => {
 
@@ -265,7 +268,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
 
-	}, [open, module, id, url])
+	}, [open, module, id, url, reload])
 
 	// field errors on top, messages of h2lsoft/validator (they hold the label of the field)
 	const summary = Object.values(errors).flat()
@@ -387,11 +390,15 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 			</DialogContent>
 
 			<DialogActions sx={{px: 3, pt: 1, pb: 2.5, gap: 1}}>
+				{id > 0 && data?.versions !== undefined && (
+					<Button variant="outlined" color="inherit" disabled={!data.versions} onClick={() => setHistory(true)} startIcon={<HistoryOutlined />} sx={{mr: 'auto', borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{t('History')} ({data.versions})</Button>
+				)}
 				{id > 0 && data?.form.actions?.map((a) => (
 					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{a.label}</Button>
 				))}
 				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>
 			</DialogActions>
+			{history && <HistoryDialog module={module} id={id} title={`${t('History')} - ${label} #${id}`} onClose={() => setHistory(false)} onRestored={() => { setHistory(false); setReload((v) => v + 1); onRestored?.() }} />}
 		</Dialog>
 	)
 

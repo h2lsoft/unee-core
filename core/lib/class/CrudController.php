@@ -117,7 +117,106 @@ abstract class CrudController extends Controller
 
 		}
 
-		return new JsonResponse(['form' => $form->definition(), 'record' => $this->getRecord($values, $record)]);
+		$payload = ['form' => $form->definition(), 'record' => $this->getRecord($values, $record)];
+		if($this->versioning())$payload['versions'] = (int)DB()->query("SELECT COUNT(*) FROM xcore_versioning WHERE deleted = 'no' AND `table` = :table AND record_id = :id", ['table' => $this->table, 'id' => $id])->fetchOne();
+
+		return new JsonResponse($payload);
+
+	}
+
+	/**
+	 * versions of a record (plugin with versioning), last first, each with its changes from the previous version
+	 *
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"versions": [{"id", "date", "author", "created", "changes": [{"field", "label", "before", "after"}]}]}
+	 */
+	#[Route('/{id}/versions/', name: 'versions', methods: ['GET'])]
+	public function apiVersions(int $id):JsonResponse
+	{
+
+		if($denied = $this->deny('edit'))return $denied;
+		if(!$this->versioning())return JsonResponse::error(404, 'versioning is not enabled');
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		$recs = DB()->query("SELECT v.id, v.date, v.data_json, v.created_by, u.firstname, u.lastname FROM xcore_versioning v LEFT JOIN xcore_user u ON u.id = v.xcore_user_id WHERE v.deleted = 'no' AND v.`table` = :table AND v.record_id = :id ORDER BY v.id", ['table' => $this->table, 'id' => $id])->fetchAll();
+		$fields = $this->buildForm($record)->definition()['fields'];
+
+		$versions = [];
+		$previous = null;
+		foreach($recs as $rec)
+		{
+
+			$data = (array)json_decode((string)$rec['data_json'], true);
+			$changes = [];
+			foreach($fields as $field)
+			{
+
+				$name = $field['name'];
+				if($field['type'] === 'password' || !array_key_exists($name, $data))continue;
+
+				$before = ($previous === null) ? null : ($previous[$name] ?? '');
+				if($previous !== null && $this->versionText($field, $before) === $this->versionText($field, $data[$name]))continue;
+				if($previous === null && $this->versionText($field, $data[$name]) === '')continue;
+
+				$changes[] = ['field' => $name, 'label' => $field['label'], 'before' => ($previous === null) ? '' : $this->versionText($field, $before), 'after' => $this->versionText($field, $data[$name])];
+
+			}
+
+			$versions[] = ['id' => (int)$rec['id'], 'date' => date(DATE_ATOM, strtotime($rec['date'])), 'author' => trim("{$rec['firstname']} {$rec['lastname']}") ?: (string)$rec['created_by'], 'created' => ($previous === null), 'changes' => $changes];
+			$previous = $data;
+
+		}
+
+		return new JsonResponse(['versions' => array_reverse($versions)]);
+
+	}
+
+	/**
+	 * puts the values of a version back in the record (edit right), a new version is saved
+	 *
+	 * @param int $id
+	 * @param int $version
+	 *
+	 * @return JsonResponse {"message"}
+	 */
+	#[Route('/{id}/versions/{version}/restore/', name: 'versions.restore', methods: ['POST'], requirements: ['version' => '\d+'])]
+	public function apiVersionRestore(int $id, int $version):JsonResponse
+	{
+
+		if($denied = $this->deny('edit'))return $denied;
+		if(!$this->versioning())return JsonResponse::error(404, 'versioning is not enabled');
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		$json = DB()->query("SELECT data_json FROM xcore_versioning WHERE id = :version AND deleted = 'no' AND `table` = :table AND record_id = :id", ['version' => $version, 'table' => $this->table, 'id' => $id])->fetchOne();
+		if(!$json)return JsonResponse::error(404, 'version not found');
+
+		$data = (array)json_decode((string)$json, true);
+		$form = $this->buildForm($record);
+		$row = [];
+		$changed = [];
+		foreach($form->fields as $name => $field)
+		{
+
+			// masked values (password, secret, token) are never written back
+			if(!array_key_exists($name, $data) || $field['type'] === 'password' || !empty($field['readonly']) || !empty($field['manager']) || $data[$name] === '********')continue;
+
+			$value = is_array($data[$name]) ? json_encode(array_values($data[$name]), JSON_UNESCAPED_UNICODE) : $data[$name];
+			if((string)($record[$name] ?? '') === (string)$value)continue;
+
+			$row[$name] = $value;
+			$changed[$name] = [$record[$name] ?? null, $value];
+
+		}
+
+		if($form->tagManager() !== '' && isset($data['_tags']) && is_array($data['_tags']))
+			\Core\Tag::set($form->tagManager(), $id, $data['_tags'], $this->author());
+
+		if($row)DB($this->table)->update($row, $id, 1, $this->author());
+		\Core\Log::write('restore', ts('version #[VERSION] restored', ['VERSION' => $version]), $this->masked($changed), $id, 'info', $this->module);
+		$this->versionSave($id);
+
+		return new JsonResponse(['message' => ts('Version restored')]);
 
 	}
 
@@ -293,6 +392,7 @@ abstract class CrudController extends Controller
 			if(!$changed)continue;
 			DB($this->table)->update($row, (int)$record['id'], 1, $this->author());
 			\Core\Log::write('batch_edit', $this->object_label, $this->masked($changed), (int)$record['id'], 'info', $this->module);
+			$this->versionSave((int)$record['id']);
 
 		}
 		DB()->commit();
@@ -372,6 +472,7 @@ abstract class CrudController extends Controller
 
 		DB($this->table)->update([$column => $value], $id, 1, $this->author());
 		\Core\Log::write('toggle', "{$column} = {$value}", [$column => [$record[$column], $value]], $id, 'info', $this->module);
+		$this->versionSave($id);
 
 		return new JsonResponse(['id' => $id, 'column' => $column, 'value' => $value]);
 
@@ -507,6 +608,7 @@ abstract class CrudController extends Controller
 			'apiRowAction' => ($row_actions = array_merge(array_keys(array_filter($grid->row_actions, fn($a) => $a['url'] === '')), array_keys($form->actions))) ? ['path' => ['action' => ['type' => 'string', 'enum' => $row_actions]]] : ['skip' => true],
 			'apiDetail' => ($grid->detail) ? [] : ['skip' => true],
 			'apiGridAction' => ($grid->grid_actions) ? ['path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->grid_actions)]]] : ['skip' => true],
+			'apiVersions', 'apiVersionRestore' => ($this->versioning()) ? [] : ['skip' => true],
 			default => [],
 		};
 
@@ -717,6 +819,7 @@ abstract class CrudController extends Controller
 			$id = (int)DB($this->table)->insert($row, $this->author());
 			if($form->tagManager() !== '')\Core\Tag::set($form->tagManager(), $id, (array)$request->request->all('_tags'), $this->author());
 			\Core\Log::write('add', $this->object_label, $this->masked($row), $id, 'info', $this->module);
+			$this->versionSave($id);
 			$this->onSaveAfterCreate($id, $row);
 
 			return new JsonResponse(['id' => $id], 201);
@@ -747,6 +850,7 @@ abstract class CrudController extends Controller
 
 			if(array_diff_key($changed, ['_tags' => 0]))DB($this->table)->update($row, $id, 1, $this->author());
 			\Core\Log::write('edit', $this->object_label, $this->masked($changed), $id, 'info', $this->module);
+			$this->versionSave($id);
 
 		}
 
@@ -788,6 +892,74 @@ abstract class CrudController extends Controller
 	 *
 	 * @return array
 	 */
+	/**
+	 * the plugin of the module has versioning enabled
+	 *
+	 * @return bool
+	 */
+	protected function versioning():bool
+	{
+
+		$plugin = \Model\Plugin::findActive($this->module);
+		return ($plugin && ($plugin['versioning'] ?? 'no') === 'yes');
+
+	}
+
+	/**
+	 * saves the values of the form fields of a record in xcore_versioning (plugin with versioning), passwords left out
+	 *
+	 * @param int $id
+	 *
+	 * @return void
+	 */
+	protected function versionSave(int $id):void
+	{
+
+		if(!$this->versioning())return;
+
+		$record = DB()->query("SELECT * FROM `{$this->table}` WHERE id = :id", ['id' => $id])->fetch();
+		if(!$record)return;
+
+		$form = $this->buildForm($record);
+		$data = [];
+		foreach($form->fields as $name => $field)
+		{
+
+			if($field['type'] === 'password')continue;
+			if(!empty($field['manager']))$data[$name] = \Core\Tag::get($field['manager'], $id);
+			elseif(array_key_exists($name, $record))$data[$name] = $record[$name];
+
+		}
+
+		DB('xcore_versioning')->insert(['xcore_user_id' => \Model\User::getUID(), 'date' => now(), 'application' => 'backend', 'table' => $this->table, 'record_id' => $id, 'data_json' => json_encode($this->masked($data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)], $this->author());
+
+	}
+
+	/**
+	 * value of a field as shown in the history: label of the option, text of the html, words of the tags
+	 *
+	 * @param array $field definition of the field
+	 * @param mixed $value
+	 *
+	 * @return string
+	 */
+	protected function versionText(array $field, mixed $value):string
+	{
+
+		if(is_array($value))return implode(', ', $value);
+		$value = (string)$value;
+
+		if($field['type'] === 'tags' && is_array($words = json_decode($value, true)))return implode(', ', $words);
+		if($field['type'] === 'html')$value = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '</li>'], ' ', $value)))));
+		if($field['type'] === 'boolean')return ts($value);
+
+		foreach((array)($field['options'] ?? []) as $option)
+			if((string)$option['value'] === $value)return (string)$option['label'];
+
+		return mb_strimwidth($value, 0, 500, '...');
+
+	}
+
 	protected function masked(array $values):array
 	{
 

@@ -209,7 +209,11 @@ export type FormAction = {name: string, label: string, icon: string, right: stri
 export type FormPayload = {
 	form: {fields: FormField[], tabs: FormTab[], actions: FormAction[]}
 	record: Record<string, string | string[]>
+	versions?: number
 }
+
+// history of a record (plugin with versioning): GET /api/<module>/<id>/versions/
+export type Version = {id: number, date: string, author: string, created: boolean, changes: {field: string, label: string, before: string, after: string}[]}
 
 // read only view of a record (GET /api/<module>/<id>/detail/)
 export type DetailField = {label: string, value: string, type?: 'text' | 'badge' | 'code', color?: string, language?: string, wide?: boolean}
