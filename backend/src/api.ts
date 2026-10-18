@@ -202,6 +202,7 @@ export type FormField = {
 	tab?: string
 	language?: string
 	ucfirst?: boolean
+	lowercase?: boolean
 	swatch?: boolean
 	snippets?: {label: string, group: string, content: string}[]
 }

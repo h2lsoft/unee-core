@@ -11,6 +11,9 @@ namespace Component;
 class Form
 {
 
+	// fields with an uppercase initial in every form (typing and saving)
+	public const array UCFIRST_NAMES = ['firstname', 'lastname'];
+
 	public array $fields = [];
 	public array $tabs = [];
 	public array $actions = [];
@@ -383,6 +386,10 @@ class Form
 		{
 
 			$field['label'] = ts($field['label']);
+
+			// same rules while typing (react)
+			if($field['type'] === 'email' || $field['name'] === 'login')$field['lowercase'] = true;
+			if(in_array($field['name'], self::UCFIRST_NAMES, true))$field['ucfirst'] = true;
 			foreach(['help', 'placeholder'] as $key)
 				if(isset($field[$key]))$field[$key] = ts($field[$key]);
 
@@ -553,6 +560,9 @@ class Form
 			$value = ($f['type'] === 'password') ? (string)$value : trim((string)$value);
 
 			if($f['type'] === 'password' && $value === '' && $is_update)continue;
+			// app rules: emails and logins in lower case, first and last names with an uppercase initial
+			if($f['type'] === 'email' || $name === 'login')$value = mb_strtolower($value);
+			if(in_array($name, self::UCFIRST_NAMES, true))$value = preg_replace_callback('/^(\p{Ll})/u', fn($m) => mb_strtoupper($m[1]), $value);
 			if(in_array($f['type'], ['number', 'integer', 'date', 'datetime'], true) && $value === '')$value = null;
 			// no record chosen: 0 in the foreign key (column xxx_id unsigned default 0)
 			if($f['type'] === 'select' && $value === '' && str_ends_with($name, '_id'))$value = 0;
