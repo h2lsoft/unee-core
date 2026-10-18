@@ -28,6 +28,9 @@ export default function ModulePage()
 
 	useDocumentTitle(item?.name ?? '')
 
+	// a new record takes the equal filters of the url, ex: gallery-card/?search[]=xcore_gallery_id||3
+	const defaults = Object.fromEntries(params.getAll('search[]').map((raw) => raw.split('||')).filter((p) => p.length === 2 && p[0] !== 'q' && p[1] !== ''))
+
 	if(!menu)return <Box sx={{display: 'flex', justifyContent: 'center', py: 8}}><CircularProgress /></Box>
 	if(!item || item.url)return <NotFound />
 
@@ -53,6 +56,7 @@ export default function ModulePage()
 				id={form.id}
 				label={label}
 				open={form.open}
+				defaults={defaults}
 				onClose={() => setForm({...form, open: false})}
 				onSaved={() => { setForm({...form, open: false}); dataChanged(module); setVersion((v) => v + 1) }}
 			/>

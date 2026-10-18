@@ -554,6 +554,8 @@ class Form
 
 			if($f['type'] === 'password' && $value === '' && $is_update)continue;
 			if(in_array($f['type'], ['number', 'integer', 'date', 'datetime'], true) && $value === '')$value = null;
+			// no record chosen: 0 in the foreign key (column xxx_id unsigned default 0)
+			if($f['type'] === 'select' && $value === '' && str_ends_with($name, '_id'))$value = 0;
 			if($f['type'] === 'html' && $value !== '')$value = \Core\Sanitizer::clean($value, $f['sanitize']);
 
 			$row[$name] = $value;

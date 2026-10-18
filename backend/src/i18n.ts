@@ -208,6 +208,8 @@ const fr: Record<string, string> = {
 	'Extensions': 'Extensions',
 	'Environment': 'Environnement',
 	'Variables': 'Variables',
+	'Insert pattern': 'Insérer un pattern',
+
 	// projects
 	'Edit task': 'Modifier la tâche',
 	'Add task': 'Ajouter une tâche',

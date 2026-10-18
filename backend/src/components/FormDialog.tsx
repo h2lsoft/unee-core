@@ -17,6 +17,8 @@ export function toInput(field: FormField, value: unknown): string
 
 	if(field.type === 'tags')return JSON.stringify(Array.isArray(value) ? value : [])
 	const text = String(value ?? '')
+	// foreign key 0 = none: empty select
+	if(field.type === 'select' && text === '0' && !field.options?.some((o) => o.value === '0'))return ''
 	return (field.type === 'datetime' && text) ? text.replace(' ', 'T').slice(0, 16) : text
 
 }
@@ -108,7 +110,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 
 	}
 
-	if(field.type === 'code')return <CodeEditor id={id} value={value} language={field.language} error={error} readOnly={field.readonly} onChange={onChange} />
+	if(field.type === 'code')return <CodeEditor id={id} value={value} language={field.language} error={error} readOnly={field.readonly} snippets={field.snippets} onChange={onChange} />
 
 	// words typed as chips, enter or comma adds one
 	if(field.type === 'tags')

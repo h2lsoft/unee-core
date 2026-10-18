@@ -203,6 +203,7 @@ export type FormField = {
 	language?: string
 	ucfirst?: boolean
 	swatch?: boolean
+	snippets?: {label: string, group: string, content: string}[]
 }
 
 // tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)
