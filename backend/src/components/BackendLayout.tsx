@@ -171,7 +171,7 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
-					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}><MenuIcon name={category.icon} fontSize={15} color={category.color || undefined} />{category.name}</Typography>
+					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#6b7088'}}><MenuIcon name={category.icon} fontSize={15} />{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={onNavigate} />
 					))}
