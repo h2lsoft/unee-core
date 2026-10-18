@@ -107,7 +107,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 				value={words(value)}
 				onChange={(_, list) => onChange(JSON.stringify([...new Set(list.map((w) => String(w).trim()).filter(Boolean))]))}
 				renderValue={(list, getItemProps) => list.map((w, index) => <Chip {...getItemProps({index})} key={w} label={w} size="small" />)}
-				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder} sx={{'& .MuiOutlinedInput-root': {py: '3px', fontSize: 14}}} />}
+				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder} sx={{'&& .MuiOutlinedInput-root.MuiOutlinedInput-root': {height: 'auto', minHeight: 34, py: 0, fontSize: 14}, '&& .MuiOutlinedInput-root .MuiAutocomplete-input': {py: '2px'}}} />}
 			/>
 		)
 
