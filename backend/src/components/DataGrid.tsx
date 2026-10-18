@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import {
-	Box, Button, ButtonBase, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
+	Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
 	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import {
@@ -134,6 +134,39 @@ function formatDate(value: string, with_time: boolean): string
 
 }
 
+// inline css of a list value (property: value; pairs) to a style object
+function parseStyle(css: string): Record<string, string>
+{
+
+	const style: Record<string, string> = {}
+	for(const pair of css.split(';'))
+	{
+
+		const [property, ...rest] = pair.split(':')
+		const value = rest.join(':').trim()
+		if(property?.trim() && value)style[property.trim().toLowerCase().replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value
+
+	}
+
+	return style
+
+}
+
+const CHIP_COLORS = ['default', 'primary', 'secondary', 'error', 'warning', 'info', 'success'] as const
+
+/**
+ * value of a list shown as a mui chip: class = color and variant (ex: success outlined), style = css added, icon = material symbol
+ */
+export function ListChip({label, className = '', css = '', icon = ''}: {label: string, className?: string, css?: string, icon?: string})
+{
+
+	const [color, variant] = className.split(' ')
+	const chip_color = (CHIP_COLORS as readonly string[]).includes(color) ? color as typeof CHIP_COLORS[number] : 'default'
+
+	return <Chip size="small" label={label} color={chip_color} variant={variant === 'outlined' ? 'outlined' : 'filled'} icon={icon ? <MenuIcon name={icon} fontSize={14} /> : undefined} sx={{height: 22, fontSize: 11.5, fontWeight: 500, '& .MuiChip-icon': {ml: '6px', mr: '-2px', color: 'inherit'}, ...parseStyle(css)}} />
+
+}
+
 const alignOf = (column: GridColumn) => column.align ?? (column.name === 'id' ? 'right' : (column.type === 'badge' ? 'center' : 'left'))
 
 // cell content by column type
@@ -152,6 +185,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: '#9a9fb3'}}>-</Box>
 
 	const text = String(value)
+	if(column.type === 'chip')return <ListChip label={text} className={String(row[column.class_column ?? ''] ?? '')} css={String(row[column.style_column ?? ''] ?? '')} icon={String(row[column.icon_column ?? ''] ?? '')} />
 	if(column.type === 'badge')return <Badge value={text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />

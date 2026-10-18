@@ -103,6 +103,24 @@ class DataGrid
 	}
 
 	/**
+	 * value shown as a mui chip whose look comes from columns of the row (ex: xcore_list)
+	 *
+	 * @param string $name
+	 * @param string $label
+	 * @param string $class_column color and variant, ex: success outlined
+	 * @param string $style_column inline css added
+	 * @param string $icon_column material symbol name
+	 *
+	 * @return static
+	 */
+	public function addColChip(string $name, string $label='', string $class_column='', string $style_column='', string $icon_column=''):static
+	{
+
+		return $this->addCol($name, $label, false, 'chip', array_filter(['class_column' => $class_column, 'style_column' => $style_column, 'icon_column' => $icon_column]));
+
+	}
+
+	/**
 	 * enum('yes','no') column, toggle = switch in the grid (PATCH /api/<module>/<id>/toggle/, edit right)
 	 *
 	 * @param string $name
@@ -610,7 +628,7 @@ class DataGrid
 		$recs = DB()->query($sql, $binds)->fetchAll();
 
 		$rows = [];
-		$keep = array_flip(array_merge(['id'], array_keys($this->columns), array_filter(array_column($this->columns, 'color_column'))));
+		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column'])));
 		foreach($recs as $rec)
 		{
 
