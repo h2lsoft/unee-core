@@ -162,6 +162,8 @@ export type FormField = {
 	rows?: number
 	options?: Option[]
 	readonly?: boolean
+	autocomplete?: boolean
+	free?: boolean
 }
 
 export type FormPayload = {

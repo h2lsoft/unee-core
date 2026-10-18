@@ -194,6 +194,17 @@ class Form
 	}
 
 	/**
+	 * select with a search field, free = any typed value is accepted (the options are suggestions)
+	 */
+	public function autocomplete(bool $free=false):static
+	{
+
+		$this->set('autocomplete', true);
+		return $this->set('free', $free);
+
+	}
+
+	/**
 	 * shown, never written
 	 */
 	public function readonly(bool $readonly=true):static
@@ -305,7 +316,7 @@ class Form
 				'date' => $v->date('Y-m-d', 'invalid date'),
 				'datetime' => $v->datetime('Y-m-d H:i:s', 'invalid date'),
 				'boolean' => $v->in(['yes', 'no'], 'invalid value'),
-				'select' => $v->in(array_map('strval', array_keys($f['options'])), 'invalid value'),
+				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options'])), 'invalid value') : null,
 				default => null,
 			};
 

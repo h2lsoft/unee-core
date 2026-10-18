@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, useMediaQuery, useTheme } from '@mui/material'
+import { Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, ErrorOutlineOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
@@ -40,6 +40,31 @@ function Input({field, value, error, onChange}: {field: FormField, value: string
 	if(field.type === 'boolean')
 		return <Switch id={id} checked={value === 'yes'} onChange={(e) => onChange(e.target.checked ? 'yes' : 'no')} disabled={field.readonly} sx={{ml: -1}} />
 
+	// select with a search field, free = the options are suggestions
+	if(field.type === 'select' && field.autocomplete)
+	{
+
+		const options = field.options ?? []
+		const option = options.find((o) => o.value === value) ?? null
+
+		return (
+			<Autocomplete
+				id={id}
+				options={options}
+				freeSolo={!!field.free}
+				disabled={field.readonly}
+				value={field.free ? (option ?? (value || null)) : option}
+				inputValue={field.free ? (option?.label ?? value) : undefined}
+				getOptionLabel={(o) => (typeof o === 'string') ? o : o.label}
+				isOptionEqualToValue={(o, v) => o.value === ((typeof v === 'string') ? v : v.value)}
+				onChange={(_, v) => onChange((v === null) ? '' : (typeof v === 'string') ? v : v.value)}
+				onInputChange={field.free ? (_, v, reason) => reason === 'input' && onChange(v) : undefined}
+				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder} slotProps={{...params.slotProps, htmlInput: {...params.slotProps.htmlInput, maxLength: field.max_length}}} sx={{'& .MuiOutlinedInput-root': {py: 0, fontSize: 14}}} />}
+			/>
+		)
+
+	}
+
 	if(field.type === 'select')
 	{
 
@@ -68,7 +93,8 @@ function Input({field, value, error, onChange}: {field: FormField, value: string
 	if(field.type === 'password')return <PasswordInput {...common} />
 
 	const type = {email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text'
-	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', alignItems: 'flex-start'} : undefined} />
+	// textareas: 150px high at least, they grow with the content
+	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : undefined} />
 
 }
 

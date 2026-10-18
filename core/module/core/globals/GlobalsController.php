@@ -51,9 +51,12 @@ class GlobalsController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('the category is the first part, ex: backend.logo');
-		$form->addSelect('type', 'Type', array_combine(self::TYPES, self::TYPES), true)->defaultValue('text')->width(6);
+		$categories = (array)DB()->query("SELECT DISTINCT category FROM xcore_globals WHERE deleted = 'no' AND category != '' ORDER BY category")->fetchAllOne();
+
+		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->width(6)->help('existing category or a new one');
+		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('ex: backend.logo');
 		$form->addText('description', 'Description')->maxLength(255);
+		$form->addSelect('type', 'Type', array_combine(self::TYPES, self::TYPES), true)->autocomplete()->defaultValue('text')->width(6);
 
 		if($record && self::isSecret($record['name']))
 			$form->addPassword('value', 'Value')->help('leave empty to keep the current value');
@@ -66,6 +69,7 @@ class GlobalsController extends \Core\CrudController
 	{
 
 		$v->input('name')->regex('/^[a-z0-9_\-]+(\.[a-z0-9_\-]+)*$/i', 'letters, digits, dots, dashes and underscores only');
+		$v->input('category')->regex('/^[a-z0-9_\-]+$/i', 'letters, digits, dashes and underscores only');
 
 		$v->input('value');
 		match((string)$v->inputGet('type'))
@@ -75,6 +79,7 @@ class GlobalsController extends \Core\CrudController
 			'boolean' => $v->in(['true', 'false', '1', '0'], 'true, false, 1 or 0'),
 			'json-array' => $v->jsonArray('invalid json array'),
 			'json-object' => $v->jsonObject('invalid json object'),
+			'url' => $v->custom(fn($value) => str_starts_with((string)$value, '/') || filter_var($value, FILTER_VALIDATE_URL) !== false, 'url (https://...) or path starting with /'),
 			default => null,
 		};
 
@@ -83,7 +88,7 @@ class GlobalsController extends \Core\CrudController
 	protected function onSaveBefore(array $row, array $record):array
 	{
 
-		$row['category'] = explode('.', $row['name'])[0];
+		if($row['category'] === '')$row['category'] = explode('.', $row['name'])[0];
 		return $row;
 
 	}
