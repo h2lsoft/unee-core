@@ -128,6 +128,41 @@ class Form
 	}
 
 	/**
+	 * time hh:mm typed freely (9, 930, 9h30, 9:30) or picked in a list of $step minutes
+	 * ->set('time_from', 'hour_start') on the end time: durations shown in its list, the duration kept when the start moves
+	 */
+	public function addTime(string $name, string $label='', bool $required=false, int $step=30):static
+	{
+
+		return $this->add('time', $name, $label, $required, ['step' => max(5, min(60, $step))]);
+
+	}
+
+	/**
+	 * active users (and the current one) with their avatar, in an autocomplete
+	 *
+	 * @param string $name foreign key column, ex: xcore_user_id
+	 * @param int $current id kept in the list when the user is inactive
+	 */
+	public function addSelectUser(string $name, string $label='User', bool $required=false, int $current=0):static
+	{
+
+		$options = [];
+		$avatars = [];
+		foreach(DB()->query("SELECT id, firstname, lastname, login, avatar FROM xcore_user WHERE deleted = 'no' AND (active = 'yes' OR id = :current) AND id > 1 ORDER BY firstname, lastname", ['current' => $current])->fetchAll() as $rec)
+		{
+
+			$cell = \Core\Widget::avatar($rec);
+			$options[$rec['id']] = ($cell['title'] !== '') ? $cell['title'] : $rec['login'];
+			$avatars[$rec['id']] = $cell['avatar'];
+
+		}
+
+		return $this->add('select', $name, $label, $required, ['options' => $options, 'translate' => false, 'autocomplete' => true, 'free' => false, 'avatars' => (object)$avatars]);
+
+	}
+
+	/**
 	 * enum('yes','no') shown as a switch
 	 */
 	public function addBoolean(string $name, string $label=''):static
@@ -442,6 +477,7 @@ class Form
 				'password' => ['type' => 'string', 'format' => 'password', 'writeOnly' => true],
 				'date' => ['type' => 'string', 'format' => 'date'],
 				'datetime' => ['type' => 'string', 'example' => '2026-01-31 18:30:00'],
+				'time' => ['type' => 'string', 'pattern' => '^([01][0-9]|2[0-3]):[0-5][0-9]$', 'example' => '09:30'],
 				'boolean' => ['type' => 'string', 'enum' => ['yes', 'no']],
 				'icon' => ['type' => 'string', 'pattern' => '^[a-z0-9_]+$', 'description' => 'material symbol name'],
 				'color' => ['type' => 'string', 'pattern' => '^#[0-9a-fA-F]{6}$'],
@@ -512,6 +548,7 @@ class Form
 				'integer' => $v->integer(false),
 				'date' => $v->date('Y-m-d'),
 				'datetime' => $v->datetime('Y-m-d H:i:s'),
+				'time' => $v->regex('/^([01]\d|2[0-3]):[0-5]\d$/', '`[FIELD]` must be a time hh:mm'),
 				'boolean' => $v->in(['yes', 'no']),
 				'icon' => $v->regex('/^[a-z0-9_]+$/', '`[FIELD]` must be an icon name, ex: settings'),
 				'color' => $v->regex('/^#[0-9a-f]{6}$/i', '`[FIELD]` must be a color #rrggbb'),

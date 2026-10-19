@@ -44,19 +44,15 @@ class CalendarController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$hours = [];
-		for($m = 0; $m < 24 * 60; $m += 15)$hours[sprintf('%02d:%02d', intdiv($m, 60), $m % 60)] = sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
-
 		$form->addText('name', 'Name', true)->maxLength(255);
 		$form->addDate('date', 'Date', true);
 		$form->addBoolean('all_day', 'All day')->defaultValue('no');
-		$form->addSelect('hour_start', 'From', $hours, true)->defaultValue('09:00')->set('translate', false)->set('size', 100)->showIf('all_day', ['no']);
-		$form->addSelect('hour_end', 'To', $hours, true)->defaultValue('10:00')->set('translate', false)->set('size', 100)->set('inline', true)->showIf('all_day', ['no']);
-		$form->addText('address', 'Address')->maxLength(255);
+		$form->addTime('hour_start', 'From', true)->defaultValue('09:00')->set('size', 100)->showIf('all_day', ['no']);
+		$form->addTime('hour_end', 'To', true)->defaultValue('10:00')->set('size', 100)->set('inline', true)->set('time_from', 'hour_start')->showIf('all_day', ['no']);
+		$form->addText('address', 'Address')->maxLength(255)->set('adornment', 'location_on');
 		$form->addHtml('comment', 'Comment');
 		$form->addRadio('color', 'Color', self::COLORS, true)->defaultValue('purple')->set('swatch', true);
-		$users = DB()->query("SELECT id, TRIM(CONCAT(firstname, ' ', lastname)) AS name FROM xcore_user WHERE deleted = 'no' AND (active = 'yes' OR id = :current) AND id > 1 ORDER BY firstname, lastname", ['current' => (int)($record['xcore_user_id'] ?? 0)])->fetchAll();
-		$form->addSelect('xcore_user_id', 'User', array_column($users, 'name', 'id'), true)->autocomplete()->defaultValue((string)\Model\User::getUID())->set('translate', false);
+		$form->addSelectUser('xcore_user_id', 'User', true, (int)($record['xcore_user_id'] ?? 0))->defaultValue((string)\Model\User::getUID());
 		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('pending');
 
 	}

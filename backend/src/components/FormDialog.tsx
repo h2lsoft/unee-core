@@ -9,6 +9,8 @@ import { Flag } from './Flag'
 import { api, ApiException, type FormAction, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
 import { MenuIcon } from './icons'
+import TimeInput from './TimeInput'
+import UserAvatar from './UserAvatar'
 import { useToast } from './Toast'
 
 // datetime-local works with "Y-m-dTH:i", the api with "Y-m-d H:i:s", tags are kept as a json array in the state
@@ -76,10 +78,13 @@ function PasswordInput(props: React.ComponentProps<typeof OutlinedInput>)
 }
 
 // control of a field, its label is in the row
-export function Input({field, value, error, onChange}: {field: FormField, value: string, error: boolean, onChange: (value: string) => void})
+export function Input({field, value, error, onChange, from = ''}: {field: FormField, value: string, error: boolean, onChange: (value: string) => void, from?: string})
 {
 
 	const id = `field-${field.name}`
+
+	// time like outlook, from = value of the start time (field.time_from)
+	if(field.type === 'time')return <TimeInput id={id} value={value} step={field.step} from={from} error={error} readOnly={field.readonly} onChange={onChange} />
 
 	if(field.type === 'html')return <RichText id={id} value={value} error={error} readOnly={field.readonly} ucfirst={field.ucfirst} onChange={onChange} />
 
@@ -183,7 +188,10 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 				isOptionEqualToValue={(o, v) => o.value === ((typeof v === 'string') ? v : v.value)}
 				onChange={(_, v) => onChange((v === null) ? '' : (typeof v === 'string') ? v : v.value)}
 				onInputChange={field.free ? (_, v, reason) => reason === 'input' && onChange(v) : undefined}
-				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder} slotProps={{...params.slotProps, htmlInput: {...params.slotProps.htmlInput, maxLength: field.max_length}}} sx={{'& .MuiOutlinedInput-root': {py: 0, fontSize: 14}}} />}
+				renderOption={field.avatars ? ({key, ...props}, o) => <Box component="li" key={key} {...props} sx={{gap: 1.25, fontSize: 14}}>{field.avatars?.[o.value] && <UserAvatar avatar={field.avatars[o.value]} size={24} />}{o.label}</Box> : undefined}
+				renderInput={(params) => <TextField {...params} error={error} placeholder={field.placeholder}
+					slotProps={{...params.slotProps, htmlInput: {...params.slotProps.htmlInput, maxLength: field.max_length}, input: {...params.slotProps.input, startAdornment: (field.avatars && option && field.avatars[option.value]) ? <InputAdornment position="start" sx={{ml: 0.5, mr: 0}}><UserAvatar avatar={field.avatars[option.value]} size={22} /></InputAdornment> : undefined}}}
+					sx={{'& .MuiOutlinedInput-root': {py: 0, fontSize: 14}}} />}
 			/>
 		)
 
@@ -212,6 +220,7 @@ export function Input({field, value, error, onChange}: {field: FormField, value:
 		onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
 		inputProps: {maxLength: field.max_length},
 		endAdornment: (error && !multiline && field.type !== 'password') ? <InputAdornment position="end"><ErrorOutlineOutlined color="error" fontSize="small" /></InputAdornment> : undefined,
+		startAdornment: field.adornment ? <InputAdornment position="start" sx={{mr: 0.5}}><MenuIcon name={field.adornment} fontSize={20} color="var(--u-muted)" /></InputAdornment> : undefined,
 	}
 
 	if(field.type === 'password')return <PasswordInput {...common} />
@@ -231,11 +240,28 @@ export const FIELDS_SX = {
 }
 
 // row of a field: label on the first line of the control (34px), the help text stays under the control
-// control of a field: size = width in px (ex: hours), case rules while typing
-function Control({field, value, errors, onChange}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void})
+// value changed; the end times of a moved start time keep their duration (like outlook)
+function keepDuration(fields: FormField[], old: Record<string, string>, name: string, value: string): Record<string, string>
 {
 
-	const input = <Input field={field} value={value} error={!!errors[field.name]} onChange={field.lowercase ? (v) => onChange(v.toLocaleLowerCase()) : ((field.ucfirst && field.type !== 'html') ? (v) => onChange(v.charAt(0).toLocaleUpperCase() + v.slice(1)) : onChange)} />
+	const next = {...old, [name]: value}
+	const m = (v: string) => /^\d{2}:\d{2}$/.test(v ?? '') ? Number(v.slice(0, 2)) * 60 + Number(v.slice(3)) : NaN
+	for(const f of fields.filter((f) => f.time_from === name))
+	{
+
+		const end = m(old[f.name]) + m(value) - m(old[name])
+		if(!Number.isNaN(end))next[f.name] = `${String(Math.floor(Math.min(end, 1439) / 60)).padStart(2, '0')}:${String(Math.min(end, 1439) % 60).padStart(2, '0')}`
+
+	}
+	return next
+
+}
+
+// control of a field: size = width in px (ex: hours), case rules while typing
+function Control({field, value, errors, onChange, from}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void, from?: string})
+{
+
+	const input = <Input field={field} value={value} from={from} error={!!errors[field.name]} onChange={field.lowercase ? (v) => onChange(v.toLocaleLowerCase()) : ((field.ucfirst && field.type !== 'html') ? (v) => onChange(v.charAt(0).toLocaleUpperCase() + v.slice(1)) : onChange)} />
 	return field.size ? <Box sx={{width: field.size, maxWidth: '100%', flexShrink: 0}}>{input}</Box> : input
 
 }
@@ -256,11 +282,11 @@ function FieldRow({field, inline = [], values, errors, onChange}: {field: FormFi
 			{label(field, {textAlign: {xs: 'left', sm: 'right'}, lineHeight: {sm: '34px'}})}
 			<Box sx={{minWidth: 0}}>
 				<Box sx={inline.length ? {display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5} : undefined}>
-					<Control field={field} value={values[field.name] ?? ''} errors={errors} onChange={(v) => onChange(field.name, v)} />
+					<Control field={field} value={values[field.name] ?? ''} from={field.time_from ? values[field.time_from] : undefined} errors={errors} onChange={(v) => onChange(field.name, v)} />
 					{inline.map((f) => (
 						<Box key={f.name} sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
 							{label(f, {lineHeight: '34px'})}
-							<Control field={f} value={values[f.name] ?? ''} errors={errors} onChange={(v) => onChange(f.name, v)} />
+							<Control field={f} value={values[f.name] ?? ''} from={f.time_from ? values[f.time_from] : undefined} errors={errors} onChange={(v) => onChange(f.name, v)} />
 						</Box>
 					))}
 				</Box>
@@ -389,7 +415,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const first_tab = fields.findIndex((f) => f.tab)
 	// a field declared inline joins the row of the field before it
 	const rows = (list: FormField[]) => list.reduce<{field: FormField, inline: FormField[]}[]>((acc, f) => { if(f.inline && acc.length)acc[acc.length - 1].inline.push(f); else acc.push({field: f, inline: []}); return acc }, [])
-		.map((r) => <FieldRow key={r.field.name} field={r.field} inline={r.inline} values={values} errors={errors} onChange={(name, v) => setValues((old) => ({...old, [name]: v}))} />)
+		.map((r) => <FieldRow key={r.field.name} field={r.field} inline={r.inline} values={values} errors={errors} onChange={(name, v) => setValues((old) => keepDuration(fields, old, name, v))} />)
 	const wide = fields.some((f) => f.type === 'code' || f.type === 'html')
 
 	return (

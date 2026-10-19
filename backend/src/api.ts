@@ -185,7 +185,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'time' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio'
 	label: string
 	required: boolean
 	width: number
@@ -205,6 +205,10 @@ export type FormField = {
 	lowercase?: boolean
 	inline?: boolean
 	size?: number
+	step?: number
+	time_from?: string
+	adornment?: string
+	avatars?: Record<string, {initials: string, color: string, url?: string}>
 	swatch?: boolean
 	snippets?: {label: string, group: string, content: string}[]
 }
