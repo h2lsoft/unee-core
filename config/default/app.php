@@ -224,10 +224,10 @@ return [
 				'algo' => PASSWORD_DEFAULT, # choose php password encrypt view php manual => http://php.net/manual/en/function.password-hash.php
 				'algo_options' => [],
 				'min_length' => 8,
-				'max_length' => 72,
+				'max_length' => 16,
 				// all characters allowed; no /u flag so the length is counted in bytes (bcrypt ignores bytes after 72)
 				'regex' => "/^.{8,72}$/s",
-				'regex_error_message' => "`password`: 8 to 72 characters (accented characters count double)",
+				'regex_error_message' => "`password`: 8 to 16 characters (accented characters count double)",
 				'regex_error_message_added' => [],
 			]
 		],
