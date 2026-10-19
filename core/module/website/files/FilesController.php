@@ -67,8 +67,8 @@ class FilesController extends \Core\CrudController
 
 		$categories = DB()->query("SELECT DISTINCT category FROM xcore_files WHERE deleted = 'no' AND category <> '' ORDER BY category")->fetchAll(\PDO::FETCH_COLUMN);
 
-		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->set('translate', false)->maxLength(255);
 		$form->addDate('date', 'Date', true)->defaultValue(date('Y-m-d'));
+		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->set('translate', false)->maxLength(255);
 		$form->addText('title', 'Title', true)->maxLength(255);
 		$form->addText('source', 'Source')->maxLength(255)->placeholder('ex: Ministry of health');
 		$form->addFile('url', 'File', true, 'files', (array)\Core\Config::get('files/extensions', self::EXTENSIONS), $this->maxSize());
