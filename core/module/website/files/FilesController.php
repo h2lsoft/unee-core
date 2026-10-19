@@ -35,6 +35,7 @@ class FilesController extends \Core\CrudController
 		$grid->addFilter('date', 'Date', 'date');
 		$grid->addFilter('downloads', 'Downloads', 'number');
 		$grid->addFilter('visible', 'Visible', 'boolean');
+		$grid->addFilterTags();
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('title', 'category');
 		$grid->batchEdit(['category', 'visible']);
@@ -59,6 +60,7 @@ class FilesController extends \Core\CrudController
 		$grid->addCol('_groups', 'Restricted to');
 		$grid->addColNumber('downloads', 'Downloads', true)->width(110);
 		$grid->addColBoolean('visible', 'Visible', true, true)->width(90);
+		$grid->addColTags()->width(180);
 
 	}
 
@@ -75,6 +77,7 @@ class FilesController extends \Core\CrudController
 		$form->addFile('url', 'File', true, 'files', (array)\Core\Config::get('files/extensions', self::EXTENSIONS), $this->maxSize());
 		$form->addSelectMultiple('xcore_group_ids', 'Restricted to', $this->groups())->set('translate', false)->help('Empty: everybody can download the file');
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes');
+		$form->addTagManager($this->table);
 
 	}
 
