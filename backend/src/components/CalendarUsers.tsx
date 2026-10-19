@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Box, ButtonBase, Checkbox, InputAdornment, OutlinedInput, Popover, Typography } from '@mui/material'
-import { ArrowDropDownOutlined, GroupsOutlined, LocalOfferOutlined, PersonOutlined, SearchOutlined } from '@mui/icons-material'
+import { Box, Button, ButtonBase, Checkbox, IconButton, InputAdornment, OutlinedInput, Popover, Typography } from '@mui/material'
+import { ArrowDropDownOutlined, CloseOutlined, LocalOfferOutlined, PersonOutlined, SearchOutlined } from '@mui/icons-material'
 import { t } from '../i18n'
 import UserAvatar, { type AvatarData } from './UserAvatar'
 
@@ -23,7 +23,7 @@ export function AvatarStack({users, max = 5, size = 24}: {users: CalendarUser[],
 }
 
 /**
- * plannings shown in the calendar: avatars in the field, popover with search, groups and tags (a team at once), all users, only me
+ * plannings shown in the calendar: avatars in the field, popover with search by name, user tags (a team at once), all users, only me
  * selected = null: all the users
  */
 export default function CalendarUsers({users, selected, me, onChange}: {users: CalendarUser[], selected: number[] | null, me: number, onChange: (selected: number[] | null) => void})
@@ -31,28 +31,34 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 	const [search, setSearch] = useState('')
+	// selection edited in the popover, given to the calendar by Apply
+	const [draft, setDraft] = useState<number[] | null>(selected)
 
-	const ids = selected ?? users.map((u) => u.id)
+	const applied = users.filter((u) => selected === null || selected.includes(u.id))
+	const ids = draft ?? users.map((u) => u.id)
 	const chosen = users.filter((u) => ids.includes(u.id))
-	const set = (next: number[]) => onChange(next.length === users.length && users.every((u) => next.includes(u.id)) ? null : next)
+	const set = (next: number[]) => setDraft(next.length === users.length && users.every((u) => next.includes(u.id)) ? null : next)
 
-	// a group or a tag selects its members (only them when everybody is shown), or unselects them when they all are selected
+	const open = (el: HTMLElement) => { setDraft(selected); setAnchor(el) }
+	const close = () => { setAnchor(null); setSearch('') }
+	const apply = () => { onChange(draft); close() }
+
+	// a tag selects its members (only them when everybody is shown), or unselects them when they all are selected
 	const team = (members: CalendarUser[]) => {
 
-		if(selected === null)return set(members.map((u) => u.id))
+		if(draft === null)return set(members.map((u) => u.id))
 		const all = members.every((u) => ids.includes(u.id))
 		set(all ? ids.filter((id) => !members.some((u) => u.id === id)) : [...new Set([...ids, ...members.map((u) => u.id)])])
 
 	}
 
-	const groups = [...new Set(users.map((u) => u.group).filter(Boolean))].sort()
 	const tags = [...new Set(users.flatMap((u) => u.tags))].sort()
 	const query = fold(search.trim())
-	const list = users.filter((u) => !query || fold(u.name).includes(query) || u.tags.some((tg) => fold(tg).includes(query))).sort((a, b) => Number(ids.includes(b.id)) - Number(ids.includes(a.id)))
+	const list = users.filter((u) => !query || fold(u.name).includes(query)).sort((a, b) => Number(ids.includes(b.id)) - Number(ids.includes(a.id)))
 
 	const chip = (key: string, label: string, members: CalendarUser[], icon: React.ReactNode) => {
 
-		const on = selected !== null && members.length > 0 && members.every((u) => ids.includes(u.id))
+		const on = draft !== null && members.length > 0 && members.every((u) => ids.includes(u.id))
 		return (
 			<ButtonBase key={key} aria-pressed={on} onClick={() => team(members)} sx={{height: 26, gap: 0.5, px: 1.25, borderRadius: '13px', fontSize: 12, fontWeight: 500, border: '1px solid', borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)', bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-paper)', color: on ? 'var(--u-accent-text)' : 'var(--u-text2)'}}>
 				{icon}{label} ({members.length})
@@ -61,25 +67,27 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 
 	}
 
-	const label = selected === null ? t('All users') : (chosen.length === 1 ? chosen[0].name : (chosen.length ? t('[COUNT] plannings', {COUNT: chosen.length}) : t('No planning')))
+	const label = selected === null ? t('All users') : (applied.length === 1 ? applied[0].name : (applied.length ? t('[COUNT] plannings', {COUNT: applied.length}) : t('No planning')))
 
 	return (
 		<>
-			<ButtonBase aria-haspopup="dialog" aria-label={t('Plannings')} onClick={(e) => setAnchor(e.currentTarget)}
+			<ButtonBase aria-haspopup="dialog" aria-label={t('Plannings')} onClick={(e) => open(e.currentTarget)}
 				sx={{width: {xs: '100%', sm: 260}, height: 34, gap: 1, px: 1, justifyContent: 'flex-start', border: '1px solid', borderColor: anchor ? 'primary.main' : 'var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', fontSize: 13.5, color: 'var(--u-text)'}}>
-				{chosen.length > 0 && <AvatarStack users={chosen} />}
+				{applied.length > 0 && <AvatarStack users={applied} />}
 				<Box component="span" sx={{flexGrow: 1, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{label}</Box>
 				<ArrowDropDownOutlined sx={{color: 'var(--u-text3)'}} />
 			</ButtonBase>
 
-			<Popover open={!!anchor} anchorEl={anchor} onClose={() => { setAnchor(null); setSearch('') }} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}
+			<Popover open={!!anchor} anchorEl={anchor} onClose={(_, reason) => reason !== 'backdropClick' && close()} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}
 				slotProps={{paper: {sx: {mt: 0.75, width: 380, maxWidth: 'calc(100vw - 16px)', border: '1px solid var(--u-border)', borderRadius: '10px', boxShadow: '0 16px 40px rgba(16, 20, 40, .18)', display: 'flex', flexDirection: 'column', maxHeight: 'min(620px, calc(100vh - 140px))'}}}}>
 				<Box sx={{p: 1.5, pb: 1, display: 'flex', flexDirection: 'column', gap: 1.25}}>
-					<OutlinedInput autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search a person or a tag...')} inputProps={{'aria-label': t('Search a person or a tag...')}}
-						startAdornment={<InputAdornment position="start"><SearchOutlined sx={{fontSize: 18, color: 'var(--u-muted)'}} /></InputAdornment>} sx={{height: 34, fontSize: 13.5}} />
-					{(groups.length > 0 || tags.length > 0) && (
+					<Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+						<OutlinedInput autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search a person...')} inputProps={{'aria-label': t('Search a person...')}}
+							startAdornment={<InputAdornment position="start"><SearchOutlined sx={{fontSize: 18, color: 'var(--u-muted)'}} /></InputAdornment>} sx={{height: 34, fontSize: 13.5, flexGrow: 1}} />
+						<IconButton aria-label={t('Close')} onClick={close} sx={{color: 'var(--u-text3)'}}><CloseOutlined fontSize="small" /></IconButton>
+					</Box>
+					{tags.length > 0 && (
 						<Box sx={{display: 'flex', flexWrap: 'wrap', gap: 0.75}}>
-							{groups.map((g) => chip(`g-${g}`, g, users.filter((u) => u.group === g), <GroupsOutlined sx={{fontSize: 15}} />))}
 							{tags.map((tg) => chip(`t-${tg}`, tg, users.filter((u) => u.tags.includes(tg)), <LocalOfferOutlined sx={{fontSize: 14}} />))}
 						</Box>
 					)}
@@ -106,11 +114,10 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 					))}
 					{list.length === 0 && <Typography sx={{p: 2, fontSize: 13, color: 'var(--u-muted)', textAlign: 'center'}}>{t('Nobody found')}</Typography>}
 				</Box>
-				<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, borderTop: '1px solid var(--u-border-soft)', fontSize: 12.5, fontWeight: 600}}>
-					<ButtonBase onClick={() => onChange(null)} sx={{color: 'var(--u-accent-text)', fontSize: 12.5, fontWeight: 600}}>{t('Select all')}</ButtonBase>
-					<ButtonBase onClick={() => set([])} sx={{color: 'var(--u-text3)', fontSize: 12.5, fontWeight: 600}}>{t('Clear')}</ButtonBase>
+				<Box sx={{display: 'flex', alignItems: 'center', px: 1.5, py: 1, borderTop: '1px solid var(--u-border-soft)'}}>
+					<ButtonBase onClick={() => setDraft(null)} sx={{color: 'var(--u-accent-text)', fontSize: 12.5, fontWeight: 600}}>{t('Select all')}</ButtonBase>
 					<Box sx={{flexGrow: 1}} />
-					<Box component="span" sx={{fontSize: 12, fontWeight: 400, color: 'var(--u-muted)'}}>{t('remembered per browser')}</Box>
+					<Button variant="contained" size="small" onClick={apply} sx={{height: 32, px: 2}}>{t('Apply')}</Button>
 				</Box>
 			</Popover>
 		</>

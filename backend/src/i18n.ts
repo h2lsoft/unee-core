@@ -222,7 +222,7 @@ const fr: Record<string, string> = {
 	'Plannings': 'Plannings',
 	'[COUNT] plannings': '[COUNT] plannings',
 	'No planning': 'Aucun planning',
-	'Search a person or a tag...': 'Rechercher une personne ou un tag...',
+	'Search a person...': 'Rechercher une personne...',
 	'Only me': 'Moi uniquement',
 	'Nobody found': 'Aucune personne trouvée',
 	'Clear': 'Vider',
