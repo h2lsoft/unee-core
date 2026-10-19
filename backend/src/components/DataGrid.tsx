@@ -848,9 +848,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	}
 
-	// a tag clicked in a row: condition _tags contains <tag> added or removed (grids with addFilterTags)
-	const active_tags = params.getAll('search[]').filter((raw) => raw.startsWith('_tags||contains||')).map((raw) => raw.slice(17))
-	const tag_filter = {active: active_tags, toggle: grid?.filters.some((f) => f.name === '_tags') ? (tag: string) => setSearchEntries((list) => active_tags.includes(tag) ? list.filter((raw) => raw !== `_tags||contains||${tag}`) : [...list, `_tags||contains||${tag}`]) : null}
+	// a tag clicked in a row: condition _tags||<tag> (the row has the tag) added or removed (grids with addFilterTags)
+	const active_tags = params.getAll('search[]').filter((raw) => raw.startsWith('_tags||') && isShort(raw)).map((raw) => raw.slice(7))
+	const tag_filter = {active: active_tags, toggle: grid?.filters.some((f) => f.name === '_tags') ? (tag: string) => setSearchEntries((list) => active_tags.includes(tag) ? list.filter((raw) => raw !== `_tags||${tag}`) : [...list, `_tags||${tag}`]) : null}
 
 	if(!grid)
 	{

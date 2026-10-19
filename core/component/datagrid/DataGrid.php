@@ -629,7 +629,15 @@ class DataGrid
 			if(!in_array($operator, self::OPERATORS[$filter['type']], true))continue;
 			if($value === '' && !in_array($operator, ['empty', '!empty'], true))continue;
 
-			$parts[] = $this->filterSql($filter['sql'], $operator, $value, $binds, "_c{$i}");
+			// tags: eq = the row has this tag (_tags||s1), !eq = it has not
+			if($name === '_tags' && in_array($operator, ['eq', '!eq'], true))
+			{
+
+				$binds["_c{$i}"] = $value;
+				$parts[] = (($operator === '!eq') ? 'NOT ' : '')."EXISTS(SELECT 1 FROM xcore_tag t WHERE t.deleted = 'no' AND t.signature = '{$this->table}' AND t.record_id = `{$this->table}`.id AND t.tag = :_c{$i})";
+
+			}
+			else $parts[] = $this->filterSql($filter['sql'], $operator, $value, $binds, "_c{$i}");
 			$conditions[] = ['f' => $name, 'o' => $operator, 'v' => $value];
 
 		}
