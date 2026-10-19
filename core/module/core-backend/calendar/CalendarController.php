@@ -87,9 +87,9 @@ class CalendarController extends \Core\CrudController
 	/**
 	 * events between two dates, for the calendar (list right)
 	 *
-	 * @param Request $request query string: start, end (Y-m-d, end excluded), user (id, empty = everybody)
+	 * @param Request $request query string: start, end (Y-m-d, end excluded), users (ids separated by commas, empty = everybody)
 	 *
-	 * @return \Core\JsonResponse {"events": [{"id", "title", "start", "end", "allDay", "color", "status", "user": {"id", "name", "avatar"}}], "users": [{"id", "name"}]}
+	 * @return \Core\JsonResponse {"events": [{"id", "title", "start", "end", "allDay", "color", "status", "user": {"id", "name", "avatar"}}], "users": [{"id", "name", "avatar", "group", "tags"}]}
 	 */
 	#[Route('/events/', name: 'events', methods: ['GET'])]
 	public function apiEvents(Request $request):\Core\JsonResponse
@@ -103,11 +103,22 @@ class CalendarController extends \Core\CrudController
 
 		$sql = "SELECT a.*, u.firstname, u.lastname, u.login, u.avatar FROM xcore_agenda a LEFT JOIN xcore_user u ON u.id = a.xcore_user_id WHERE a.deleted = 'no' AND a.date >= :start AND a.date < :end";
 		$binds = ['start' => $start, 'end' => $end];
-		if((int)$request->query->get('user'))
+		// users: ids separated by commas, empty = everybody
+		$raw = trim((string)$request->query->get('users'));
+		$ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $raw)))));
+		if($raw !== '' && !$ids)$sql .= " AND 1 = 0";
+		if($ids)
 		{
 
-			$sql .= " AND a.xcore_user_id = :user";
-			$binds['user'] = (int)$request->query->get('user');
+			$in = [];
+			foreach(array_slice($ids, 0, 500) as $i => $uid)
+			{
+
+				$in[] = ":u{$i}";
+				$binds["u{$i}"] = $uid;
+
+			}
+			$sql .= " AND a.xcore_user_id IN(".implode(', ', $in).")";
 
 		}
 
@@ -130,8 +141,19 @@ class CalendarController extends \Core\CrudController
 
 		}
 
-		$users = DB()->query("SELECT id, CONCAT(firstname, ' ', lastname) AS name FROM xcore_user WHERE deleted = 'no' AND active = 'yes' AND id > 1 ORDER BY firstname, lastname")->fetchAll();
-		foreach($users as &$user)$user['id'] = (int)$user['id'];
+		// users of the planning picker: avatar, group and tags (to select a team at once)
+		$tags = [];
+		foreach(DB()->query("SELECT record_id, tag FROM xcore_tag WHERE deleted = 'no' AND signature = 'xcore_user' ORDER BY tag")->fetchAll() as $t)
+			$tags[(int)$t['record_id']][] = $t['tag'];
+
+		$users = [];
+		foreach(DB()->query("SELECT u.id, u.firstname, u.lastname, u.login, u.avatar, g.name AS group_name FROM xcore_user u LEFT JOIN xcore_group g ON g.id = u.xcore_group_id WHERE u.deleted = 'no' AND u.active = 'yes' AND u.id > 1 ORDER BY u.firstname, u.lastname")->fetchAll() as $rec)
+		{
+
+			$cell = \Core\Widget::avatar($rec);
+			$users[] = ['id' => (int)$rec['id'], 'name' => ($cell['title'] !== '') ? $cell['title'] : $rec['login'], 'avatar' => $cell['avatar'], 'group' => (string)$rec['group_name'], 'tags' => $tags[(int)$rec['id']] ?? []];
+
+		}
 
 		return new \Core\JsonResponse(['events' => $events, 'users' => $users, 'rights' => \Model\User::getRights($this->module)]);
 

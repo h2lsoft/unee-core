@@ -212,6 +212,19 @@ const fr: Record<string, string> = {
 	'Search a plugin...': 'Rechercher un plugin...',
 	'No plugin found': 'Aucun plugin trouvé',
 
+	// calendar plannings
+	'Team': 'Équipe',
+	'Person': 'Personne',
+	'Plannings': 'Plannings',
+	'[COUNT] plannings': '[COUNT] plannings',
+	'No planning': 'Aucun planning',
+	'Search a person or a tag...': 'Rechercher une personne ou un tag...',
+	'Only me': 'Moi uniquement',
+	'Nobody found': 'Aucune personne trouvée',
+	'Clear': 'Vider',
+	'remembered per browser': 'mémorisé dans ce navigateur',
+	'No planning selected': 'Aucun planning sélectionné',
+
 	// projects
 	'Edit task': 'Modifier la tâche',
 	'Add task': 'Ajouter une tâche',

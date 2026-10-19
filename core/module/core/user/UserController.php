@@ -35,6 +35,7 @@ class UserController extends \Core\CrudController
 		$grid->addFilter('login', 'Login');
 		$grid->addFilter('xcore_group_id', 'Group', 'select', $groups);
 		$grid->addFilter('active', 'Active', 'boolean');
+		$grid->addFilterTags();
 		$grid->addFilter('last_connection_date', 'Last connection', 'date', [], 'DATE(last_connection_date)');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setOrderByFirst('fullname', 'asc');
@@ -46,6 +47,7 @@ class UserController extends \Core\CrudController
 		$grid->addCol('group_name', 'Group', true)->width(150);
 		$grid->addCol('fullname', 'Full name', true);
 		$grid->addCol('email', 'Email', true);
+		$grid->addColTags()->width(180);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
 		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(160);
 
@@ -56,6 +58,7 @@ class UserController extends \Core\CrudController
 
 		self::accountFields($form, $record, true);
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
+		$form->addTagManager($this->table)->help('free words to group the users, ex: team north (calendar)');
 		$form->addTextarea('note', 'Note');
 
 	}

@@ -636,4 +636,5 @@ return [
 	'`[FIELD]` must be a json object with a list of conditions {"f", "o", "v"}' => '`[FIELD]` doit être un objet json avec une liste de conditions {"f", "o", "v"}',
 	'Saved filters' => 'Filtres enregistrés',
 	'filter' => 'filtre',
+	'free words to group the users, ex: team north (calendar)' => 'mots libres pour regrouper les utilisateurs, ex : équipe nord (calendrier)',
 ];

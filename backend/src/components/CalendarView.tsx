@@ -6,7 +6,7 @@ import interactionPlugin, { type DateClickArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
 import type { DatesSetArg, EventClickArg, EventContentArg, EventDropArg, EventInput } from '@fullcalendar/core'
 import type { EventResizeDoneArg } from '@fullcalendar/interaction'
-import { Box, Button, ButtonBase, IconButton, MenuItem, Select, Typography } from '@mui/material'
+import { Box, Button, ButtonBase, IconButton, Typography } from '@mui/material'
 import { AddCircleOutlineOutlined, ChevronLeftOutlined, ChevronRightOutlined } from '@mui/icons-material'
 import { api, ApiException, dataChanged } from '../api'
 import { getLanguage, t } from '../i18n'
@@ -15,11 +15,15 @@ import FormDialog from './FormDialog'
 import { MenuIcon } from './icons'
 import { useToast } from './Toast'
 import UserAvatar, { type AvatarData } from './UserAvatar'
+import CalendarUsers, { type CalendarUser } from './CalendarUsers'
+import CalendarTeam, { monday, weekTitle } from './CalendarTeam'
+import { useAuth } from '../auth'
 
 type CalendarEvent = {id: number, title: string, start: string, end: string | null, allDay: boolean, color: string, status: string, user: {id: number, name: string, avatar: AvatarData}}
-type Payload = {events: CalendarEvent[], users: {id: number, name: string}[], rights: string[]}
+type Payload = {events: CalendarEvent[], users: CalendarUser[], rights: string[]}
 
-const VIEWS = [['dayGridMonth', 'Month'], ['timeGridWeek', 'Week'], ['timeGridDay', 'Day']] as const
+// team: a row per planning (CalendarTeam), the others are views of FullCalendar
+const VIEWS = [['dayGridMonth', 'Month'], ['timeGridWeek', 'Week'], ['timeGridDay', 'Day'], ['team', 'Team']] as const
 
 // local date and time of a calendar date: Y-m-d and H:i
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -66,8 +70,13 @@ export default function CalendarView({icon}: {icon: string})
 	const ref = useRef<FullCalendar>(null)
 	const [title, setTitle] = useState('')
 	const [view, setView] = useState(() => stored('unee.calendar.view', 'dayGridMonth'))
-	const [user, setUser] = useState(() => stored('unee.calendar.user', ''))
+	const {user: me} = useAuth()
+	// plannings shown: null = all the users, else their ids
+	const [selected, setSelected] = useState<number[] | null>(() => { try { const v = JSON.parse(stored('unee.calendar.users', 'null')); return Array.isArray(v) ? v.map(Number) : null } catch { return null } })
 	const [users, setUsers] = useState<Payload['users']>([])
+	const [team_start, setTeamStart] = useState(() => monday(new Date()))
+	const [version, setVersion] = useState(0)
+	const sel_key = selected === null ? 'all' : selected.join(',')
 	const [rights, setRights] = useState<string[]>([])
 	const [form, setForm] = useState<{open: boolean, id: number, defaults?: Record<string, string>}>({open: false, id: 0})
 
@@ -76,7 +85,7 @@ export default function CalendarView({icon}: {icon: string})
 	// events of the visible range, loaded by FullCalendar on each move
 	const events = useCallback((info: {startStr: string, endStr: string}, success: (events: EventInput[]) => void, failure: (error: Error) => void) => {
 
-		const query = new URLSearchParams({start: info.startStr.slice(0, 10), end: info.endStr.slice(0, 10), user})
+		const query = new URLSearchParams({start: info.startStr.slice(0, 10), end: info.endStr.slice(0, 10), users: selected === null ? '' : selected.join(',') || '0'})
 		api<Payload>(`calendar/events/?${query}`)
 			.then((data) => {
 
@@ -92,31 +101,51 @@ export default function CalendarView({icon}: {icon: string})
 			})
 			.catch((e) => failure(e))
 
-	}, [user])
+	}, [sel_key])
 
-	const refresh = () => calendar()?.refetchEvents()
+	const refresh = () => { calendar()?.refetchEvents(); setVersion((v) => v + 1) }
+	const is_team = (view === 'team')
 
 	const changeView = (value: string) => {
 
+		// the team view starts on the week of the date shown, the others go back to the week shown in team
+		if(value === 'team')setTeamStart(monday(calendar()?.getDate() ?? new Date()))
+		else if(is_team)calendar()?.gotoDate(team_start)
 		setView(value)
 		store('unee.calendar.view', value)
-		calendar()?.changeView(value)
+		if(value !== 'team')
+		{
+
+			calendar()?.changeView(value)
+			window.setTimeout(() => calendar()?.updateSize(), 0)
+
+		}
 
 	}
 
-	const changeUser = (value: string) => {
+	const changeUsers = (value: number[] | null) => {
 
-		setUser(value)
-		store('unee.calendar.user', value)
+		setSelected(value)
+		store('unee.calendar.users', JSON.stringify(value))
+
+	}
+
+	// today / previous / next: weeks in the team view
+	const nav = (step: -1 | 0 | 1) => {
+
+		if(is_team)return setTeamStart((d) => step ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + step * 7) : monday(new Date()))
+		if(step === 0)calendar()?.today()
+		else if(step < 0)calendar()?.prev()
+		else calendar()?.next()
 
 	}
 
 	// new event on the day (and hour in week and day views) clicked
-	const add = (date: Date, all_day: boolean) => {
+	const add = (date: Date, all_day: boolean, user = 0) => {
 
 		if(!rights.includes('add'))return
 		const end = new Date(date.getTime() + 3600000)
-		setForm({open: true, id: 0, defaults: {date: ymd(date), ...(all_day ? {} : {hour_start: hm(date), hour_end: hm(end)})}})
+		setForm({open: true, id: 0, defaults: {date: ymd(date), ...(all_day ? {} : {hour_start: hm(date), hour_end: hm(end)}), ...(user ? {xcore_user_id: String(user)} : {})}})
 
 	}
 
@@ -152,14 +181,11 @@ export default function CalendarView({icon}: {icon: string})
 			</Box>
 
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap'}}>
-				<Button variant="outlined" color="inherit" onClick={() => calendar()?.today()} sx={{height: 34, borderColor: 'var(--u-border-strong)', bgcolor: 'var(--u-paper)', fontWeight: 600}}>{t('Today')}</Button>
-				<IconButton aria-label={t('Previous')} onClick={() => calendar()?.prev()}><ChevronLeftOutlined /></IconButton>
-				<IconButton aria-label={t('Next')} onClick={() => calendar()?.next()}><ChevronRightOutlined /></IconButton>
-				<Typography component="h2" sx={{fontSize: 18, fontWeight: 600, flexGrow: 1, textTransform: 'capitalize'}}>{title}</Typography>
-				<Select size="small" value={user} displayEmpty onChange={(e) => changeUser(e.target.value)} inputProps={{'aria-label': t('User')}} sx={{height: 34, minWidth: 170, fontSize: 13.5, bgcolor: 'var(--u-paper)'}}>
-					<MenuItem value="" sx={{fontSize: 13.5}}>{t('All users')}</MenuItem>
-					{users.map((u) => <MenuItem key={u.id} value={String(u.id)} sx={{fontSize: 13.5}}>{u.name}</MenuItem>)}
-				</Select>
+				<Button variant="outlined" color="inherit" onClick={() => nav(0)} sx={{height: 34, borderColor: 'var(--u-border-strong)', bgcolor: 'var(--u-paper)', fontWeight: 600}}>{t('Today')}</Button>
+				<IconButton aria-label={t('Previous')} onClick={() => nav(-1)}><ChevronLeftOutlined /></IconButton>
+				<IconButton aria-label={t('Next')} onClick={() => nav(1)}><ChevronRightOutlined /></IconButton>
+				<Typography component="h2" sx={{fontSize: 18, fontWeight: 600, flexGrow: 1, textTransform: 'capitalize'}}>{is_team ? weekTitle(team_start) : title}</Typography>
+				<CalendarUsers users={users} selected={selected} me={me?.id ?? 0} onChange={changeUsers} />
 				<Box role="group" aria-label={t('View')} sx={{display: 'flex', border: '1px solid var(--u-border-strong)', borderRadius: 2, overflow: 'hidden'}}>
 					{VIEWS.map(([key, label], i) => (
 						<ButtonBase key={key} aria-pressed={view === key} onClick={() => changeView(key)} sx={{height: 32, px: 1.75, borderLeft: i ? '1px solid var(--u-border-strong)' : 0, bgcolor: view === key ? 'var(--u-accent-bg)' : 'var(--u-paper)', color: view === key ? 'var(--u-accent-text)' : 'var(--u-text2)', fontSize: 13, fontWeight: 600}}>{t(label)}</ButtonBase>
@@ -167,7 +193,10 @@ export default function CalendarView({icon}: {icon: string})
 				</Box>
 			</Box>
 
-			<Box sx={{bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: '5px', overflow: 'hidden', p: {xs: 0, md: 0},
+			{is_team && <CalendarTeam start={team_start} users={users.filter((u) => selected === null || selected.includes(u.id))} version={version} canAdd={rights.includes('add')}
+				onAdd={(date, uid) => { const [y, m, d] = date.split('-').map(Number); add(new Date(y, m - 1, d, 9), false, uid) }} onEdit={(id) => rights.includes('edit') && setForm({open: true, id})} />}
+
+			<Box sx={{display: is_team ? 'none' : 'block', bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: '5px', overflow: 'hidden', p: {xs: 0, md: 0},
 				'--fc-border-color': 'var(--u-border-soft)', '--fc-page-bg-color': 'var(--u-paper)', '--fc-neutral-bg-color': 'var(--u-head)', '--fc-today-bg-color': 'var(--u-accent-hover)', '--fc-now-indicator-color': 'var(--mui-palette-primary-main)', '--fc-highlight-color': 'var(--u-accent-bg)',
 				'& .fc': {fontSize: 13, color: 'var(--u-text)'},
 				'& .fc .fc-col-header-cell': {bgcolor: 'var(--u-head)', py: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--u-muted)'},
@@ -185,7 +214,7 @@ export default function CalendarView({icon}: {icon: string})
 				<FullCalendar
 					ref={ref}
 					plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-					initialView={view}
+					initialView={view === 'team' ? 'timeGridWeek' : view}
 					headerToolbar={false}
 					locale={getLanguage() === 'fr' ? frLocale : undefined}
 					firstDay={1}
@@ -201,7 +230,7 @@ export default function CalendarView({icon}: {icon: string})
 					editable={rights.includes('edit')}
 					eventDurationEditable={rights.includes('edit')}
 					events={events}
-					key={user}
+					key={sel_key}
 					datesSet={(arg: DatesSetArg) => setTitle(arg.view.title)}
 					eventContent={(arg) => <EventChip arg={arg} />}
 					dateClick={(arg: DateClickArg) => add(arg.date, arg.allDay)}
