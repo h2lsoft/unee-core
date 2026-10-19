@@ -27,7 +27,7 @@ export function FileIcon({name, size = 20}: {name: string, size?: number})
 export const isImage = (name: string) => ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(name.split('.').pop()?.toLowerCase() ?? '')
 
 /**
- * thumbnail of an image, a click opens it in a lightbox (close cross or escape, a click on the backdrop does not close it)
+ * thumbnail of an image, a click opens it in a lightbox (close cross, escape or a click on the backdrop closes it)
  * shortcut: the thumbnail loads the full image, add resized thumbnails if the lists get heavy
  */
 export function ImagePreview({url, name, size = 32}: {url: string, name: string, size?: number})
@@ -40,7 +40,7 @@ export function ImagePreview({url, name, size = 32}: {url: string, name: string,
 			<ButtonBase aria-label={t('Zoom')} title={name} onClick={(e) => { e.stopPropagation(); setOpen(true) }} sx={{width: size, height: size, flexShrink: 0, borderRadius: 1, overflow: 'hidden', border: '1px solid var(--u-border)', bgcolor: 'var(--u-head)', cursor: 'zoom-in'}}>
 				<Box component="img" src={url} alt={name} loading="lazy" sx={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}} />
 			</ButtonBase>
-			<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && setOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth={false}
+			<Dialog open={open} onClose={() => setOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth={false}
 				slotProps={{paper: {sx: {position: 'relative', m: 2, bgcolor: 'var(--u-paper)', overflow: 'hidden'}}}}>
 				<IconButton aria-label={t('Close')} onClick={() => setOpen(false)} sx={{position: 'absolute', top: 8, right: 8, bgcolor: 'var(--u-paper)', '&:hover': {bgcolor: 'var(--u-hover)'}}}><CloseOutlined /></IconButton>
 				<Box component="img" src={url} alt={name} sx={{display: 'block', maxWidth: 'calc(100vw - 64px)', maxHeight: 'calc(100vh - 64px)', objectFit: 'contain'}} />
