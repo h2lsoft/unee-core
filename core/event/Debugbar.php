@@ -16,7 +16,8 @@ $dispatcher->addListener(KernelEvents::RESPONSE, function(ResponseEvent $event){
 	$content = (string)$response->getContent();
 	if(!str_contains((string)$response->headers->get('Content-Type', 'text/html'), 'html') || !str_contains($content, '</body>'))return;
 
-	$renderer = $app->debugbar->getJavascriptRenderer();
+	// dark by default, the theme chosen in its settings (browser storage) wins
+	$renderer = $app->debugbar->getJavascriptRenderer()->setTheme('dark');
 	$css = $renderer->dumpCssAssets(null, false);
 	$js = str_ireplace('</script', '<\/script', $renderer->dumpJsAssets(null, false));
 	$bar = "<style>{$css}</style>\n".$renderer->dumpHeadAssets(null, false)."<script>{$js}</script>\n".$renderer->render();
