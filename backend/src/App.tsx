@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { Box, CircularProgress, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { BASE } from './base'
 // latin subsets only (french, english, european languages)
 import '@fontsource/ibm-plex-sans/latin-400.css'
 import '@fontsource/ibm-plex-sans/latin-ext-400.css'
@@ -80,7 +81,7 @@ const router = createBrowserRouter([
 			{path: '*', element: <NotFound />},
 		],
 	},
-], {basename: '/backend/'})
+], {basename: BASE})
 
 // remounted when the language changes: every page renders again with the new translations
 function Root()

@@ -102,6 +102,14 @@ if($request->getRequestFormat() != $request->request->get('_format', 'html'))
 if(isset($_GET['_format']) && in_array($_GET['_format'], ['json', 'text', 'html']) && $_GET['_format'] != $request->request->get('_format', 'html'))
 	$request->setRequestFormat($_GET['_format']);
 
+// backend: react app under /<backend.dirname>/ (\Core\Backend), the api stays under /api/
+$cur_uri = strtok($request->getRequestUri(), '?');
+if(\Core\Backend::matches($cur_uri))
+{
+	\Core\Backend::response($cur_uri)->send();
+	return;
+}
+
 // routes **************************************************************************************************************
 $routes = new RouteCollection();
 
@@ -141,11 +149,9 @@ foreach(\Core\Controller::getAll() as $c_controller)
 	$routes->addCollection($controller_routes);
 }
 
-// frontend routes (not for backend urls)
-$cur_uri = strtok($request->getRequestUri(), '?');
-$backend_dirname = \Core\Config::get('backend.dirname');
+// frontend routes (backend urls are answered above)
 $frontend_routes = CORE_PATH.'/core/route/frontend.php';
-if(!preg_match("#^/{$backend_dirname}/#i", $cur_uri) && file_exists($frontend_routes))
+if(file_exists($frontend_routes))
 	include $frontend_routes;
 
 $all_routes = \Core\Router::compile();

@@ -1,10 +1,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// build served by apache under /backend/ from core/backend/dist (see the skeleton .htaccess)
+// relative base: the build is served under /<backend.dirname>/ by \Core\Backend (folder of the config), assets by apache
 // dev: npm run dev, /api is proxied to the local php site (same origin, the session cookie works)
 export default defineConfig({
-	base: '/backend/',
+	base: './',
 	plugins: [react()],
 	build: {
 		outDir: '../core/backend/dist',

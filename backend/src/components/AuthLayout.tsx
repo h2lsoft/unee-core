@@ -6,6 +6,7 @@ import { ArrowBack } from '@mui/icons-material'
 import { api, type LoginConfig } from '../api'
 import LockIllustration from './LockIllustration'
 import { t } from '../i18n'
+import { BASE } from '../base'
 
 /**
  * logo of the global backend.logo, otherwise the unee logo (white text in dark mode)
@@ -14,7 +15,7 @@ export function useLogo(config: LoginConfig | null):string
 {
 
 	const {colorScheme} = useColorScheme()
-	return config?.logo || `${import.meta.env.BASE_URL}${(colorScheme === 'dark') ? 'logo-dark.svg' : 'logo.svg'}`
+	return config?.logo || `${BASE}${(colorScheme === 'dark') ? 'logo-dark.svg' : 'logo.svg'}`
 
 }
 

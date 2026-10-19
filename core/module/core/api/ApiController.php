@@ -42,6 +42,7 @@ class ApiController extends \Core\Controller
 		if(!\Model\User::isSuperAdmin())return \Core\JsonResponse::error(403, 'access denied');
 
 		$title = htmlspecialchars(\Core\Config::get('name').' API', ENT_QUOTES);
+		$backend = htmlspecialchars(\Core\Backend::dirname(), ENT_QUOTES);
 
 		// swagger-ui-dist pinned version from the npm cdn (the page is for the superadmin only)
 		$html = <<<HTML
@@ -52,7 +53,7 @@ class ApiController extends \Core\Controller
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>{$title}</title>
-<link rel="icon" type="image/png" href="/backend/favicon-32.png">
+<link rel="icon" type="image/png" href="/{$backend}/favicon-32.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
 <style>body{margin:0} .swagger-ui .topbar{display:none}</style>
 </head>

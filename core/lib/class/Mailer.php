@@ -227,6 +227,8 @@ class Mailer
 		}*/
 
 		$uri = \Core\Config::get('url');
+		// @backend: folder of the backend (config backend.dirname), ex: <img src="/@backend/logo-mail.png">
+		$body = str_replace('/@backend/', '/'.\Core\Backend::dirname().'/', $body);
 		$body = str_replace(' src="/',  " src=\"{$uri}/", $body);
 		$body = str_replace(' href="/',  " href=\"{$uri}/", $body);
 
