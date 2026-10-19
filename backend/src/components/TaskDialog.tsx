@@ -182,7 +182,7 @@ export default function TaskDialog({project, id, steps, tasks, users, categories
 					</Box>
 				)}
 				{values && (
-					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, ...FIELDS_SX}}>
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: '9px', py: 0.5, ...FIELDS_SX}}>
 						<Row label={t('Title')} html_for="field-title" required>
 							<Input field={field('title', 'text', t('Title'), {required: true, max_length: 255})} value={values.title} error={!!errors.title} onChange={(v) => set('title')(ucfirst(v))} />
 						</Row>

@@ -79,7 +79,7 @@ export default function MassEditDialog({module, title, ids, onClose, onSaved}: {
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
 			</DialogTitle>
 
-			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: 1.75, ...FIELDS_SX}}>
+			<DialogContent sx={{display: 'flex', flexDirection: 'column', gap: '9px', ...FIELDS_SX}}>
 				{summary.length > 0 && (
 					<Box role="alert" sx={{px: 2, py: 1.5, borderRadius: '6px', bgcolor: 'var(--u-error-bg)', color: 'var(--u-error)', fontSize: 14}}>
 						<Box component="ul" sx={{m: 0, pl: 2.25}}>{summary.map((line) => <li key={line}>{line}</li>)}</Box>

@@ -434,7 +434,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 					</Box>
 				)}
 				{data && (
-					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, ...FIELDS_SX}}>
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: '9px', py: 0.5, ...FIELDS_SX}}>
 						{rows(fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)))}
 						{first_tab >= 0 && (
 							<>
