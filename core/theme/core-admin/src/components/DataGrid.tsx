@@ -250,7 +250,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 		if(!file)return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
 		return (
 			<Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.75, maxWidth: '100%', verticalAlign: 'middle'}}>
-				{isImage(file.name) ? <ImagePreview url={file.url} name={file.name} size={96} /> : <FileIcon name={file.name} size={18} />}
+				{isImage(file.name) ? <Box component="span" sx={{display: 'inline-flex', m: '5px'}}><ImagePreview url={file.url} name={file.name} size={96} /></Box> : <FileIcon name={file.name} size={18} />}
 				<Box component="a" href={file.url} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{file.name}</Box>
 				<Box component="span" sx={{fontSize: 12, color: 'var(--u-muted)', flexShrink: 0}}>{fileSize(file.size)}</Box>
 			</Box>
