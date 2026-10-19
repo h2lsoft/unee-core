@@ -397,7 +397,7 @@ export default function BackendLayout()
 
 				<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-paper)', borderBottom: `1px solid ${BORDER}`, boxShadow: '0 2px 6px rgba(16, 20, 40, 0.06)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
 					{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
-					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 35}, width: 'auto', ml: {md: '-5px'}}} /></Box>
+					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
 					<Box sx={{flexGrow: 1}} />
 					{/* calendar: module calendar (hidden from the menus), shown with its list right */}
 					<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
