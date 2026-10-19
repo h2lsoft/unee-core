@@ -286,7 +286,7 @@ class DataGrid
 	}
 
 	/**
-	 * relative date shown after the date of the last column (date_humanizer), ex: 3 hours ago
+	 * relative date shown instead of the date of the last column (date_humanizer), ex: 3 hours ago, the full date in its tooltip
 	 *
 	 * @return static
 	 */

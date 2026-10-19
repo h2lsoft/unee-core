@@ -49,7 +49,7 @@ class UserController extends \Core\CrudController
 		$grid->addColEmail('email', 'Email');
 		$grid->addColTags()->width(180);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
-		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(240)->humanize();
+		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(150)->humanize();
 
 	}
 

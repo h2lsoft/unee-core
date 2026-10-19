@@ -218,8 +218,10 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 		return (
 			<Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 1, maxWidth: '100%', verticalAlign: 'middle'}}>
 				{avatar && <UserAvatar avatar={avatar} size={24} />}
-				<Box component="span" sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{content}</Box>
-				{human && <Box component="span" sx={{fontSize: 12, color: 'var(--u-muted)', whiteSpace: 'nowrap'}}>{human}</Box>}
+				{/* humanized date: the relative date only, the full date in the tooltip */}
+				{human
+					? <Box component="span" title={formatDate(String(row[column.name] ?? ''), column.type === 'datetime')} sx={{whiteSpace: 'nowrap'}}>{human}</Box>
+					: <Box component="span" sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{content}</Box>}
 			</Box>
 		)
 
