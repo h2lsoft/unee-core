@@ -120,7 +120,7 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email' | 'file'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
@@ -136,6 +136,7 @@ export type GridColumn = {
 	avatar_column?: string
 	filter_column?: string
 	human_column?: string
+	file_column?: string
 }
 
 // action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header
@@ -188,7 +189,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'time' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'time' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio' | 'multiselect' | 'file'
 	label: string
 	required: boolean
 	width: number
@@ -214,6 +215,10 @@ export type FormField = {
 	avatars?: Record<string, {initials: string, color: string, url?: string}>
 	swatch?: boolean
 	snippets?: {label: string, group: string, content: string}[]
+	extensions?: string[]
+	max_size?: number
+	upload_url?: string
+	file_url?: string
 }
 
 // tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)

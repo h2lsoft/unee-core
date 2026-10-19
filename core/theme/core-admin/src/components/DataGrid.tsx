@@ -14,6 +14,7 @@ import { api, ApiException, dataChanged, type Grid, type GridAction, type GridCo
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
 import UserAvatar, { type AvatarData } from './UserAvatar'
+import { FileIcon, fileSize } from './FileInput'
 import BookmarkButton from './BookmarkButton'
 import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
@@ -240,6 +241,22 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
 
 	const text = String(value)
+
+	// file: icon of its type, name (opens the file) and size
+	if(column.type === 'file')
+	{
+
+		const file = row[column.file_column ?? ''] as {name: string, size: number, url: string} | undefined
+		if(!file)return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
+		return (
+			<Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.75, maxWidth: '100%', verticalAlign: 'middle'}}>
+				<FileIcon name={file.name} size={18} />
+				<Box component="a" href={file.url} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{file.name}</Box>
+				<Box component="span" sx={{fontSize: 12, color: 'var(--u-muted)', flexShrink: 0}}>{fileSize(file.size)}</Box>
+			</Box>
+		)
+
+	}
 
 	// email: icon with a mailto link, the address in the tooltip
 	if(column.type === 'email')return <Tooltip title={text}><IconButton size="small" component="a" href={`mailto:${text}`} aria-label={text} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{color: 'var(--u-accent-text)'}}><MailOutlined sx={{fontSize: 18}} /></IconButton></Tooltip>

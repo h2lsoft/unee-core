@@ -218,6 +218,33 @@ class Form
 	}
 
 	/**
+	 * several values of a list, stored as a json array of the values (ex: ids of groups)
+	 *
+	 * @param array $options value => label (labels translated)
+	 */
+	public function addSelectMultiple(string $name, string $label='', array $options=[], bool $required=false):static
+	{
+
+		return $this->add('multiselect', $name, $label, $required, ['options' => $options, 'default' => []]);
+
+	}
+
+	/**
+	 * file uploaded to private_dir/<dir> (POST /api/<module>/upload/<field>/ then saved with the form), the column keeps the path relative to private_dir
+	 * served by GET /api/<module>/<id>/file/<field>/ (list right)
+	 *
+	 * @param string $dir folder in private_dir, ex: files
+	 * @param array $extensions allowed extensions (\Core\File::FORBIDDEN_EXTENSIONS are always refused)
+	 * @param int $max_size bytes, 0 = upload_max_filesize of php
+	 */
+	public function addFile(string $name, string $label='', bool $required=false, string $dir='files', array $extensions=[], int $max_size=0):static
+	{
+
+		return $this->add('file', $name, $label, $required, ['dir' => $dir, 'extensions' => array_values(array_map('strtolower', $extensions)), 'max_size' => $max_size]);
+
+	}
+
+	/**
 	 * radio buttons on one line
 	 *
 	 * @param array $options value => label (labels translated)
@@ -440,7 +467,7 @@ class Form
 
 			}
 
-			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern'], $field['manager']);
+			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern'], $field['manager'], $field['dir']);
 			$fields[] = $field;
 
 		}
@@ -482,6 +509,8 @@ class Form
 				'icon' => ['type' => 'string', 'pattern' => '^[a-z0-9_]+$', 'description' => 'material symbol name'],
 				'color' => ['type' => 'string', 'pattern' => '^#[0-9a-fA-F]{6}$'],
 				'tags' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => trim($f['pattern'], '/')]] + (($f['suggestions']) ? ['examples' => [$f['suggestions']]] : []),
+				'multiselect' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => array_map('strval', array_keys($f['options']))]],
+				'file' => ['type' => 'string', 'description' => 'upload:<token> of POST upload/'.$name.'/, the current path to keep the file, empty to remove it'],
 				default => ['type' => 'string'],
 			};
 
@@ -555,6 +584,8 @@ class Form
 				'select' => (empty($f['free'])) ? $v->in(array_map('strval', array_keys($f['options']))) : null,
 				'radio' => $v->in(array_map('strval', array_keys($f['options']))),
 				'tags' => $v->custom(fn($value) => is_array($value) && count($value) <= 100 && !array_filter($value, fn($w) => !is_string($w) || !preg_match($f['pattern'], trim($w))), '`[FIELD]` holds an invalid word'),
+				'multiselect' => $v->custom(fn($value) => is_array($value) && !array_diff(array_map('strval', $value), array_map('strval', array_keys($f['options']))), '`[FIELD]` holds an invalid value'),
+				'file' => $v->custom(fn($value) => !str_starts_with((string)$value, 'upload:') || \Core\File::uploadGet((string)$value) !== null, '`[FIELD]`: the uploaded file expired, upload it again'),
 				default => null,
 			};
 
@@ -582,6 +613,15 @@ class Form
 			if(!empty($f['readonly']) || !empty($f['manager']))continue;
 
 			$value = $input[$name] ?? (($f['type'] === 'boolean') ? 'no' : '');
+
+			// json array of the chosen values
+			if($f['type'] === 'multiselect')
+			{
+
+				$row[$name] = json_encode(array_values(array_unique(array_map('strval', (is_array($value)) ? $value : []))));
+				continue;
+
+			}
 
 			// json array of unique trimmed words
 			if($f['type'] === 'tags')

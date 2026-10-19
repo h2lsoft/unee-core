@@ -10,6 +10,7 @@ import { api, ApiException, type FormAction, type FormField, type FormPayload } 
 import { t } from '../i18n'
 import { MenuIcon } from './icons'
 import TimeInput from './TimeInput'
+import FileInput from './FileInput'
 import UserAvatar from './UserAvatar'
 import { useToast } from './Toast'
 
@@ -17,7 +18,7 @@ import { useToast } from './Toast'
 export function toInput(field: FormField, value: unknown): string
 {
 
-	if(field.type === 'tags')return JSON.stringify(Array.isArray(value) ? value : [])
+	if(field.type === 'tags' || field.type === 'multiselect')return JSON.stringify(Array.isArray(value) ? value : [])
 	const text = String(value ?? '')
 	// foreign key 0 = none: empty select
 	if(field.type === 'select' && text === '0' && !field.options?.some((o) => o.value === '0'))return ''
@@ -28,7 +29,7 @@ export function toInput(field: FormField, value: unknown): string
 export function toApi(field: FormField, value: string): unknown
 {
 
-	if(field.type === 'tags')return words(value)
+	if(field.type === 'tags' || field.type === 'multiselect')return words(value)
 	return (field.type === 'datetime' && value) ? `${value.replace('T', ' ')}:00`.slice(0, 19) : value
 
 }
@@ -158,6 +159,33 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		)
 
 	}
+
+	// several values of a list, as chips
+	if(field.type === 'multiselect')
+	{
+
+		const options = field.options ?? []
+		const chosen = words(value)
+
+		return (
+			<Autocomplete
+				id={id}
+				multiple
+				disableCloseOnSelect
+				disabled={field.readonly}
+				options={options}
+				value={options.filter((o) => chosen.includes(o.value))}
+				getOptionLabel={(o) => o.label}
+				isOptionEqualToValue={(o, v) => o.value === v.value}
+				onChange={(_, list) => onChange(JSON.stringify(list.map((o) => o.value)))}
+				renderValue={(list, getItemProps) => list.map((o, index) => <Chip {...getItemProps({index})} key={o.value} label={o.label} size="small" />)}
+				renderInput={(params) => <TextField {...params} error={error} placeholder={chosen.length ? undefined : field.placeholder} sx={{'&& .MuiOutlinedInput-root.MuiOutlinedInput-root': {height: 'auto', minHeight: 34, py: 0, fontSize: 14}, '&& .MuiOutlinedInput-root .MuiAutocomplete-input': {py: '2px'}}} />}
+			/>
+		)
+
+	}
+
+	if(field.type === 'file')return <FileInput id={id} field={field} value={value} error={error} onChange={onChange} />
 
 	if(field.type === 'boolean')
 		return <Switch id={id} checked={value === 'yes'} onChange={(e) => onChange(e.target.checked ? 'yes' : 'no')} disabled={field.readonly} sx={{ml: -1}} />

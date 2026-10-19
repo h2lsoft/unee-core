@@ -85,7 +85,7 @@ abstract class CrudController extends Controller
 		if($denied = $this->deny('add'))return $denied;
 
 		$form = $this->buildForm([]);
-		return new JsonResponse(['form' => $form->definition(), 'record' => (object)$form->defaults()]);
+		return new JsonResponse(['form' => $this->definition($form, 0), 'record' => (object)$form->defaults()]);
 
 	}
 
@@ -111,16 +111,60 @@ abstract class CrudController extends Controller
 			$values[$name] = match($field['type'])
 			{
 				'password' => '',
-				'tags' => (!empty($field['manager'])) ? \Core\Tag::get($field['manager'], $id) : ((is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values($words) : []),
+				'tags', 'multiselect' => (!empty($field['manager'])) ? \Core\Tag::get($field['manager'], $id) : ((is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values(array_map('strval', $words)) : []),
 				default => $record[$name] ?? '',
 			};
 
 		}
 
-		$payload = ['form' => $form->definition(), 'record' => $this->getRecord($values, $record)];
+		$payload = ['form' => $this->definition($form, $id), 'record' => $this->getRecord($values, $record)];
 		if($this->versioning())$payload['versions'] = (int)DB()->query("SELECT COUNT(*) FROM xcore_versioning WHERE deleted = 'no' AND `table` = :table AND record_id = :id", ['table' => $this->table, 'id' => $id])->fetchOne();
 
 		return new JsonResponse($payload);
+
+	}
+
+	/**
+	 * upload of a file field (add or edit right), kept until the form is saved with the token as value
+	 *
+	 * @param Request $request multipart, field file
+	 * @param string $field name of the file field
+	 *
+	 * @return JsonResponse {"token": "upload:<token>", "name", "size"}
+	 */
+	#[Route('/upload/{field}/', name: 'upload', methods: ['POST'], requirements: ['field' => '[a-z0-9_]+'])]
+	public function apiUpload(Request $request, string $field):JsonResponse
+	{
+
+		if(!\Model\User::hasRight($this->module, 'add') && !\Model\User::hasRight($this->module, 'edit'))return JsonResponse::error(403, 'access denied');
+
+		$f = $this->buildForm([])->fields[$field] ?? null;
+		if(($f['type'] ?? '') !== 'file' || !empty($f['readonly']))return JsonResponse::error(404, 'field not found');
+
+		$result = \Core\File::uploadStore($request->files->get('file'), $f['extensions'], (int)$f['max_size']);
+		if(is_string($result))return JsonResponse::error(422, $result);
+
+		return new JsonResponse($result, 201);
+
+	}
+
+	/**
+	 * file of a record (list right): images and pdf shown inline, the others downloaded
+	 *
+	 * @param int $id
+	 * @param string $field name of the file field
+	 *
+	 * @return mixed
+	 */
+	#[Route('/{id}/file/{field}/', name: 'file', methods: ['GET'], requirements: ['field' => '[a-z0-9_]+'])]
+	public function apiFile(int $id, string $field):mixed
+	{
+
+		if($denied = $this->deny('list'))return $denied;
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+		if(($this->buildForm($record)->fields[$field]['type'] ?? '') !== 'file')return JsonResponse::error(404, 'field not found');
+
+		return \Core\File::serve((string)($record[$field] ?? ''));
 
 	}
 
@@ -704,10 +748,37 @@ abstract class CrudController extends Controller
 
 	}
 
+	/**
+	 * json definition of a form, with the urls of its file fields
+	 *
+	 * @param Form $form
+	 * @param int $id 0 on create
+	 *
+	 * @return array
+	 */
+	protected function definition(Form $form, int $id):array
+	{
+
+		$definition = $form->definition();
+		foreach($definition['fields'] as &$field)
+		{
+
+			if($field['type'] !== 'file')continue;
+			$field['upload_url'] = "{$this->module}/upload/{$field['name']}/";
+			if($id)$field['file_url'] = "/api/{$this->module}/{$id}/file/{$field['name']}/";
+
+		}
+		unset($field);
+
+		return $definition;
+
+	}
+
 	protected function buildGrid():DataGrid
 	{
 
 		$grid = new DataGrid($this->table);
+		$grid->module = $this->module;
 		$this->grid($grid);
 
 		return $grid;
@@ -806,7 +877,25 @@ abstract class CrudController extends Controller
 		if($v->fails())
 			return JsonResponse::error(422, 'validation failed', ['fields' => $v->result()['error_stack_deep']]);
 
-		$row = $this->onSaveBefore($this->ucfirst($form->hydrate($request->request->all(), $id > 0)), $record);
+		$row = $this->ucfirst($form->hydrate($request->request->all(), $id > 0));
+
+		// file fields: a token moves its upload, an empty value removes the file, any other value keeps the current file
+		$removed = [];
+		foreach($form->fields as $name => $f)
+		{
+
+			if($f['type'] !== 'file' || !array_key_exists($name, $row))continue;
+
+			$current = (string)($record[$name] ?? '');
+			$value = (string)$row[$name];
+			if(str_starts_with($value, 'upload:'))$row[$name] = \Core\File::uploadMove($value, $f['dir']);
+			elseif($value !== '')$row[$name] = $current;
+
+			if($current !== '' && $row[$name] !== $current)$removed[] = $current;
+
+		}
+
+		$row = $this->onSaveBefore($row, $record);
 
 		if(!$id)
 		{
@@ -853,6 +942,10 @@ abstract class CrudController extends Controller
 			$this->versionSave($id);
 
 		}
+
+		// replaced or removed files
+		foreach($removed as $relative)
+			@unlink(\Core\File::privateDir().'/'.ltrim(str_replace('..', '', $relative), '/'));
 
 		$this->onSaveAfterEdit($id, $row, $changed);
 

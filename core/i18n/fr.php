@@ -637,4 +637,15 @@ return [
 	'Saved filters' => 'Filtres enregistrés',
 	'filter' => 'filtre',
 	'free words to group the users, ex: team north (calendar)' => 'mots libres pour regrouper les utilisateurs, ex : équipe nord (calendrier)',
+	// files
+	'Files' => 'Fichiers',
+	'Restricted to' => 'Réservé à',
+	'Downloads' => 'Téléchargements',
+	'Search title, category...' => 'Rechercher un titre, une catégorie...',
+	'Empty: everybody can download the file' => 'Vide : tout le monde peut télécharger le fichier',
+	'ex: Ministry of health' => 'ex : Ministère de la santé',
+	'file not found' => 'fichier introuvable',
+	'field not found' => 'champ introuvable',
+	'`[FIELD]` holds an invalid value' => '`[FIELD]` contient une valeur non valide',
+	'`[FIELD]`: the uploaded file expired, upload it again' => '`[FIELD]` : le fichier envoyé a expiré, envoyez-le à nouveau',
 ];

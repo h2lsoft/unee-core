@@ -68,7 +68,7 @@ class OpenApi
 			$responses = [$status => ['description' => ($status === '204') ? 'no content' : 'success']];
 			if(isset($extra['response']))$responses[$status]['content'] = ['application/json' => ['schema' => $extra['response']]];
 
-			$is_public = in_array($name, $public, true);
+			$is_public = in_array($name, $public, true) || $route->getDefault('_public') === true;
 			if(!$is_public)
 			{
 

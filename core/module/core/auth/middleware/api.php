@@ -1,6 +1,6 @@
 <?php
 /**
- * auth.api middleware: a logged user is required under /api/, except public routes (config auth/api/public_routes)
+ * auth.api middleware: a logged user is required under /api/, except public routes (config auth/api/public_routes, or defaults: ['_public' => true] on the route)
  * idle timeout: logout after auth/api/idle_timeout_seconds without request (does not rely on the server session gc)
  * revocation: the user and its group are checked in the database on each request (inactive or deleted = logout, group refreshed)
  * password change: the session keeps a fingerprint of the password hash, another hash = logout of every open session
@@ -8,6 +8,7 @@
 
 if(!str_starts_with($request->getPathInfo(), '/api/'))return;
 if(in_array($request->attributes->get('_route'), \Core\Config::get('auth/api/public_routes', []), true))return;
+if($request->attributes->get('_public') === true)return;
 
 if(!\Model\User::isLogon())
 {

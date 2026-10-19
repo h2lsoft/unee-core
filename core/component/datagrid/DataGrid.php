@@ -50,6 +50,9 @@ class DataGrid
 	public bool $detail = false;
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
+	// folder of the module (\Core\CrudController), urls of the file columns
+	public string $module = '';
+
 	private string $last = '';
 	private $hook = null;
 
@@ -189,6 +192,16 @@ class DataGrid
 	{
 
 		return $this->addCol($name, $label, false, 'email', ['align' => 'center', 'width' => 70]);
+
+	}
+
+	/**
+	 * file of a form field addFile(): icon of its type, name and size, link to GET /api/<module>/<id>/file/<name>/
+	 */
+	public function addColFile(string $name, string $label='File'):static
+	{
+
+		return $this->addCol($name, $label, false, 'file', ['file_column' => "_file_{$name}"]);
 
 	}
 
@@ -739,7 +752,7 @@ class DataGrid
 		$recs = DB()->query($sql, $binds)->fetchAll();
 
 		$rows = [];
-		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column', 'avatar_column', 'filter_column', 'human_column'])));
+		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column', 'avatar_column', 'filter_column', 'human_column', 'file_column'])));
 		$locale = (string)(App()->locale ?? 'en');
 		foreach($recs as $rec)
 		{
@@ -752,6 +765,7 @@ class DataGrid
 
 				if(!empty($column['avatar_column']))$rec[$column['avatar_column']] = \Core\Widget::avatar($rec)['avatar'];
 				if(!empty($column['human_column']))$rec[$column['human_column']] = date_humanizer($rec[$name] ?? null, $locale);
+				if(!empty($column['file_column']) && (string)($rec[$name] ?? '') !== '')$rec[$column['file_column']] = ['name' => basename((string)$rec[$name]), 'size' => \Core\File::privateSize((string)$rec[$name]), 'url' => "/api/{$this->module}/{$rec['id']}/file/{$name}/"];
 
 			}
 			$row = array_intersect_key($rec, $keep);
