@@ -56,11 +56,11 @@ class FilesController extends \Core\CrudController
 		$grid->addCol('category', 'Category', true)->filterOnClick('category');
 		$grid->addCol('title', 'Title', true);
 		$grid->addColFile('url', 'File');
+		$grid->addColTags()->width(180);
 		$grid->addCol('source', 'Source', true);
 		$grid->addCol('_groups', 'Restricted to');
 		$grid->addColNumber('downloads', 'Downloads', true)->width(110);
 		$grid->addColBoolean('visible', 'Visible', true, true)->width(90);
-		$grid->addColTags()->width(180);
 
 	}
 
