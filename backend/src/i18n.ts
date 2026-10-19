@@ -214,6 +214,7 @@ const fr: Record<string, string> = {
 
 	'Remove this filter': 'Retirer ce filtre',
 	'Filter on this tag': 'Filtrer sur ce tag',
+	'Filter on this value': 'Filtrer sur cette valeur',
 
 	// calendar plannings
 	'Team': 'Équipe',

@@ -44,12 +44,12 @@ class UserController extends \Core\CrudController
 		$grid->rowAction('connect-as', 'Connect as', 'login', 'connect_as');
 
 		$grid->addCol('id', 'ID', true)->width(72);
-		$grid->addCol('group_name', 'Group', true)->width(150);
-		$grid->addCol('fullname', 'Full name', true);
-		$grid->addCol('email', 'Email', true);
+		$grid->addCol('group_name', 'Group', true)->width(150)->filterOnClick('xcore_group_id');
+		$grid->addCol('fullname', 'Full name', true)->avatar();
+		$grid->addColEmail('email', 'Email');
 		$grid->addColTags()->width(180);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
-		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(160);
+		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(240)->humanize();
 
 	}
 

@@ -120,7 +120,7 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
@@ -133,6 +133,9 @@ export type GridColumn = {
 	icon_column?: string
 	link?: string
 	labels?: Record<string, string>
+	avatar_column?: string
+	filter_column?: string
+	human_column?: string
 }
 
 // action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header

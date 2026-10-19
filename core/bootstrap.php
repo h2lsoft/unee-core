@@ -25,6 +25,7 @@ const CHARLIST_LATIN_DASHES_SPACE_QUOTE = CHARLIST_LATIN.CHARLIST_DASHES.CHARLIS
 // core functions, listed explicitly (loaded before the config and the class autoloader, which use them)
 require_once CORE_PATH.'/core/lib/func/array.php';
 require_once CORE_PATH.'/core/lib/func/core.php';
+require_once CORE_PATH.'/core/lib/func/date.php';
 require_once CORE_PATH.'/core/lib/func/http.php';
 require_once CORE_PATH.'/core/lib/func/string.php';
 

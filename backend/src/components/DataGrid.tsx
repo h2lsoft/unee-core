@@ -2,16 +2,18 @@ import { createContext, useContext, useEffect, useMemo, useState, type FormEvent
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router'
 import {
 	Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
-	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Typography, useMediaQuery, useTheme,
+	ListItemIcon, ListItemText, Menu, MenuItem, OutlinedInput, Popover, Select, Switch, Tooltip, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
 	CheckBoxOutlined, CloseOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
+	MailOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
+import UserAvatar, { type AvatarData } from './UserAvatar'
 import BookmarkButton from './BookmarkButton'
 import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
@@ -192,10 +194,36 @@ function TagChips({tags}: {tags: string[]})
 }
 
 // tags filtered in the grid (conditions _tags contains), a click on a tag of a row toggles its filter
-const TagFilter = createContext<{active: string[], toggle: ((tag: string) => void) | null}>({active: [], toggle: null})
+// filterOnClick columns: a click on the value toggles the condition column||value
+const TagFilter = createContext<{active: string[], toggle: ((tag: string) => void) | null, eqActive: (column: string, value: string) => boolean, eqToggle: ((column: string, value: string) => void) | null}>({active: [], toggle: null, eqActive: () => false, eqToggle: null})
 
 function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, can_edit: boolean, onToggle: (row: Row, column: string, value: string) => void})
 {
+
+	const ctx = useContext(TagFilter)
+
+	// decorations of the value: avatar before, relative date after, click to filter
+	if(column.avatar_column || column.human_column || column.filter_column)
+	{
+
+		const inner = <Cell column={{...column, avatar_column: undefined, human_column: undefined, filter_column: undefined}} row={row} can_edit={can_edit} onToggle={onToggle} />
+		const avatar = column.avatar_column ? row[column.avatar_column] as AvatarData | undefined : undefined
+		const human = column.human_column ? String(row[column.human_column] ?? '') : ''
+		const fv = column.filter_column ? String(row[column.filter_column] ?? '') : ''
+		const on = !!column.filter_column && ctx.eqActive(column.filter_column, fv)
+		const content = (column.filter_column && ctx.eqToggle && fv !== '' && fv !== '0')
+			? <ButtonBase onClick={(e) => { e.stopPropagation(); ctx.eqToggle?.(column.filter_column!, fv) }} title={on ? t('Remove this filter') : t('Filter on this value')} sx={{font: 'inherit', color: on ? 'var(--u-accent-text)' : 'inherit', fontWeight: on ? 600 : 'inherit', borderBottom: '1px dashed', borderColor: on ? 'var(--u-accent-text)' : 'var(--u-border-strong)', '&:hover': {color: 'var(--u-accent-text)', borderColor: 'var(--u-accent-text)'}}}>{inner}</ButtonBase>
+			: inner
+
+		return (
+			<Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 1, maxWidth: '100%', verticalAlign: 'middle'}}>
+				{avatar && <UserAvatar avatar={avatar} size={24} />}
+				<Box component="span" sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{content}</Box>
+				{human && <Box component="span" sx={{fontSize: 12, color: 'var(--u-muted)', whiteSpace: 'nowrap'}}>{human}</Box>}
+			</Box>
+		)
+
+	}
 
 	const value = row[column.name]
 	if(column.type === 'boolean')
@@ -209,6 +237,9 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
 
 	const text = String(value)
+
+	// email: icon with a mailto link, the address in the tooltip
+	if(column.type === 'email')return <Tooltip title={text}><IconButton size="small" component="a" href={`mailto:${text}`} aria-label={text} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{color: 'var(--u-accent-text)'}}><MailOutlined sx={{fontSize: 18}} /></IconButton></Tooltip>
 
 	// link to a page of the backend, {id} and {column} replaced by the values of the row
 	if(column.link)
@@ -850,7 +881,9 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	// a tag clicked in a row: condition _tags||<tag> (the row has the tag) added or removed (grids with addFilterTags)
 	const active_tags = params.getAll('search[]').filter((raw) => raw.startsWith('_tags||') && isShort(raw)).map((raw) => raw.slice(7))
-	const tag_filter = {active: active_tags, toggle: grid?.filters.some((f) => f.name === '_tags') ? (tag: string) => setSearchEntries((list) => active_tags.includes(tag) ? list.filter((raw) => raw !== `_tags||${tag}`) : [...list, `_tags||${tag}`]) : null}
+	const eqActive = (column: string, value: string) => params.getAll('search[]').includes(`${column}||${value}`)
+	const eqToggle = (column: string, value: string) => setSearchEntries((list) => list.includes(`${column}||${value}`) ? list.filter((raw) => raw !== `${column}||${value}`) : [...list.filter((raw) => !(isShort(raw) && raw.startsWith(`${column}||`))), `${column}||${value}`])
+	const tag_filter = {eqActive, eqToggle: grid?.filters.length || grid?.chips ? eqToggle : null, active: active_tags, toggle: grid?.filters.some((f) => f.name === '_tags') ? (tag: string) => setSearchEntries((list) => active_tags.includes(tag) ? list.filter((raw) => raw !== `_tags||${tag}`) : [...list, `_tags||${tag}`]) : null}
 
 	if(!grid)
 	{

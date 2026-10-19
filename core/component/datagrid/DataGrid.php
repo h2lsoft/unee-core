@@ -183,6 +183,16 @@ class DataGrid
 	}
 
 	/**
+	 * email shown as an icon (mailto link, the address in its tooltip)
+	 */
+	public function addColEmail(string $name, string $label='Email'):static
+	{
+
+		return $this->addCol($name, $label, false, 'email', ['align' => 'center', 'width' => 70]);
+
+	}
+
+	/**
 	 * number shown as a badge with an icon, ex: count of a qSelect
 	 */
 	public function addColCount(string $name, string $label='', string $icon=''):static
@@ -243,6 +253,47 @@ class DataGrid
 	{
 
 		$this->columns[$this->last]['labels'] = $labels;
+		return $this;
+
+	}
+
+	/**
+	 * avatar of a user before the value of the last column, from the columns of the row: id, firstname, lastname, login, avatar
+	 *
+	 * @return static
+	 */
+	public function avatar():static
+	{
+
+		$this->columns[$this->last]['avatar_column'] = "_avatar_{$this->last}";
+		return $this;
+
+	}
+
+	/**
+	 * a click on the value of the last column filters the grid on a column of the row (ex: group name -> xcore_group_id), a second click removes the filter
+	 *
+	 * @param string $column filter of the grid (addFilter / addFilterChips) and column of the row
+	 *
+	 * @return static
+	 */
+	public function filterOnClick(string $column):static
+	{
+
+		$this->columns[$this->last]['filter_column'] = $column;
+		return $this;
+
+	}
+
+	/**
+	 * relative date shown after the date of the last column (date_humanizer), ex: 3 hours ago
+	 *
+	 * @return static
+	 */
+	public function humanize():static
+	{
+
+		$this->columns[$this->last]['human_column'] = "_human_{$this->last}";
 		return $this;
 
 	}
@@ -688,11 +739,21 @@ class DataGrid
 		$recs = DB()->query($sql, $binds)->fetchAll();
 
 		$rows = [];
-		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column'])));
+		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column', 'avatar_column', 'filter_column', 'human_column'])));
+		$locale = (string)(App()->locale ?? 'en');
 		foreach($recs as $rec)
 		{
 
 			if($this->hook)$rec = call_user_func($this->hook, $rec);
+
+			// computed values of the columns: user avatar, relative date
+			foreach($this->columns as $name => $column)
+			{
+
+				if(!empty($column['avatar_column']))$rec[$column['avatar_column']] = \Core\Widget::avatar($rec)['avatar'];
+				if(!empty($column['human_column']))$rec[$column['human_column']] = date_humanizer($rec[$name] ?? null, $locale);
+
+			}
 			$row = array_intersect_key($rec, $keep);
 			$row['id'] = (int)$row['id'];
 			$rows[] = $row;
