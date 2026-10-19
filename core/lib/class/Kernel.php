@@ -145,8 +145,8 @@ class Kernel extends HttpKernel {
 		foreach($files as $f)
 			include $f;
 
-		// debugbar
-		if(!APP_CLI_MODE && \Core\Config::get('debug')  && \Core\Config::get('debug_bar') && $request->getRequestFormat() == 'html')
+		// debugbar: php-debugbar is a dev dependency, skipped when it is not installed
+		if(!APP_CLI_MODE && \Core\Config::get('debug')  && \Core\Config::get('debug_bar') && $request->getRequestFormat() == 'html' && class_exists(\DebugBar\DebugBar::class))
 		{
 			$this->debugbar = new \DebugBar\DebugBar();
 
