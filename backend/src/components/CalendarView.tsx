@@ -173,7 +173,8 @@ export default function CalendarView({icon}: {icon: string})
 	}
 
 	return (
-		<>
+		// half the gap of the page between the title, the toolbar and the calendar
+		<Box sx={{display: 'flex', flexDirection: 'column', gap: {xs: 1, md: 1.25}}}>
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap'}}>
 				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
 				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em', flexGrow: 1}}>{t('Calendar')}</Typography>
@@ -245,7 +246,7 @@ export default function CalendarView({icon}: {icon: string})
 				onSaved={() => { setForm({...form, open: false}); dataChanged('calendar'); refresh() }}
 				onRestored={refresh}
 				onDeleted={rights.includes('delete') ? () => { setForm({...form, open: false}); dataChanged('calendar'); refresh() } : undefined} />
-		</>
+		</Box>
 	)
 
 }
