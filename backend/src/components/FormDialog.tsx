@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
-import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, PasswordOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import HistoryDialog from './HistoryDialog'
 import { BADGES } from './DataGrid'
 import CodeEditor from './Code'
@@ -55,24 +55,46 @@ function words(value: string): string[]
 // field shown only when another field has one of the values (\Component\Form::showIf)
 export const isVisible = (field: FormField, values: Record<string, string>) => !field.show_if || field.show_if.values.includes(values[field.show_if.field] ?? '')
 
-function PasswordInput(props: React.ComponentProps<typeof OutlinedInput>)
+// random password: 16 characters with lower and upper case letters, digits and symbols (ambiguous ones left out)
+export function generatePassword(length = 16): string
+{
+
+	const sets = ['abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!#$%&*+-=?@_']
+	const all = sets.join('')
+	const random = (max: number) => crypto.getRandomValues(new Uint32Array(1))[0] % max
+	const chars = sets.map((set) => set[random(set.length)])
+	while(chars.length < length)chars.push(all[random(all.length)])
+	for(let i = chars.length - 1; i > 0; i--){ const j = random(i + 1); [chars[i], chars[j]] = [chars[j], chars[i]] }
+
+	return chars.join('')
+
+}
+
+// password input: show / hide, button Generate (the password is shown to be copied)
+function PasswordInput({onGenerate, ...props}: React.ComponentProps<typeof OutlinedInput> & {onGenerate?: (value: string) => void})
 {
 
 	const [visible, setVisible] = useState(false)
 
 	return (
-		<OutlinedInput
-			{...props}
-			type={visible ? 'text' : 'password'}
-			autoComplete="new-password"
-			endAdornment={
-				<InputAdornment position="end">
-					<IconButton size="small" edge="end" aria-label={visible ? t('hide password') : t('show password')} onClick={() => setVisible(!visible)}>
-						{visible ? <VisibilityOffOutlined fontSize="small" /> : <VisibilityOutlined fontSize="small" />}
-					</IconButton>
-				</InputAdornment>
-			}
-		/>
+		<Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+			<OutlinedInput
+				{...props}
+				type={visible ? 'text' : 'password'}
+				autoComplete="new-password"
+				endAdornment={
+					<InputAdornment position="end">
+						<IconButton size="small" edge="end" aria-label={visible ? t('hide password') : t('show password')} onClick={() => setVisible(!visible)}>
+							{visible ? <VisibilityOffOutlined fontSize="small" /> : <VisibilityOutlined fontSize="small" />}
+						</IconButton>
+					</InputAdornment>
+				}
+			/>
+			{onGenerate && !props.disabled && (
+				<Button variant="outlined" color="inherit" startIcon={<PasswordOutlined />} onClick={() => { onGenerate(generatePassword()); setVisible(true) }}
+					sx={{flexShrink: 0, height: 34, borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{t('Generate')}</Button>
+			)}
+		</Box>
 	)
 
 }
@@ -223,7 +245,7 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		startAdornment: field.adornment ? <InputAdornment position="start" sx={{mr: 0.5}}><MenuIcon name={field.adornment} fontSize={20} color="var(--u-muted)" /></InputAdornment> : undefined,
 	}
 
-	if(field.type === 'password')return <PasswordInput {...common} />
+	if(field.type === 'password')return <PasswordInput {...common} onGenerate={onChange} />
 
 	const type = {email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text'
 	// textareas: 150px high at least, they grow with the content
