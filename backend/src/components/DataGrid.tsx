@@ -170,7 +170,8 @@ export function ListChip({label, className = '', css = '', icon = ''}: {label: s
 
 }
 
-const alignOf = (column: GridColumn) => column.align ?? (column.name === 'id' ? 'right' : (column.type === 'badge' ? 'center' : 'left'))
+// id on the right, badges and active columns centered
+const alignOf = (column: GridColumn) => column.align ?? (column.name === 'id' ? 'right' : ((column.type === 'badge' || column.name === 'active') ? 'center' : 'left'))
 
 // cell content by column type
 // tags of a row, clickable when the grid has the tags filter
