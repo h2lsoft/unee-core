@@ -33,34 +33,49 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 	const [search, setSearch] = useState('')
 	// selection edited in the popover, given to the calendar by Apply
 	const [draft, setDraft] = useState<number[] | null>(selected)
+	// tags toggled on in the popover (their own state: a tag stays on even when its members are everybody)
+	const [tags_on, setTagsOn] = useState<string[]>([])
 
 	const applied = users.filter((u) => selected === null || selected.includes(u.id))
 	const ids = draft ?? users.map((u) => u.id)
 	const chosen = users.filter((u) => ids.includes(u.id))
 	const set = (next: number[]) => setDraft(next.length === users.length && users.every((u) => next.includes(u.id)) ? null : next)
 
-	const open = (el: HTMLElement) => { setDraft(selected); setAnchor(el) }
+	const membersOf = (tag: string) => users.filter((u) => u.tags.includes(tag)).map((u) => u.id)
+	// on opening, a tag is on when the selection is not everybody and holds all its members
+	const open = (el: HTMLElement) => { setDraft(selected); setTagsOn(selected === null ? [] : tags.filter((tg) => membersOf(tg).every((id) => selected.includes(id)))); setAnchor(el) }
 	const close = () => { setAnchor(null); setSearch('') }
 	const apply = () => { onChange(draft); close() }
 
-	// a tag selects its members (only them when everybody is shown), or unselects them when they all are selected
-	const team = (members: CalendarUser[]) => {
+	const tags = [...new Set(users.flatMap((u) => u.tags))].sort()
 
-		if(draft === null)return set(members.map((u) => u.id))
-		const all = members.every((u) => ids.includes(u.id))
-		set(all ? ids.filter((id) => !members.some((u) => u.id === id)) : [...new Set([...ids, ...members.map((u) => u.id)])])
+	// tag on: its members are added (only them when it is the first tag and everybody is shown); tag off: its members leave, except those of another tag on
+	const toggleTag = (tag: string) => {
+
+		const members = membersOf(tag)
+		if(tags_on.includes(tag))
+		{
+
+			const others = tags_on.filter((tg) => tg !== tag)
+			const kept = new Set(others.flatMap(membersOf))
+			setTagsOn(others)
+			set(ids.filter((id) => !members.includes(id) || kept.has(id)))
+			return
+
+		}
+
+		setTagsOn([...tags_on, tag])
+		set((draft === null && tags_on.length === 0) ? members : [...new Set([...ids, ...members])])
 
 	}
-
-	const tags = [...new Set(users.flatMap((u) => u.tags))].sort()
 	const query = fold(search.trim())
 	const list = users.filter((u) => !query || fold(u.name).includes(query)).sort((a, b) => Number(ids.includes(b.id)) - Number(ids.includes(a.id)))
 
 	const chip = (key: string, label: string, members: CalendarUser[], icon: React.ReactNode) => {
 
-		const on = draft !== null && members.length > 0 && members.every((u) => ids.includes(u.id))
+		const on = tags_on.includes(label)
 		return (
-			<ButtonBase key={key} aria-pressed={on} onClick={() => team(members)} sx={{height: 26, gap: 0.5, px: 1.25, borderRadius: '13px', fontSize: 12, fontWeight: 500, border: '1px solid', borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)', bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-paper)', color: on ? 'var(--u-accent-text)' : 'var(--u-text2)'}}>
+			<ButtonBase key={key} aria-pressed={on} onClick={() => toggleTag(label)} sx={{height: 26, gap: 0.5, px: 1.25, borderRadius: '13px', fontSize: 12, fontWeight: 500, border: '1px solid', borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)', bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-paper)', color: on ? 'var(--u-accent-text)' : 'var(--u-text2)'}}>
 				{icon}{label} ({members.length})
 			</ButtonBase>
 		)
@@ -96,11 +111,11 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 					{!query && (
 						<>
 							<Box component="label" sx={{height: 40, display: 'flex', alignItems: 'center', gap: 1, px: 0.5, fontSize: 13.5, fontWeight: 600, cursor: 'pointer'}}>
-								<Checkbox size="small" checked={chosen.length === users.length} indeterminate={chosen.length > 0 && chosen.length < users.length} onChange={(e) => set(e.target.checked ? users.map((u) => u.id) : [])} />
+								<Checkbox size="small" checked={chosen.length === users.length} indeterminate={chosen.length > 0 && chosen.length < users.length} onChange={(e) => { setTagsOn([]); set(e.target.checked ? users.map((u) => u.id) : []) }} />
 								<Box component="span" sx={{flexGrow: 1}}>{t('All users')}</Box>
 								<Box component="span" sx={{fontSize: 12, fontWeight: 400, color: 'var(--u-muted)', pr: 1}}>{chosen.length} / {users.length}</Box>
 							</Box>
-							<ButtonBase onClick={() => set([me])} sx={{width: '100%', height: 36, justifyContent: 'flex-start', gap: 1.5, px: 1.25, borderRadius: 1.5, fontSize: 13.5, '&:hover': {bgcolor: 'var(--u-hover)'}}}><PersonOutlined sx={{fontSize: 20, color: 'var(--u-muted)'}} />{t('Only me')}</ButtonBase>
+							<ButtonBase onClick={() => { setTagsOn([]); set([me]) }} sx={{width: '100%', height: 36, justifyContent: 'flex-start', gap: 1.5, px: 1.25, borderRadius: 1.5, fontSize: 13.5, '&:hover': {bgcolor: 'var(--u-hover)'}}}><PersonOutlined sx={{fontSize: 20, color: 'var(--u-muted)'}} />{t('Only me')}</ButtonBase>
 							<Box sx={{height: '1px', bgcolor: 'var(--u-border-soft)', my: 0.5}} />
 						</>
 					)}
@@ -115,7 +130,7 @@ export default function CalendarUsers({users, selected, me, onChange}: {users: C
 					{list.length === 0 && <Typography sx={{p: 2, fontSize: 13, color: 'var(--u-muted)', textAlign: 'center'}}>{t('Nobody found')}</Typography>}
 				</Box>
 				<Box sx={{display: 'flex', alignItems: 'center', px: 1.5, py: 1, borderTop: '1px solid var(--u-border-soft)'}}>
-					<ButtonBase onClick={() => setDraft(null)} sx={{color: 'var(--u-accent-text)', fontSize: 12.5, fontWeight: 600}}>{t('Select all')}</ButtonBase>
+					<ButtonBase onClick={() => { setTagsOn([]); setDraft(null) }} sx={{color: 'var(--u-accent-text)', fontSize: 12.5, fontWeight: 600}}>{t('Select all')}</ButtonBase>
 					<Box sx={{flexGrow: 1}} />
 					<Button variant="contained" size="small" onClick={apply} sx={{height: 32, px: 2}}>{t('Apply')}</Button>
 				</Box>
