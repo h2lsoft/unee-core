@@ -5,7 +5,7 @@ namespace Core;
 /**
  * server translations, key = english text: core/i18n/<locale>.php then instances/<dir>/i18n/<locale>.php (adds or overrides keys)
  * used for api messages, labels of grids and forms, and the validator messages
- * the react backend translates its own interface (backend/src/i18n)
+ * the react backend translates its own interface (core/theme/core-admin/src/i18n)
  */
 class I18n
 {

@@ -6,13 +6,13 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * react backend (core/backend/dist, built with a relative base) served under /<backend.dirname>/
+ * react backend (core/theme/core-admin/dist, built with a relative base) served under /<backend.dirname>/
  * the hashed files of assets/ are served by apache (skeleton .htaccess), this class gives them when apache does not
  */
 class Backend
 {
 
-	private const string DIST = CORE_PATH.'/core/backend/dist';
+	private const string DIST = CORE_PATH.'/core/theme/core-admin/dist';
 
 	/**
 	 * folder of the backend in the urls (config backend.dirname), ex: backend
@@ -78,7 +78,7 @@ class Backend
 		// any other url: the react app (client routing), never cached so a new build is seen at once
 		$base = '/'.self::dirname().'/';
 		$html = (string)@file_get_contents(self::DIST.'/index.html');
-		if($html === '')return new Response('backend not built: run npm run build in backend/', 500, ['Content-Type' => 'text/plain']);
+		if($html === '')return new Response('backend not built: run npm run build in core/theme/core-admin/', 500, ['Content-Type' => 'text/plain']);
 
 		$html = str_replace(['="./', "='./"], ['="'.$base, "='".$base], $html);
 		$html = str_replace('<head>', '<head>'.PHP_EOL.'		<meta name="unee-base" content="'.htmlspecialchars($base).'" />', $html);

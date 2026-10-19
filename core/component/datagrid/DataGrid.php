@@ -387,7 +387,7 @@ class DataGrid
 	 *
 	 * @param string $name a-z, 0-9 and dashes, ex: send-invoice calls batchSendInvoice()
 	 * @param string $label english, translated
-	 * @param string $icon icon name (backend/src/components/icons.tsx)
+	 * @param string $icon icon name (core/theme/core-admin/src/components/icons.tsx)
 	 * @param string $right right needed on the module
 	 *
 	 * @return static

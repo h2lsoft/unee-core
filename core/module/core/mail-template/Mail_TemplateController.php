@@ -21,7 +21,7 @@ class Mail_TemplateController extends \Core\CrudController
 	public array $ucfirst = ['category', 'description']; # name is a key of the code
 
 	/**
-	 * flag of a language (country code of backend/src/components/Flag.tsx)
+	 * flag of a language (country code of core/theme/core-admin/src/components/Flag.tsx)
 	 */
 	private const array FLAGS = ['en' => 'gb', 'cs' => 'cz', 'da' => 'dk', 'el' => 'gr', 'he' => 'il', 'ja' => 'jp', 'ko' => 'kr', 'nb' => 'no', 'sv' => 'se', 'uk' => 'ua', 'zh' => 'cn', 'ar' => 'sa'];
 

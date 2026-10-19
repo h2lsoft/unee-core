@@ -7,7 +7,7 @@ export default defineConfig({
 	base: './',
 	plugins: [react()],
 	build: {
-		outDir: '../core/backend/dist',
+		outDir: 'dist',
 		emptyOutDir: true,
 	},
 	server: {
