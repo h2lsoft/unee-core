@@ -203,6 +203,8 @@ export type FormField = {
 	language?: string
 	ucfirst?: boolean
 	lowercase?: boolean
+	inline?: boolean
+	size?: number
 	swatch?: boolean
 	snippets?: {label: string, group: string, content: string}[]
 }

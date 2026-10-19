@@ -50,8 +50,8 @@ class CalendarController extends \Core\CrudController
 		$form->addText('name', 'Name', true)->maxLength(255);
 		$form->addDate('date', 'Date', true);
 		$form->addBoolean('all_day', 'All day')->defaultValue('no');
-		$form->addSelect('hour_start', 'From', $hours, true)->defaultValue('09:00')->set('translate', false)->showIf('all_day', ['no']);
-		$form->addSelect('hour_end', 'To', $hours, true)->defaultValue('10:00')->set('translate', false)->showIf('all_day', ['no']);
+		$form->addSelect('hour_start', 'From', $hours, true)->defaultValue('09:00')->set('translate', false)->set('size', 100)->showIf('all_day', ['no']);
+		$form->addSelect('hour_end', 'To', $hours, true)->defaultValue('10:00')->set('translate', false)->set('size', 100)->set('inline', true)->showIf('all_day', ['no']);
 		$form->addText('address', 'Address')->maxLength(255);
 		$form->addHtml('comment', 'Comment');
 		$form->addRadio('color', 'Color', self::COLORS, true)->defaultValue('purple')->set('swatch', true);

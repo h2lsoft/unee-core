@@ -231,17 +231,40 @@ export const FIELDS_SX = {
 }
 
 // row of a field: label on the first line of the control (34px), the help text stays under the control
-function FieldRow({field, value, errors, onChange}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void})
+// control of a field: size = width in px (ex: hours), case rules while typing
+function Control({field, value, errors, onChange}: {field: FormField, value: string, errors: Record<string, string[]>, onChange: (value: string) => void})
 {
+
+	const input = <Input field={field} value={value} error={!!errors[field.name]} onChange={field.lowercase ? (v) => onChange(v.toLocaleLowerCase()) : ((field.ucfirst && field.type !== 'html') ? (v) => onChange(v.charAt(0).toLocaleUpperCase() + v.slice(1)) : onChange)} />
+	return field.size ? <Box sx={{width: field.size, maxWidth: '100%', flexShrink: 0}}>{input}</Box> : input
+
+}
+
+// row of a field: label on the first line of the control (34px), the help text stays under the control
+// the fields declared inline (->set('inline', true)) follow on the same row with their label
+function FieldRow({field, inline = [], values, errors, onChange}: {field: FormField, inline?: FormField[], values: Record<string, string>, errors: Record<string, string[]>, onChange: (name: string, value: string) => void})
+{
+
+	const label = (f: FormField, sx: object) => (
+		<InputLabel id={`field-${f.name}-label`} htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', whiteSpace: 'normal', ...sx}}>
+			{f.label}{f.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
+		</InputLabel>
+	)
 
 	return (
 		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
-			<InputLabel id={`field-${field.name}-label`} htmlFor={`field-${field.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', textAlign: {xs: 'left', sm: 'right'}, whiteSpace: 'normal', lineHeight: {sm: '34px'}}}>
-				{field.label}{field.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
-			</InputLabel>
+			{label(field, {textAlign: {xs: 'left', sm: 'right'}, lineHeight: {sm: '34px'}})}
 			<Box sx={{minWidth: 0}}>
-				<Input field={field} value={value} error={!!errors[field.name]} onChange={field.lowercase ? (v) => onChange(v.toLocaleLowerCase()) : ((field.ucfirst && field.type !== 'html') ? (v) => onChange(v.charAt(0).toLocaleUpperCase() + v.slice(1)) : onChange)} />
-				{field.help && <FormHelperText sx={{m: 0, mt: 0.5}}>{field.help}</FormHelperText>}
+				<Box sx={inline.length ? {display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5} : undefined}>
+					<Control field={field} value={values[field.name] ?? ''} errors={errors} onChange={(v) => onChange(field.name, v)} />
+					{inline.map((f) => (
+						<Box key={f.name} sx={{display: 'flex', alignItems: 'center', gap: 1.5}}>
+							{label(f, {lineHeight: '34px'})}
+							<Control field={f} value={values[f.name] ?? ''} errors={errors} onChange={(v) => onChange(f.name, v)} />
+						</Box>
+					))}
+				</Box>
+				{[field, ...inline].filter((f) => f.help).map((f) => <FormHelperText key={f.name} sx={{m: 0, mt: 0.5}}>{f.help}</FormHelperText>)}
 			</Box>
 		</Box>
 	)
@@ -364,7 +387,9 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const fields = (data?.form.fields ?? []).filter((f) => isVisible(f, values))
 	const tabs = data?.form.tabs ?? []
 	const first_tab = fields.findIndex((f) => f.tab)
-	const row = (f: FormField) => <FieldRow key={f.name} field={f} value={values[f.name] ?? ''} errors={errors} onChange={(v) => setValues({...values, [f.name]: v})} />
+	// a field declared inline joins the row of the field before it
+	const rows = (list: FormField[]) => list.reduce<{field: FormField, inline: FormField[]}[]>((acc, f) => { if(f.inline && acc.length)acc[acc.length - 1].inline.push(f); else acc.push({field: f, inline: []}); return acc }, [])
+		.map((r) => <FieldRow key={r.field.name} field={r.field} inline={r.inline} values={values} errors={errors} onChange={(name, v) => setValues((old) => ({...old, [name]: v}))} />)
 	const wide = fields.some((f) => f.type === 'code' || f.type === 'html')
 
 	return (
@@ -384,7 +409,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 				)}
 				{data && (
 					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75, py: 0.5, ...FIELDS_SX}}>
-						{fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)).map(row)}
+						{rows(fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)))}
 						{first_tab >= 0 && (
 							<>
 								<Box role="tablist" sx={{display: 'flex', gap: 2.75, borderBottom: '1px solid var(--u-border)', mt: 0.5, overflowX: 'auto'}}>
@@ -400,9 +425,9 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 									})}
 								</Box>
-								{fields.filter((f) => f.tab === tab).map(row)}
+								{rows(fields.filter((f) => f.tab === tab))}
 								{fields.some((f, i) => !f.tab && i > first_tab) && <Box sx={{height: '1px', bgcolor: 'var(--u-hover)', my: 0.25}} />}
-								{fields.filter((f, i) => !f.tab && i > first_tab).map(row)}
+								{rows(fields.filter((f, i) => !f.tab && i > first_tab))}
 							</>
 						)}
 					</Box>
