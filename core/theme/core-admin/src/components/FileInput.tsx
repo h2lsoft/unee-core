@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { Box, Button, CircularProgress, IconButton, Tooltip } from '@mui/material'
-import { DeleteOutlineOutlined, DescriptionOutlined, FolderZipOutlined, ImageOutlined, InsertDriveFileOutlined, PictureAsPdfOutlined, SlideshowOutlined, TableChartOutlined, UploadFileOutlined } from '@mui/icons-material'
+import { Box, Button, ButtonBase, CircularProgress, Dialog, IconButton, Tooltip } from '@mui/material'
+import { CloseOutlined, DeleteOutlineOutlined, DescriptionOutlined, FolderZipOutlined, ImageOutlined, InsertDriveFileOutlined, PictureAsPdfOutlined, SlideshowOutlined, TableChartOutlined, UploadFileOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField } from '../api'
 import { t } from '../i18n'
 
@@ -20,6 +20,33 @@ export function FileIcon({name, size = 20}: {name: string, size?: number})
 	if(['doc', 'docx', 'odt', 'txt'].includes(ext))return <DescriptionOutlined sx={{...sx, color: 'info.main'}} />
 	if(['zip'].includes(ext))return <FolderZipOutlined sx={sx} />
 	return <InsertDriveFileOutlined sx={sx} />
+
+}
+
+// images shown as a thumbnail (served inline by the api)
+export const isImage = (name: string) => ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(name.split('.').pop()?.toLowerCase() ?? '')
+
+/**
+ * thumbnail of an image, a click opens it in a lightbox (close cross or escape, a click on the backdrop does not close it)
+ * shortcut: the thumbnail loads the full image, add resized thumbnails if the lists get heavy
+ */
+export function ImagePreview({url, name, size = 32}: {url: string, name: string, size?: number})
+{
+
+	const [open, setOpen] = useState(false)
+
+	return (
+		<>
+			<ButtonBase aria-label={t('Zoom')} title={name} onClick={(e) => { e.stopPropagation(); setOpen(true) }} sx={{width: size, height: size, flexShrink: 0, borderRadius: 1, overflow: 'hidden', border: '1px solid var(--u-border)', bgcolor: 'var(--u-head)', cursor: 'zoom-in'}}>
+				<Box component="img" src={url} alt={name} loading="lazy" sx={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}} />
+			</ButtonBase>
+			<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && setOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth={false}
+				slotProps={{paper: {sx: {position: 'relative', m: 2, bgcolor: 'var(--u-paper)', overflow: 'hidden'}}}}>
+				<IconButton aria-label={t('Close')} onClick={() => setOpen(false)} sx={{position: 'absolute', top: 8, right: 8, bgcolor: 'var(--u-paper)', '&:hover': {bgcolor: 'var(--u-hover)'}}}><CloseOutlined /></IconButton>
+				<Box component="img" src={url} alt={name} sx={{display: 'block', maxWidth: 'calc(100vw - 64px)', maxHeight: 'calc(100vh - 64px)', objectFit: 'contain'}} />
+			</Dialog>
+		</>
+	)
 
 }
 

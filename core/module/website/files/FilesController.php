@@ -20,7 +20,7 @@ class FilesController extends \Core\CrudController
 	public array $ucfirst = ['category', 'title'];
 
 	// config files/extensions and files/max_size (bytes) replace them
-	public const array EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'txt', 'csv', 'zip', 'jpg', 'jpeg', 'png', 'webp'];
+	public const array EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'txt', 'csv', 'zip', 'jpg', 'jpeg', 'png', 'webp', 'avif'];
 	public const int MAX_SIZE = 20 * 1048576;
 
 	protected function grid(DataGrid $grid):void
@@ -70,7 +70,8 @@ class FilesController extends \Core\CrudController
 		$form->addDate('date', 'Date', true)->defaultValue(date('Y-m-d'));
 		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->set('translate', false)->maxLength(255);
 		$form->addText('title', 'Title', true)->maxLength(255);
-		$form->addText('source', 'Source')->maxLength(255)->placeholder('ex: Ministry of health');
+		$sources = DB()->query("SELECT DISTINCT source FROM xcore_files WHERE deleted = 'no' AND source <> '' ORDER BY source")->fetchAll(\PDO::FETCH_COLUMN);
+		$form->addSelect('source', 'Source', array_combine($sources, $sources))->autocomplete(true)->set('translate', false)->maxLength(255)->placeholder('ex: Ministry of health');
 		$form->addFile('url', 'File', true, 'files', (array)\Core\Config::get('files/extensions', self::EXTENSIONS), $this->maxSize());
 		$form->addSelectMultiple('xcore_group_ids', 'Restricted to', $this->groups())->set('translate', false)->help('Empty: everybody can download the file');
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes');

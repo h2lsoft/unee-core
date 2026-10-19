@@ -253,6 +253,7 @@ const fr: Record<string, string> = {
 	'Choose a file': 'Choisir un fichier',
 	'or drop it here': 'ou déposez-le ici',
 	'Replace': 'Remplacer',
+	'Zoom': 'Agrandir',
 	'max': 'max',
 	'task': 'tâche',
 	'Edit step': 'Modifier l\'étape',
