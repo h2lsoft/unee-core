@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router'
 import {
 	Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
@@ -171,6 +171,29 @@ export function ListChip({label, className = '', css = '', icon = ''}: {label: s
 const alignOf = (column: GridColumn) => column.align ?? (column.name === 'id' ? 'right' : (column.type === 'badge' ? 'center' : 'left'))
 
 // cell content by column type
+// tags of a row, clickable when the grid has the tags filter
+function TagChips({tags}: {tags: string[]})
+{
+
+	const {active, toggle} = useContext(TagFilter)
+	return (
+		<Box component="span" sx={{display: 'inline-flex', flexWrap: 'wrap', gap: 0.5}}>
+			{tags.map((tag) => {
+
+				const on = active.includes(tag)
+				return <Chip key={tag} label={tag} size="small" title={toggle ? (on ? t('Remove this filter') : t('Filter on this tag')) : undefined}
+					onClick={toggle ? (e: React.MouseEvent) => { e.stopPropagation(); toggle(tag) } : undefined}
+					sx={{height: 20, fontSize: 11, bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-border-soft)', color: on ? 'var(--u-accent-text)' : undefined, border: '1px solid', borderColor: on ? 'var(--u-accent-border)' : 'transparent', '&:hover': toggle ? {bgcolor: 'var(--u-accent-bg)'} : {}}} />
+
+			})}
+		</Box>
+	)
+
+}
+
+// tags filtered in the grid (conditions _tags contains), a click on a tag of a row toggles its filter
+const TagFilter = createContext<{active: string[], toggle: ((tag: string) => void) | null}>({active: [], toggle: null})
+
 function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, can_edit: boolean, onToggle: (row: Row, column: string, value: string) => void})
 {
 
@@ -198,7 +221,7 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	if(column.type === 'chip')return <ListChip label={text} className={String(row[column.class_column ?? ''] ?? '')} css={String(row[column.style_column ?? ''] ?? '')} icon={String(row[column.icon_column ?? ''] ?? '')} />
 	if(column.type === 'badge')return <Badge value={column.labels?.[text] ?? text} color={column.color_column ? String(row[column.color_column] ?? '') : column.colors?.[text]} />
-	if(column.type === 'tags')return <Box component="span" sx={{display: 'inline-flex', flexWrap: 'wrap', gap: 0.5}}>{text.split('|').map((tag) => <Chip key={tag} label={tag} size="small" sx={{height: 20, fontSize: 11, bgcolor: 'var(--u-border-soft)'}} />)}</Box>
+	if(column.type === 'tags')return <TagChips tags={text.split('|')} />
 	if(column.type === 'icon')return <MenuIcon name={text} color={column.color_column ? String(row[column.color_column] ?? '') || undefined : undefined} />
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
 	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: 'var(--u-text2)'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
@@ -825,6 +848,10 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 
 	}
 
+	// a tag clicked in a row: condition _tags contains <tag> added or removed (grids with addFilterTags)
+	const active_tags = params.getAll('search[]').filter((raw) => raw.startsWith('_tags||contains||')).map((raw) => raw.slice(17))
+	const tag_filter = {active: active_tags, toggle: grid?.filters.some((f) => f.name === '_tags') ? (tag: string) => setSearchEntries((list) => active_tags.includes(tag) ? list.filter((raw) => raw !== `_tags||contains||${tag}`) : [...list, `_tags||contains||${tag}`]) : null}
+
 	if(!grid)
 	{
 
@@ -1055,7 +1082,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	)
 
 	return (
-		<>
+		<TagFilter.Provider value={tag_filter}>
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5}}>
 				<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexGrow: 1, minWidth: 0}}>
 					<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
@@ -1160,7 +1187,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				onCancel={() => setToDelete(null)}
 				onConfirm={confirmDelete}
 			/>
-		</>
+		</TagFilter.Provider>
 	)
 
 }

@@ -212,6 +212,9 @@ const fr: Record<string, string> = {
 	'Search a plugin...': 'Rechercher un plugin...',
 	'No plugin found': 'Aucun plugin trouvé',
 
+	'Remove this filter': 'Retirer ce filtre',
+	'Filter on this tag': 'Filtrer sur ce tag',
+
 	// calendar plannings
 	'Team': 'Équipe',
 	'Person': 'Personne',
