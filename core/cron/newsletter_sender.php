@@ -1,9 +1,10 @@
 <?php
 
-// cron task "Newsletter sender": sends the due newsletters to their mailing lists, $params: limit (emails per run), max_seconds
-// due = status scheduled or sending, programming_date and scheduler_date_start passed (when set), stopped after scheduler_date_end
-// each recipient gets a row in xcore_newsletter_data (sent or sent-error): the next run resumes where this one stopped
-// variables of the subject and the template: [[email]], [[firstname]], [[lastname]]
+// cron task "Newsletter sender": sends the due newsletters, $params: limit (emails per run), max_seconds
+// due = status scheduled or sending, programming_date and scheduler_date_start passed (when set), sent when every recipient is processed or after scheduler_date_end
+// start (scheduled -> sending): checks, credits (never started without enough credits: status error), html frozen in snapshot_json
+// each recipient gets a row in xcore_newsletter_data: the next run resumes where this one stopped
+// globals: newsletter.smtp.* (dedicated smtp), newsletter.pause.every / newsletter.pause.seconds, newsletter.credits.*
 
 $limit = max(1, (int)($params['limit'] ?? 500));
 $max_seconds = max(10, (int)($params['max_seconds'] ?? 780));
@@ -12,132 +13,176 @@ $now = now();
 $total_sent = 0;
 $errors = [];
 
-// adds a query string to the http links of the html (not mailto, not anchors), before the fragment
-$add_link_parameters = static function(string $html, string $query):string
+\Core\Newsletter::register();
+$pause_every = max(0, (int)\Core\Globals::get('newsletter.pause.every', '0'));
+$pause_seconds = max(0, (int)\Core\Globals::get('newsletter.pause.seconds', '10'));
+
+// status and error of a newsletter
+$status = static function(int $id, string $status, string $error=''):void
 {
 
-	if($query === '')return $html;
-
-	return preg_replace_callback('/(\bhref\s*=\s*["\'])(https?:\/\/[^"\'#]*)(#[^"\']*)?(["\'])/i', function(array $m) use ($query){
-
-		$sep = str_contains($m[2], '?') ? '&' : '?';
-		return $m[1].$m[2].$sep.$query.($m[3] ?? '').$m[4];
-
-	}, $html);
-
-};
-
-// self-check of the link helper
-assert($add_link_parameters('<a href="https://x.fr/a?b=1#top">', 'utm_source=nl') === '<a href="https://x.fr/a?b=1&utm_source=nl#top">');
-
-// recipients left: subscribed to one of the lists, not blacklisted, not already processed for this newsletter
-$recipients_sql = static function(array $newsletter, array $list_ids, bool $count):string
-{
-
-	$lists = implode(',', array_map('intval', $list_ids));
-	$select = ($count) ? "COUNT(DISTINCT s.email)" : "s.id, s.xcore_mailinglist_id, s.email, s.firstname, s.lastname";
-
-	return "SELECT {$select}
-			FROM xcore_mailinglist_subscriber s
-			WHERE s.deleted = 'no' AND s.unsubscribe_date IS NULL AND s.email != '' AND s.xcore_mailinglist_id IN ({$lists})
-			AND NOT EXISTS (SELECT 1 FROM xcore_blacklist b WHERE b.deleted = 'no' AND b.email = s.email)
-			AND NOT EXISTS (SELECT 1 FROM xcore_newsletter_data d WHERE d.deleted = 'no' AND d.xcore_newsletter_id = ".(int)$newsletter['id']." AND d.email = s.email AND d.action IN ('sent', 'sent-error'))"
-			.(($count) ? "" : " ORDER BY s.id");
+	DB()->query("UPDATE xcore_newsletter SET status = :status, error_message = :error, updated_at = :now, updated_by = 'newsletter' WHERE id = :id", ['status' => $status, 'error' => mb_substr($error, 0, 255), 'now' => now(), 'id' => $id]);
 
 };
 
 $newsletters = DB()->query("SELECT * FROM xcore_newsletter WHERE deleted = 'no' AND status IN ('scheduled', 'sending') AND (programming_date IS NULL OR programming_date <= :now) AND (scheduler_date_start IS NULL OR scheduler_date_start <= :now2) ORDER BY programming_date, id", ['now' => $now, 'now2' => $now])->fetchAll();
 
+$mail = null;
+$patterns = null;
 foreach($newsletters as $newsletter)
 {
 
 	if($total_sent >= $limit || time() - $started >= $max_seconds)break;
 
+	$id = (int)$newsletter['id'];
 	try
 	{
 
-		preg_match_all('/\d+/', (string)$newsletter['mailinglist_ids'], $m);
-		$list_ids = $m[0];
+		$list_ids = \Core\Newsletter::listIds($newsletter);
 		$stopped = ($newsletter['scheduler_date_end'] && $newsletter['scheduler_date_end'] < $now);
 
-		if(!$stopped && $list_ids)
+		if(!$stopped)
 		{
 
-			// variants a/b/c: template url + subject (subject a when empty), a subscriber always gets the same one
-			$variants = [];
-			foreach(['', '2', '3'] as $n)
+			if($newsletter['status'] === 'scheduled')
 			{
 
-				$url = trim((string)$newsletter["template_url{$n}"]);
-				if($url === '')continue;
+				$variants = \Core\Newsletter::variants($newsletter);
+				$checks = \Core\Newsletter::checks($newsletter, $variants);
+				if($checks)
+				{
 
-				// shortcut: no retry on a slow template server, the next run fetches it again
-				$html = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 30]]));
-				if($html === false || trim($html) === '')throw new \RuntimeException("template not readable: {$url}");
+					$status($id, 'error', implode(' / ', $checks));
+					echo "#{$id} {$newsletter['subject']}: ".implode(' / ', $checks).CR;
+					continue;
 
-				$query = trim((string)$newsletter['link_add_parameters']);
-				if($newsletter['campaign'] !== '' && !str_contains($query, 'utm_campaign='))
-					$query = ltrim($query.'&utm_campaign='.rawurlencode($newsletter['campaign']), '&');
+				}
 
-				$subject = (trim((string)$newsletter["subject{$n}"]) !== '') ? $newsletter["subject{$n}"] : $newsletter['subject'];
-				$variants[] = ['subject' => $subject, 'body' => $add_link_parameters($html, $query)];
+				// never started without enough credits for every recipient
+				$needed = \Core\Newsletter::remainingRecipients($id, $list_ids);
+				$available = \Core\Newsletter::availableCredits($id);
+				if($needed > $available)
+				{
+
+					$error = ts('insufficient credits: [NEEDED] needed, [AVAILABLE] available', ['NEEDED' => $needed, 'AVAILABLE' => $available]);
+					$status($id, 'error', $error);
+					echo "#{$id} {$newsletter['subject']}: {$error}".CR;
+					continue;
+
+				}
+
+				// html frozen: the template url may change during the sending
+				DB()->query("UPDATE xcore_newsletter SET status = 'sending', error_message = '', snapshot_json = :snapshot, updated_at = :now, updated_by = 'newsletter' WHERE id = :id", ['snapshot' => json_encode($variants, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'now' => now(), 'id' => $id]);
+				$newsletter['snapshot_json'] = json_encode($variants);
 
 			}
 
-			if(!$variants)throw new \RuntimeException('no template url');
+			$variants = \Core\Newsletter::variants($newsletter);
+			$mail ??= \Core\Newsletter::mailer();
+			$patterns ??= \Core\Newsletter::blacklistPatterns();
+			$credits = \Core\Newsletter::credits()['remaining'];
 
-			if($newsletter['status'] === 'scheduled')
-				DB()->query("UPDATE xcore_newsletter SET status = 'sending', updated_at = :now, updated_by = 'cron' WHERE id = :id", ['now' => now(), 'id' => $newsletter['id']]);
-
-			$from = ($newsletter['expeditor_email_label'] !== '') ? [$newsletter['expeditor_email_label'], $newsletter['expeditor_email']] : $newsletter['expeditor_email'];
-			$options = ($newsletter['reply_to'] !== '') ? ['reply-to' => $newsletter['reply_to']] : [];
-
-			$subscribers = DB()->query($recipients_sql($newsletter, $list_ids, false)." LIMIT ".($limit - $total_sent))->fetchAll();
+			$subscribers = DB()->query(\Core\Newsletter::recipientsSql($id, $list_ids, false)." LIMIT ".($limit - $total_sent))->fetchAll();
 			$done = [];
 			$sent = 0;
 			$failed = 0;
+			$skipped = 0;
+			$interrupted = '';
 			foreach($subscribers as $subscriber)
 			{
 
 				if(time() - $started >= $max_seconds)break;
 
 				// same email in several lists of the newsletter: once
-				$email = strtolower($subscriber['email']);
+				$email = mb_strtolower(trim($subscriber['email']));
 				if(isset($done[$email]))continue;
 				$done[$email] = true;
 
-				$variant = $variants[$subscriber['id'] % count($variants)];
-				$data = ['email' => $subscriber['email'], 'firstname' => $subscriber['firstname'], 'lastname' => $subscriber['lastname']];
-				$ok = \Core\Mailer::send($from, $subscriber['email'], $variant['subject'], $variant['body'], [], $options, $data, [], $newsletter['return_path']);
+				if(!filter_var($email, FILTER_VALIDATE_EMAIL))
+				{
 
-				DB('xcore_newsletter_data')->insert([
-					'xcore_newsletter_id' => $newsletter['id'],
-					'xcore_mailinglist_id' => $subscriber['xcore_mailinglist_id'],
-					'xcore_mailinglist_subscriber_id' => $subscriber['id'],
-					'date' => now(),
-					'email' => $subscriber['email'],
-					'action' => ($ok) ? 'sent' : 'sent-error',
-					'conversion_params' => '',
-					'error_message' => ($ok) ? '' : mb_substr(\Core\Mailer::getLastError(), 0, 255),
-					'url' => '',
-				], 'cron');
+					\Core\Newsletter::log($id, $subscriber, 'refused', 'invalid email');
+					$skipped++;
+					continue;
 
-				if($ok)$sent++;
-				else $failed++;
+				}
+
+				if(\Core\Newsletter::isBlacklisted($email, $patterns))
+				{
+
+					\Core\Newsletter::log($id, $subscriber, 'blacklisted', 'blacklist pattern');
+					$skipped++;
+					continue;
+
+				}
+
+				// new subscribers since the start may exceed the credits
+				if($credits <= 0)
+				{
+
+					$interrupted = ts('insufficient credits: [NEEDED] needed, [AVAILABLE] available', ['NEEDED' => \Core\Newsletter::remainingRecipients($id, $list_ids), 'AVAILABLE' => 0]);
+					break;
+
+				}
+
+				$variant = $variants[(int)$subscriber['id'] % count($variants)];
+				$rendered = \Core\Newsletter::render($variant, $id, $subscriber);
+				$error = \Core\Newsletter::send($mail, $newsletter, $email, $rendered);
+				\Core\Newsletter::log($id, $subscriber, ($error === '') ? 'sent' : 'sent-error', $error);
+
+				if($error === '')
+				{
+
+					$sent++;
+					$credits--;
+
+				}
+				else
+				{
+					$failed++;
+				}
 				$total_sent++;
+
+				if($pause_every > 0 && $total_sent % $pause_every === 0 && $pause_seconds > 0)sleep($pause_seconds);
+
+				// paused or cancelled from the backend meanwhile
+				if($total_sent % 50 === 0 && DB()->query("SELECT status FROM xcore_newsletter WHERE id = :id", ['id' => $id])->fetchOne() !== 'sending')
+				{
+
+					$interrupted = 'stopped from the backend';
+					break;
+
+				}
 
 			}
 
-			$left = (int)DB()->query($recipients_sql($newsletter, $list_ids, true))->fetchOne();
-			echo "#{$newsletter['id']} {$newsletter['subject']}: {$sent} sent, {$failed} error(s), {$left} left".CR;
+			if($interrupted === 'stopped from the backend')
+			{
+
+				echo "#{$id} {$newsletter['subject']}: {$sent} sent, {$failed} error(s), {$skipped} skipped, {$interrupted}".CR;
+				continue;
+
+			}
+
+			if($interrupted !== '')
+			{
+
+				$status($id, 'error', $interrupted);
+				echo "#{$id} {$newsletter['subject']}: {$interrupted}".CR;
+				continue;
+
+			}
+
+			$left = \Core\Newsletter::remainingRecipients($id, $list_ids);
+			echo "#{$id} {$newsletter['subject']}: {$sent} sent, {$failed} error(s), {$skipped} skipped, {$left} left".CR;
 			if($left > 0)continue;
 
 		}
 
-		// finished: every recipient processed, end of the sending window or no list
-		DB()->query("UPDATE xcore_newsletter SET status = 'sent', updated_at = :now, updated_by = 'cron' WHERE id = :id", ['now' => now(), 'id' => $newsletter['id']]);
-		$stats = DB()->query("SELECT action, COUNT(*) FROM xcore_newsletter_data WHERE deleted = 'no' AND xcore_newsletter_id = :id GROUP BY action", ['id' => $newsletter['id']])->fetchAll(\PDO::FETCH_KEY_PAIR);
-		$summary = "Newsletter #{$newsletter['id']} {$newsletter['subject']}: ".((int)($stats['sent'] ?? 0))." sent, ".((int)($stats['sent-error'] ?? 0))." error(s)".(($stopped) ? ", stopped at the end of the sending window" : "");
+		// finished: every recipient processed or end of the sending window
+		$status($id, 'sent');
+		$stats = \Core\Newsletter::stats($id);
+		$summary = "Newsletter #{$id} {$newsletter['subject']}: {$stats['sent']} sent, {$stats['sent-error']} error(s), ".($stats['blacklisted'] + $stats['refused'])." skipped".(($stopped) ? ", stopped at the end of the sending window" : "");
 		echo $summary.CR;
 
 		if($newsletter['scheduler_report_email'] === 'yes')
@@ -153,12 +198,14 @@ foreach($newsletters as $newsletter)
 	{
 
 		// one newsletter in error does not block the others, the task ends in error
-		$errors[] = "#{$newsletter['id']}: ".$e->getMessage();
-		echo "#{$newsletter['id']} {$newsletter['subject']}: ".$e->getMessage().CR;
+		$errors[] = "#{$id}: ".$e->getMessage();
+		echo "#{$id} {$newsletter['subject']}: ".$e->getMessage().CR;
 
 	}
 
 }
+
+if($mail && $mail->Mailer === 'smtp')$mail->smtpClose();
 
 echo "{$total_sent} email(s) processed".CR;
 if($errors)throw new \RuntimeException(implode(' | ', $errors));

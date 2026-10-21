@@ -81,6 +81,39 @@ class Mailer
 
 
 	/**
+	 * transport from globals: smtp when <prefix>.host is set, otherwise php mail()
+	 *
+	 * @param PHPMailer $mail
+	 * @param string $prefix globals prefix, ex: newsletter.smtp for a dedicated server
+	 *
+	 * @return void
+	 */
+	public static function transport(PHPMailer $mail, string $prefix='mailer.smtp'):void
+	{
+
+		$smtp_host = trim((string)\Core\Globals::get("{$prefix}.host", ($prefix === 'mailer.smtp') ? 'localhost' : '', true, 'text', 'smtp host, empty = php mail()'));
+		if($smtp_host === '')return;
+
+		$mail->isSMTP();
+		$mail->Host = $smtp_host;
+		$mail->Port = (int)\Core\Globals::get("{$prefix}.port", '25', true, 'int', 'smtp port');
+
+		$security = (string)\Core\Globals::get("{$prefix}.security", '', true, 'text', 'smtp encryption: empty, tls or ssl');
+		$mail->SMTPSecure = (in_array($security, ['tls', 'ssl'], true)) ? $security : '';
+
+		$username = (string)\Core\Globals::get("{$prefix}.username", '', true, 'text', 'smtp user, empty = no authentication');
+		if($username !== '')
+		{
+
+			$mail->SMTPAuth = true;
+			$mail->Username = $username;
+			$mail->Password = (string)\Core\Globals::get("{$prefix}.password", '', true, 'text', 'smtp password');
+
+		}
+
+	}
+
+	/**
 	 * @param string|array $from array(author|email) or string with | as separator
 	 * @param string|array $to  if string separated by ;
 	 * @param string       $subject
@@ -97,29 +130,7 @@ class Mailer
 
 		$mail = new PHPMailer(true);
 
-		// transport from globals: smtp when mailer.smtp.host is set, otherwise php mail()
-		$smtp_host = trim((string)\Core\Globals::get('mailer.smtp.host', 'localhost', true, 'text', 'smtp host, empty = php mail()'));
-		if($smtp_host !== '')
-		{
-
-			$mail->isSMTP();
-			$mail->Host = $smtp_host;
-			$mail->Port = (int)\Core\Globals::get('mailer.smtp.port', '25', true, 'int', 'smtp port');
-
-			$security = (string)\Core\Globals::get('mailer.smtp.security', '', true, 'text', 'smtp encryption: empty, tls or ssl');
-			$mail->SMTPSecure = (in_array($security, ['tls', 'ssl'], true)) ? $security : '';
-
-			$username = (string)\Core\Globals::get('mailer.smtp.username', '', true, 'text', 'smtp user, empty = no authentication');
-			if($username !== '')
-			{
-
-				$mail->SMTPAuth = true;
-				$mail->Username = $username;
-				$mail->Password = (string)\Core\Globals::get('mailer.smtp.password', '', true, 'text', 'smtp password');
-
-			}
-
-		}
+		self::transport($mail);
 
 		if(!isset($options['charset']))$options['charset'] = 'utf-8';
 		$mail->CharSet = $options['charset'];

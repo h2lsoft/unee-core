@@ -232,6 +232,12 @@ abstract class CrudController extends Controller
 		if(!$this->versioning())return JsonResponse::error(404, 'versioning is not enabled');
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
 
+		// rules of the module still apply (ex: a record locked by its status)
+		$v = new Validator(App()->locale, $record);
+		$v->addLocaleMessages(App()->locale, \Core\I18n::messages());
+		$this->rulesOnUpdate($v, $record);
+		if($v->fails())return JsonResponse::error(422, (string)($v->result()['error_stack'][0] ?? 'restore refused'));
+
 		$json = DB()->query("SELECT data_json FROM xcore_versioning WHERE id = :version AND deleted = 'no' AND `table` = :table AND record_id = :id", ['version' => $version, 'table' => $this->table, 'id' => $id])->fetchOne();
 		if(!$json)return JsonResponse::error(404, 'version not found');
 
