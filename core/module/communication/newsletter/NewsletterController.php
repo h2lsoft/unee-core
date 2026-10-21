@@ -8,7 +8,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * newsletters (xcore_newsletter): campaign, sender, subjects (a/b tests), html template urls, lists and schedule
- * entry only: the sending (xcore_newsletter_data) comes later
+ * sent by the cron task Newsletter sender (core/cron/newsletter_sender.php), one xcore_newsletter_data row per recipient
  */
 #[Route('/api/newsletter', name: 'api.newsletter.')]
 class NewsletterController extends \Core\CrudController

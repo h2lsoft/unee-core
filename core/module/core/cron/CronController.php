@@ -36,6 +36,7 @@ class CronController extends \Core\CrudController
 		$grid->setMobile('name', 'schedule');
 		$grid->batchEdit(['category', 'priority', 'active']);
 		$grid->rowAction('run', 'Run now', 'play_arrow', 'edit');
+		$grid->rowAction('unlock', 'Unlock', 'lock_open', 'edit');
 
 		$grid->addColNumber('priority', 'Priority', true)->width(80);
 		$grid->addCol('id', 'ID', true)->width(64);
@@ -45,7 +46,7 @@ class CronController extends \Core\CrudController
 		$grid->addColBadge('status', 'Status', true, self::STATUSES)->labels(['idle' => 'idle', 'running' => 'running', 'success' => 'success', 'error' => 'error'])->width(100);
 		$grid->addColDatetime('last_execution_date_start', 'Last run', true)->width(150);
 		$grid->addCol('duration', 'Duration', false, 'text', ['align' => 'right'])->width(90);
-		$grid->addColBoolean('locked', 'Locked', true, true)->width(80);
+		$grid->addColBoolean('locked', 'Locked', true)->width(80);
 		$grid->addColBoolean('active', 'Active', true, true)->width(80);
 
 		$grid->hookData(function(array $row):array{
@@ -157,6 +158,24 @@ class CronController extends \Core\CrudController
 		if(($row['status'] ?? '') === 'error')return \Core\JsonResponse::error(422, ts('Error: [ERROR]', ['ERROR' => $row['last_error_message']]));
 
 		return new \Core\JsonResponse(['message' => ts('Task executed')]);
+
+	}
+
+	/**
+	 * unlocks a task left locked by a killed process (the locked column is read only)
+	 *
+	 * @param array $record
+	 *
+	 * @return \Core\JsonResponse {"message"}
+	 */
+	protected function rowUnlock(array $record):\Core\JsonResponse
+	{
+
+		if($record['locked'] !== 'yes')return \Core\JsonResponse::error(422, ts('the task is not locked'));
+
+		DB()->query("UPDATE xcore_crontask SET locked = 'no', locked_date = NULL, status = 'idle' WHERE id = :id", ['id' => $record['id']]);
+
+		return new \Core\JsonResponse(['message' => ts('Task unlocked')]);
 
 	}
 
