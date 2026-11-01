@@ -6,7 +6,7 @@ import {
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-	CheckBoxOutlined, CloseOutlined, ContentCopyOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
+	CheckBoxOutlined, CloseOutlined, FileDownloadOutlined, ContentCopyOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
 	MailOutlined, OpenInNewOutlined,
 } from '@mui/icons-material'
@@ -1240,6 +1240,14 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 						{f.mine && <IconButton size="small" aria-label={`${t('Delete')} ${f.name}`} onClick={(e) => { e.stopPropagation(); deleteSaved(f) }} sx={{ml: 1, color: 'var(--u-text3)'}}><DeleteOutlineOutlined sx={{fontSize: 16}} /></IconButton>}
 					</MenuItem>
 				))}
+				{/* csv of the current search, filters and sort (allowExport() + right export) */}
+				{grid.export && <Divider />}
+				{grid.export && (
+					<MenuItem component="a" href={`/api/${module}/export/${query ? `?${query}` : ''}`} onClick={() => setGridMenu(null)}>
+						<ListItemIcon><FileDownloadOutlined fontSize="small" /></ListItemIcon>
+						<ListItemText>{t('Export (CSV)')}</ListItemText>
+					</MenuItem>
+				)}
 			</Menu>
 
 			<Menu anchorEl={columns_menu} open={!!columns_menu} onClose={() => setColumnsMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>

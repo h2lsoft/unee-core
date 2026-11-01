@@ -43,6 +43,7 @@ class DataGrid
 	public string $order_dir = 'desc';
 	public array $per_page_options = [10, 25, 100, 500, 1000];
 	public bool $batch = true;
+	public bool $export = false;
 	public array $batch_edit = [];
 	public string $position = '';
 	public array $batch_actions = [];
@@ -337,6 +338,21 @@ class DataGrid
 	{
 
 		$this->columns[$this->last]['human_column'] = "_human_{$this->last}";
+		return $this;
+
+	}
+
+	/**
+	 * csv export of the grid (GET /api/<module>/export/, same search, filters and sort), also needs the right export of the plugin
+	 *
+	 * @param bool $allow
+	 *
+	 * @return static
+	 */
+	public function allowExport(bool $allow=true):static
+	{
+
+		$this->export = $allow;
 		return $this;
 
 	}
@@ -723,7 +739,7 @@ class DataGrid
 	 *
 	 * @return array
 	 */
-	public function render(Request $request):array
+	public function render(Request $request, int $limit=0):array
 	{
 
 		$binds = $this->binds;
@@ -835,12 +851,13 @@ class DataGrid
 		$dir = strtolower((string)$request->query->get('dir', $this->order_dir));
 		if(!in_array($dir, ['asc', 'desc'], true))$dir = $this->order_dir;
 
-		// pagination
+		// pagination, $limit = every row up to it on one page (export)
 		$per_page = (int)$request->query->get('per_page', $this->per_page);
 		if(!in_array($per_page, $this->per_page_options, true))$per_page = $this->per_page;
+		if($limit > 0)$per_page = $limit;
 		$total = (int)DB()->query("SELECT COUNT(*) FROM {$this->quote($this->table)} WHERE {$where}", $binds)->fetchOne();
 		$last_page = max(1, (int)ceil($total / $per_page));
-		$page = min(max(1, (int)$request->query->get('page', 1)), $last_page);
+		$page = ($limit > 0) ? 1 : min(max(1, (int)$request->query->get('page', 1)), $last_page);
 		$offset = ($page - 1) * $per_page;
 
 		$fields = '*';

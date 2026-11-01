@@ -43,6 +43,7 @@ class UserController extends \Core\CrudController
 		$grid->setOrderByFirst('fullname', 'asc');
 		$grid->setMobile('fullname', 'email');
 		$grid->batchEdit(['xcore_group_id', 'active']);
+		$grid->allowExport();
 		$grid->rowAction('connect-as', 'Connect as', 'login', 'connect_as');
 		$grid->rowAction('connections', 'Connections', 'history', 'list', 'log/?search[]=action||begins||logon&search[]=record_id||{id}');
 		if(\Core\TwoFactor::enabled('backend'))$grid->rowAction('two-factor-reset', 'Reset 2FA', 'phonelink_lock', 'two_factor_reset');

@@ -165,6 +165,7 @@ export type Grid = {
 	title: string
 	label: string
 	rights: string[]
+	export: boolean
 	columns: GridColumn[]
 	filters: GridFilter[]
 	conditions: {f: string, o: string, v: string}[]

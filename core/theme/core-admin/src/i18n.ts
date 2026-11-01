@@ -26,6 +26,7 @@ const fr: Record<string, string> = {
 	'Lost your phone? Contact your administrator.': 'Téléphone perdu ? Contactez votre administrateur.',
 	'Back to sign in': 'Retour à la connexion',
 	'Connected as [NAME]': 'Connecté en tant que [NAME]',
+	'Export (CSV)': 'Exporter (CSV)',
 	'Back to my account ([LOGIN])': 'Revenir à mon compte ([LOGIN])',
 	'Forgot password': 'Mot de passe oublié',
 	'Forgot Password': 'Mot de passe oublié',

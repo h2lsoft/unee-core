@@ -18,6 +18,9 @@ use Symfony\Component\HttpFoundation\Request;
 abstract class CrudController extends Controller
 {
 
+	// rows of a csv export at most
+	public const int EXPORT_MAX_ROWS = 50000;
+
 	/**
 	 * table with the soft delete columns
 	 */
@@ -69,7 +72,61 @@ abstract class CrudController extends Controller
 		if($denied = $this->deny('list'))return $denied;
 
 		$grid = $this->buildGrid();
-		return new JsonResponse(['title' => ts($this->title), 'label' => ts($this->object_label), 'rights' => \Model\User::getRights($this->module)] + $grid->render($request));
+		return new JsonResponse(['title' => ts($this->title), 'label' => ts($this->object_label), 'rights' => \Model\User::getRights($this->module), 'export' => $grid->export && \Model\User::hasRight($this->module, 'export')] + $grid->render($request));
+
+	}
+
+	/**
+	 * csv of the grid with its search, filters and sort ($grid->allowExport() and right export), utf-8 with bom and ; for excel
+	 *
+	 * @param Request $request same query as the list
+	 *
+	 * @return \Symfony\Component\HttpFoundation\Response text/csv attachment
+	 */
+	#[Route('/export/', name: 'export', methods: ['GET'])]
+	public function apiExport(Request $request):\Symfony\Component\HttpFoundation\Response
+	{
+
+		if($denied = $this->deny('export'))return $denied;
+
+		$grid = $this->buildGrid();
+		if(!$grid->export)return JsonResponse::error(404, 'export not allowed');
+
+		// shortcut: rows held in memory up to EXPORT_MAX_ROWS, stream them if exports get bigger
+		$data = $grid->render($request, self::EXPORT_MAX_ROWS);
+		$columns = array_filter($data['columns'], fn($c) => !in_array($c['type'], ['position', 'icon', 'color'], true));
+
+		$out = fopen('php://temp', 'r+');
+		fwrite($out, "\xEF\xBB\xBF");
+		fputcsv($out, array_map(fn($c) => $c['label'], $columns), ';', '"', '');
+		foreach($data['rows'] as $row)
+		{
+
+			$line = [];
+			foreach($columns as $c)
+			{
+
+				$value = $row[$c['name']] ?? '';
+				if($c['type'] === 'boolean')$value = ($value === 'yes') ? ts('Yes') : ts('No');
+				elseif(isset($c['labels']))$value = ((array)$c['labels'])[(string)$value] ?? $value;
+				$value = is_scalar($value) ? (string)$value : '';
+
+				// formula injection: a text starting like a formula is not run by the spreadsheet
+				if($value !== '' && !is_numeric($value) && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true))$value = "'{$value}";
+				$line[] = $value;
+
+			}
+			fputcsv($out, $line, ';', '"', '');
+
+		}
+		rewind($out);
+		$csv = stream_get_contents($out);
+		fclose($out);
+
+		\Core\Log::write('export', count($data['rows']).' rows exported', [], 0, 'info', $this->module);
+
+		$filename = $this->module.'-'.date('Y-m-d-His').'.csv';
+		return new \Symfony\Component\HttpFoundation\Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => "attachment; filename=\"{$filename}\""]);
 
 	}
 
