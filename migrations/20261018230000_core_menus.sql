@@ -26,3 +26,9 @@ FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `xcore_menu` WHERE `name` = 'Communica
 INSERT INTO `xcore_menu` (`name`, `icon`, `color`, `position`, `created_at`, `created_by`)
 SELECT 'Tools', 'handyman', '#ffa500', 60, NOW(), 'unee-migrate'
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `xcore_menu` WHERE `name` = 'Tools' AND `deleted` = 'no');
+
+-- @down
+
+DELETE FROM `xcore_menu` WHERE `name` IN ('Configuration', 'CRM', 'Website', 'Communication', 'Tools') AND `created_by` = 'unee-migrate';
+UPDATE `xcore_menu` SET `color` = '' WHERE `name` = 'Administration' AND `deleted` = 'no' AND `color` = '#ee82ee' AND `updated_by` = 'unee-migrate';
+UPDATE `xcore_menu` SET `position` = 100 WHERE `name` = 'Administration' AND `deleted` = 'no' AND `position` = 20 AND `updated_by` = 'unee-migrate';

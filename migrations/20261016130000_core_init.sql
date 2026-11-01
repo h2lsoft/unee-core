@@ -1029,3 +1029,48 @@ CREATE TABLE IF NOT EXISTS `xcore_widget` (
   KEY `xcore_plugin_id` (`xcore_plugin_id`),
   KEY `deleted` (`deleted`)
 ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- @down
+
+-- xcore_migration is kept: it records the rollback itself
+DROP TABLE IF EXISTS `xcore_article`;
+DROP TABLE IF EXISTS `xcore_blacklist`;
+DROP TABLE IF EXISTS `xcore_block`;
+DROP TABLE IF EXISTS `xcore_crontask`;
+DROP TABLE IF EXISTS `xcore_dump`;
+DROP TABLE IF EXISTS `xcore_entity_log`;
+DROP TABLE IF EXISTS `xcore_event`;
+DROP TABLE IF EXISTS `xcore_files`;
+DROP TABLE IF EXISTS `xcore_gallery`;
+DROP TABLE IF EXISTS `xcore_gallery_card`;
+DROP TABLE IF EXISTS `xcore_globals`;
+DROP TABLE IF EXISTS `xcore_group`;
+DROP TABLE IF EXISTS `xcore_group_right`;
+DROP TABLE IF EXISTS `xcore_layout`;
+DROP TABLE IF EXISTS `xcore_list`;
+DROP TABLE IF EXISTS `xcore_log`;
+DROP TABLE IF EXISTS `xcore_mail_template`;
+DROP TABLE IF EXISTS `xcore_mailinglist`;
+DROP TABLE IF EXISTS `xcore_mailinglist_subscriber`;
+DROP TABLE IF EXISTS `xcore_menu`;
+DROP TABLE IF EXISTS `xcore_newsletter`;
+DROP TABLE IF EXISTS `xcore_newsletter_data`;
+DROP TABLE IF EXISTS `xcore_page`;
+DROP TABLE IF EXISTS `xcore_page_template`;
+DROP TABLE IF EXISTS `xcore_page_visitor`;
+DROP TABLE IF EXISTS `xcore_page_zone`;
+DROP TABLE IF EXISTS `xcore_pattern`;
+DROP TABLE IF EXISTS `xcore_plugin`;
+DROP TABLE IF EXISTS `xcore_slider`;
+DROP TABLE IF EXISTS `xcore_slider_card`;
+DROP TABLE IF EXISTS `xcore_tag`;
+DROP TABLE IF EXISTS `xcore_ticket`;
+DROP TABLE IF EXISTS `xcore_ticket_message`;
+DROP TABLE IF EXISTS `xcore_ticket_template`;
+DROP TABLE IF EXISTS `xcore_url_redirect`;
+DROP TABLE IF EXISTS `xcore_user`;
+DROP TABLE IF EXISTS `xcore_user_bookmark`;
+DROP TABLE IF EXISTS `xcore_user_note`;
+DROP TABLE IF EXISTS `xcore_user_search`;
+DROP TABLE IF EXISTS `xcore_versioning`;
+DROP TABLE IF EXISTS `xcore_widget`;

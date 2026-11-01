@@ -36,3 +36,12 @@ WHERE m.name = 'Administration' AND m.deleted = 'no'
 AND NOT EXISTS (SELECT 1 FROM `xcore_plugin` WHERE `route_prefix_name` = 'url-redirect' AND `deleted` = 'no')
 ORDER BY m.id
 LIMIT 1;
+
+-- @down
+
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('plugin', 'group', 'list', 'url-redirect') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('plugin', 'group', 'list', 'url-redirect') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('plugin', 'group', 'list', 'url-redirect') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('plugin', 'group', 'list', 'url-redirect') AND `created_by` = 'unee-migrate';
+ALTER TABLE `xcore_url_redirect` DROP COLUMN IF EXISTS `description`;
+ALTER TABLE `xcore_list` DROP COLUMN IF EXISTS `color`, MODIFY `icon` varchar(255) NOT NULL, MODIFY `class` varchar(255) NOT NULL, MODIFY `style` varchar(255) NOT NULL;

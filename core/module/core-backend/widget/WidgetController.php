@@ -23,6 +23,7 @@ class WidgetController extends \Core\CrudController
 	{
 
 		$grid->qSelect("(SELECT p.name FROM xcore_plugin p WHERE p.id = xcore_widget.xcore_plugin_id AND p.deleted = 'no')", 'plugin');
+		$grid->qSelect("(SELECT p.icon FROM xcore_plugin p WHERE p.id = xcore_widget.xcore_plugin_id AND p.deleted = 'no')", 'plugin_icon');
 		$grid->setSearch(['name', 'method'], 'Search name, method...');
 		$grid->addFilter('name', 'Name');
 		$grid->addFilter('size', 'Size', 'select', self::SIZES);
@@ -33,15 +34,28 @@ class WidgetController extends \Core\CrudController
 		$grid->addColPosition();
 		$grid->addCol('id', 'ID', true)->width(64);
 		$grid->addCol('name', 'Name', true);
-		$grid->addCol('plugin', 'Plugin')->width(160);
-		$grid->addCol('method', 'Method');
+		$grid->addCol('plugin', 'Plugin', false, 'text', ['icon_column' => 'plugin_icon'])->width(180);
+		$grid->addCol('method', 'Method')->code();
 		$grid->addColBadge('size', 'Size', true, ['full' => 'blue', 'half' => 'purple'])->labels(self::SIZES)->width(110);
-		$grid->addCol('refresh', 'Refresh', false, 'text', ['align' => 'right'])->width(90);
+		$grid->addCol('refresh', 'Refresh', false, 'chip', ['icon_column' => 'refresh_icon', 'style_column' => 'refresh_style', 'align' => 'center'])->width(80);
 		$grid->addColBoolean('active', 'Active', true, true)->width(80);
 
 		$grid->hookData(function(array $row):array{
 
-			$row['refresh'] = ($row['autorefresh'] === 'yes') ? "{$row['autorefresh_seconds']} s" : '-';
+			// timer icon and seconds without badge background, - when no auto refresh
+			$row['refresh'] = ($row['autorefresh'] === 'yes') ? "{$row['autorefresh_seconds']} s" : '';
+			$row['refresh_icon'] = 'timer';
+			$row['refresh_style'] = 'background-color: transparent';
+
+			// widget without plugin: shown to every user
+			if((int)$row['xcore_plugin_id'] === 0)
+			{
+
+				$row['plugin'] = ts('All users');
+				$row['plugin_icon'] = 'groups';
+
+			}
+
 			return $row;
 
 		});
@@ -52,7 +66,7 @@ class WidgetController extends \Core\CrudController
 	{
 
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', true, "type != 'url'")->help('the list right on this plugin shows the widget, its title links to the plugin');
+		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', false, "type != 'url'")->help('the list right on this plugin shows the widget, its title links to the plugin, empty: shown to every user');
 		$form->addText('method', 'Method', true)->maxLength(255)->placeholder('Plugin\Core\CronController::widgetCron')->help('public static method of a module returning the data of the widget');
 		$form->addRadio('size', 'Size', self::SIZES, true)->defaultValue('full');
 		$form->addBoolean('autorefresh', 'Auto refresh')->defaultValue('no');

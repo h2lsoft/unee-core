@@ -102,7 +102,7 @@ class Form
 	public function addColor(string $name, string $label='', bool $required=false):static
 	{
 
-		return $this->add('color', $name, $label, $required, ['default' => '#6d4aff']);
+		return $this->add('color', $name, $label, $required, ['default' => '#4169e1']);
 
 	}
 

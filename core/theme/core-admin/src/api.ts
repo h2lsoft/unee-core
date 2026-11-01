@@ -85,6 +85,7 @@ export type LoginConfig = {
 	login_key: 'email' | 'login'
 	logo: string | null
 	header_background: string | null
+	stylesheets: string[]
 	login: {
 		image: string | null
 		title: string | null
@@ -120,12 +121,15 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email' | 'file'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email' | 'file' | 'url' | 'flag'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
 	colors?: Record<string, string>
 	toggle?: boolean
+	checkbox?: boolean
+	code?: boolean
+	small?: boolean
 	color_column?: string
 	icon?: string
 	class_column?: string
@@ -137,6 +141,9 @@ export type GridColumn = {
 	filter_column?: string
 	human_column?: string
 	file_column?: string
+	sub_column?: string
+	sub_url_column?: string
+	flag_column?: string
 }
 
 // action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header
@@ -146,7 +153,7 @@ export type GridAction = {name: string, label: string, icon: string, right: stri
 export type GridFilter = {
 	name: string
 	label: string
-	type: 'text' | 'number' | 'date' | 'select' | 'boolean'
+	type: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'multiselect'
 	operators: string[]
 	options: Option[]
 }
@@ -162,7 +169,7 @@ export type Grid = {
 	conditions: {f: string, o: string, v: string}[]
 	match: 'all' | 'any'
 	q: string
-	chips: {name: string, all: boolean, active: string, total: number, options: (Option & {count: number})[]} | null
+	chips: {name: string, all: boolean, active: string, total: number, options: (Option & {count: number, color?: string})[]} | null
 	search: {placeholder: string} | null
 	sort: {column: string, dir: 'asc' | 'desc'}
 	rows: Row[]
@@ -170,6 +177,7 @@ export type Grid = {
 	per_page_options: number[]
 	batch: {edit: string[], actions: {name: string, label: string, icon: string, right: string}[]} | null
 	detail: boolean
+	duplicate: boolean
 	row_actions: RowAction[]
 	grid_actions: GridAction[]
 	mobile: {title: string, subtitle: string}
@@ -207,6 +215,10 @@ export type FormField = {
 	language?: string
 	ucfirst?: boolean
 	lowercase?: boolean
+	open_link?: boolean
+	mask?: string
+	align?: 'left' | 'center' | 'right'
+	hide_label?: boolean
 	inline?: boolean
 	size?: number
 	step?: number

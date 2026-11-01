@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class DashboardController extends \Core\Controller
 {
 
-	public const array NOTE_COLORS = ['yellow', 'green', 'blue', 'pink', 'purple'];
+	public const array NOTE_COLORS = ['yellow', 'green', 'primary'];
 
 	/**
 	 * content of the home page for the logged user
@@ -42,6 +42,18 @@ class DashboardController extends \Core\Controller
 		if($data === null)return \Core\JsonResponse::error(404, 'widget not found');
 
 		return new \Core\JsonResponse($data);
+
+	}
+
+	/**
+	 * widget of the personal notes (\Core\Widget::NOTES): drawn by the dashboard itself
+	 *
+	 * @return array
+	 */
+	public static function widgetNotes():array
+	{
+
+		return ['type' => 'notes'];
 
 	}
 

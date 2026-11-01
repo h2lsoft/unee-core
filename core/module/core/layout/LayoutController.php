@@ -25,15 +25,13 @@ class LayoutController extends \Core\CrudController
 		$grid->addFilterChips('category');
 		$grid->addFilter('category', 'Category');
 		$grid->addFilter('name', 'Name');
-		$grid->addFilter('content', 'Content');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'description');
 		$grid->batchEdit(['category']);
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('category', 'Category', true)->width(160);
-		$grid->addCol('name', 'Name', true);
-		$grid->addCol('description', 'Description');
+		$grid->addCol('name', 'Name', true)->subText('description');
 
 	}
 

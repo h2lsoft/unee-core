@@ -70,30 +70,6 @@ else
 $DB = \Core\DB::connectFromConfig();
 $PDO = $DB->getConnectionLink();
 
-// url redirect firewall ***********************************************************************************************
-if(!APP_CLI_MODE)
-{
-	$scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-	$port = $_SERVER['SERVER_PORT'];
-	$is_default_port = ($scheme === 'https' && $port == 443) || ($scheme === 'http' && $port == 80);
-
-	$url_complete = $scheme.'://'.$_SERVER['HTTP_HOST'];
-	if(!$is_default_port)
-		$url_complete .= ':'.$port;
-	$url_complete .= $_SERVER['REQUEST_URI'];
-
-	$recs = $DB->query("select * from xcore_url_redirect where deleted = 'no' and active = 'yes' order by position")->fetchAll();
-	foreach($recs as $rec)
-	{
-		if(preg_match($rec['rule'], $url_complete))
-		{
-			http_response_code($rec['code']);
-			header('Location: '.$rec['url']);
-			die();
-		}
-	}
-}
-
 // format **************************************************************************************************************
 if($request->getRequestFormat() != $request->request->get('_format', 'html'))
 	$request->setRequestFormat($request->request->get('_format', 'html'));
@@ -106,8 +82,12 @@ if(isset($_GET['_format']) && in_array($_GET['_format'], ['json', 'text', 'html'
 $cur_uri = strtok($request->getRequestUri(), '?');
 if(\Core\Backend::matches($cur_uri))
 {
-	\Core\Backend::response($cur_uri)->send();
+
+	// answered before the kernel: the url redirects apply here too, unless the middleware url.redirect is disabled
+	$response = (\Core\Config::get('middlewares_before', [])['url.redirect'] ?? null) ? \Plugin\Core\Url_RedirectController::redirect($request) : null;
+	($response ?? \Core\Backend::response($cur_uri))->send();
 	return;
+
 }
 
 // routes **************************************************************************************************************

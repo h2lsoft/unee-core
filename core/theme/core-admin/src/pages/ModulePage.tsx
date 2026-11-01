@@ -22,7 +22,7 @@ export default function ModulePage()
 	const {menu, find} = useMenu()
 	const [params] = useSearchParams()
 	const item = find(module)
-	const [form, setForm] = useState<{open: boolean, id: number}>({open: false, id: 0})
+	const [form, setForm] = useState<{open: boolean, id: number, copy?: number}>({open: false, id: 0})
 	const [version, setVersion] = useState(0)
 	const [label, setLabel] = useState('')
 
@@ -50,10 +50,12 @@ export default function ModulePage()
 				onTitle={(_, record_label) => setLabel(record_label)}
 				onAdd={() => setForm({open: true, id: 0})}
 				onEdit={(row: Row) => setForm({open: true, id: row.id})}
+				onDuplicate={(row: Row) => setForm({open: true, id: 0, copy: row.id})}
 			/>
 			<FormDialog
 				module={module}
 				id={form.id}
+				copy={form.copy}
 				label={label}
 				open={form.open}
 				defaults={defaults}

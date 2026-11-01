@@ -44,16 +44,16 @@ class PluginController extends \Core\CrudController
 		$grid->addColPosition();
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addColIcon('icon', 'Icon')->width(70);
-		$grid->addCol('name', 'Name', true);
+		$grid->addCol('name', 'Name', true)->subText('target', 'target');
 		$grid->addColBadge('type', 'Type', true, ['normal' => 'grey', 'url' => 'blue'])->width(90);
-		$grid->addCol('target', 'Route / url');
-		$grid->addColBoolean('versioning', 'Versioning', false, true)->width(110);
+		$grid->addColBoolean('versioning', 'Versioning', false, false, true)->width(110);
 		$grid->addColBoolean('visible', 'Visible', false, true)->width(90);
 		$grid->addColBoolean('active', 'Active', false, true)->width(90);
 
 		$grid->hookData(function(array $row):array{
 
-			$row['target'] = ($row['type'] === 'url') ? (string)$row['url'] : $row['route_prefix_name'];
+			// route of the plugin in the backend (/backend/route/) or its external url, under the name with a link
+			$row['target'] = ($row['type'] === 'url') ? (string)$row['url'] : '/'.\Core\Backend::dirname()."/{$row['route_prefix_name']}/";
 			return $row;
 
 		});

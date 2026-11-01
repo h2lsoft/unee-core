@@ -4,3 +4,7 @@
 INSERT INTO xcore_globals (category, name, type, description, value, created_at, created_by)
 SELECT 'frontend', 'frontend.langs', 'json-array', 'frontend languages [code, label], the first one is the default', '[["en","English"]]', NOW(), 'unee-migrate'
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM xcore_globals WHERE name = 'frontend.langs' AND deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_globals` WHERE `name` IN ('frontend.langs') AND `created_by` = 'unee-migrate';

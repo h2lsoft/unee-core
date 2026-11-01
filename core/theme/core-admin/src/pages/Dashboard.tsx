@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router'
 import { Box, CircularProgress, InputAdornment, OutlinedInput, Tab, Tabs, Typography } from '@mui/material'
-import { SearchOutlined } from '@mui/icons-material'
+import { SearchOutlined, WavingHandOutlined } from '@mui/icons-material'
 import { api, type MenuCategory, type MenuItem } from '../api'
 import { useDocumentTitle } from '../components/AuthLayout'
 import { MenuIcon } from '../components/icons'
 import Notes from '../components/Notes'
 import { WidgetCard, WidgetGrid, type WidgetInfo } from '../components/Widgets'
 import { useAuth } from '../auth'
-import { t } from '../i18n'
-
-// widgets from this position are below the notes
-const BELOW_NOTES = 100
+import { getLanguage, t } from '../i18n'
 
 const TABS = ['dashboard', 'menu'] as const
 type DashboardTab = typeof TABS[number]
@@ -51,6 +48,31 @@ function writeTab(tab: DashboardTab)
 		// private mode: not remembered
 
 	}
+
+}
+
+// digital clock (short day, date dd/mm/yyyy, hh:mm), refreshed every second
+function Clock()
+{
+
+	const [now, setNow] = useState(() => new Date())
+
+	useEffect(() => {
+
+		const timer = setInterval(() => setNow(new Date()), 1000)
+		return () => clearInterval(timer)
+
+	}, [])
+
+	const day = now.toLocaleDateString(getLanguage(), {weekday: 'short'}).replace('.', '')
+	const pad = (n: number) => String(n).padStart(2, '0')
+
+	return (
+		<Box component="time" dateTime={now.toISOString()} sx={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums', color: 'var(--u-muted)'}}>
+			<Box component="span" sx={{fontSize: 12.5}}>{day.charAt(0).toUpperCase() + day.slice(1)} {pad(now.getDate())}/{pad(now.getMonth() + 1)}/{now.getFullYear()}</Box>
+			<Box component="span" sx={{fontSize: {xs: 18, md: 20}, fontWeight: 500}}>{pad(now.getHours())}:{pad(now.getMinutes())}</Box>
+		</Box>
+	)
 
 }
 
@@ -96,6 +118,9 @@ export default function Dashboard()
 	const query = fold(search.trim())
 	const plugins = (menu ?? []).map((c) => ({...c, items: c.items.filter((i) => !i.hidden && fold(i.name).includes(query)).sort((a, b) => Number(fold(b.name).startsWith(query)) - Number(fold(a.name).startsWith(query)))})).filter((c) => c.items.length > 0)
 
+	// name highlighted inside the translated sentence
+	const [before, after = ''] = t('Welcome [NAME]').split('[NAME]')
+
 	const change = (value: DashboardTab) => {
 
 		setTab(value)
@@ -105,9 +130,14 @@ export default function Dashboard()
 
 	return (
 		<>
-			<Typography component="h1" sx={{m: 0, fontSize: {xs: 21, md: 24}, fontWeight: 600, letterSpacing: '-0.01em'}}>{t('Welcome [NAME]', {NAME: user?.firstname || user?.login || ''})}</Typography>
+			<Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2}}>
+				<Typography component="h1" sx={{m: 0, fontSize: {xs: 21, md: 24}, fontWeight: 600, letterSpacing: '-0.01em'}}>
+					<WavingHandOutlined aria-hidden sx={{fontSize: '0.9em', mr: 1, verticalAlign: '-0.1em', color: 'var(--u-accent-text)'}} />{before}<Box component="span" sx={{color: 'var(--u-accent-text)'}}>{user?.firstname || user?.login || ''}</Box>{after}
+				</Typography>
+				<Clock />
+			</Box>
 
-			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -1, borderBottom: '1px solid var(--u-border)', '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
+			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -2, borderBottom: '1px solid var(--u-border)', '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
 				<Tab value="dashboard" label={t('Dashboard')} />
 				<Tab value="menu" label={t('Plugins')} />
 			</Tabs>
@@ -115,9 +145,7 @@ export default function Dashboard()
 			{tab === 'dashboard' && !widgets && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 			{tab === 'dashboard' && widgets && (
 				<WidgetGrid>
-					{widgets.filter((w) => w.position < BELOW_NOTES).map((w) => <WidgetCard key={w.id} widget={w} version={0} />)}
-					<Notes />
-					{widgets.filter((w) => w.position >= BELOW_NOTES).map((w) => <WidgetCard key={w.id} widget={w} version={0} />)}
+					{widgets.map((w) => w.type === 'notes' ? <Notes key={w.id} widget={w} /> : <WidgetCard key={w.id} widget={w} version={0} />)}
 				</WidgetGrid>
 			)}
 

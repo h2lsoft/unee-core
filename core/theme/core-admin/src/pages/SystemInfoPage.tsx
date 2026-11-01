@@ -94,7 +94,8 @@ export default function SystemInfoPage({icon}: {icon: string})
 
 	return (
 		<>
-			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
+			{/* half the gap of the page below the title */}
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, mb: {xs: -1, md: -1.25}}}>
 				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
 				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{data.title}</Typography>
 				<BookmarkButton module="system-info" />

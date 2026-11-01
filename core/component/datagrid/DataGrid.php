@@ -18,11 +18,12 @@ class DataGrid
 	 * operators allowed by filter type, the first one is the default
 	 */
 	public const array OPERATORS = [
-		'text' => ['contains', 'eq', '!eq', 'begins', 'ends', 'empty', '!empty'],
+		'text' => ['contains', '!contains', 'eq', '!eq', 'begins', '!begins', 'ends', '!ends', 'empty', '!empty'],
 		'number' => ['eq', '!eq', 'lte', 'gte', 'empty', '!empty'],
 		'date' => ['eq', 'lte', 'gte', 'empty', '!empty'],
 		'select' => ['eq', '!eq', 'in'],
 		'boolean' => ['eq'],
+		'multiselect' => ['eq', '!eq'], // column holding a json array of values: eq = the value is in it
 	];
 
 	/**
@@ -40,7 +41,7 @@ class DataGrid
 	public array $binds = [];
 	public string $order_by = 'id';
 	public string $order_dir = 'desc';
-	public array $per_page_options = [25, 50, 100];
+	public array $per_page_options = [10, 25, 100, 500, 1000];
 	public bool $batch = true;
 	public array $batch_edit = [];
 	public string $position = '';
@@ -48,6 +49,7 @@ class DataGrid
 	public array $row_actions = [];
 	public array $grid_actions = [];
 	public bool $detail = false;
+	public bool $duplicate = true;
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
 	// folder of the module (\Core\CrudController), urls of the file columns
@@ -60,7 +62,7 @@ class DataGrid
 	 * @param string $table table with the soft delete columns (deleted = 'no' is always added)
 	 * @param int $per_page default rows per page, one of per_page_options
 	 */
-	public function __construct(public string $table, public int $per_page=25)
+	public function __construct(public string $table, public int $per_page=100)
 	{
 	}
 
@@ -141,13 +143,14 @@ class DataGrid
 	 * @param string $label
 	 * @param bool $sortable
 	 * @param bool $toggle
+	 * @param bool $checkbox read only checked box instead of Yes / No (ignored with toggle)
 	 *
 	 * @return static
 	 */
-	public function addColBoolean(string $name, string $label='', bool $sortable=false, bool $toggle=false):static
+	public function addColBoolean(string $name, string $label='', bool $sortable=false, bool $toggle=false, bool $checkbox=false):static
 	{
 
-		return $this->addCol($name, $label, $sortable, 'boolean', ['toggle' => $toggle]);
+		return $this->addCol($name, $label, $sortable, 'boolean', ['toggle' => $toggle, 'checkbox' => $checkbox]);
 
 	}
 
@@ -182,6 +185,16 @@ class DataGrid
 	{
 
 		return $this->addCol($name, $label, false, 'color');
+
+	}
+
+	/**
+	 * language shown as its flag (\Core\I18n::flag()), the code in its tooltip
+	 */
+	public function addColFlag(string $name, string $label='Lang', bool $sortable=false):static
+	{
+
+		return $this->addCol($name, $label, $sortable, 'flag', ['align' => 'center', 'flag_column' => "_flag_{$name}"]);
 
 	}
 
@@ -299,6 +312,23 @@ class DataGrid
 	}
 
 	/**
+	 * second line in small under the value of the last column, ex: the description under the name
+	 *
+	 * @param string $column column of the row
+	 * @param string $url_column column of the row holding a url: the second line is a link opened in a new tab
+	 *
+	 * @return static
+	 */
+	public function subText(string $column, string $url_column=''):static
+	{
+
+		$this->columns[$this->last]['sub_column'] = $column;
+		if($url_column !== '')$this->columns[$this->last]['sub_url_column'] = $url_column;
+		return $this;
+
+	}
+
+	/**
 	 * relative date shown instead of the date of the last column (date_humanizer), ex: 3 hours ago, the full date in its tooltip
 	 *
 	 * @return static
@@ -307,6 +337,32 @@ class DataGrid
 	{
 
 		$this->columns[$this->last]['human_column'] = "_human_{$this->last}";
+		return $this;
+
+	}
+
+	/**
+	 * last column shown very small and grey (secondary information, ex: log message)
+	 *
+	 * @return static
+	 */
+	public function small():static
+	{
+
+		$this->columns[$this->last]['small'] = true;
+		return $this;
+
+	}
+
+	/**
+	 * last column shown small in a <code> tag (technical values: method, class, path)
+	 *
+	 * @return static
+	 */
+	public function code():static
+	{
+
+		$this->columns[$this->last]['code'] = true;
 		return $this;
 
 	}
@@ -376,6 +432,19 @@ class DataGrid
 	{
 
 		$this->per_page_options = array_map('intval', $options);
+		return $this;
+
+	}
+
+	/**
+	 * action duplicate in the menu of a row, before delete (add and edit rights, on by default, duplicate(false) to remove it): the add form prefilled with the record, files and passwords empty
+	 *
+	 * @return static
+	 */
+	public function duplicate(bool $duplicate=true):static
+	{
+
+		$this->duplicate = $duplicate;
 		return $this;
 
 	}
@@ -541,7 +610,7 @@ class DataGrid
 	 *
 	 * @param string $name
 	 * @param string $label
-	 * @param string $type text, number, date, select, boolean
+	 * @param string $type text, number, date, select, boolean, multiselect (json array column, ex: xcore_group_ids)
 	 * @param array $options select: value => label
 	 * @param string $sql expression filtered, empty = the column `name`
 	 *
@@ -575,13 +644,29 @@ class DataGrid
 	 * @param string $name column of the table
 	 * @param array $options value => label, empty = distinct values of the column
 	 * @param bool $all tab All, false = a tab is always active (the first by default)
+	 * @param bool $hide_empty chips counting 0 rows hidden (the active one stays), All too when the total is 0, false = all the chips shown
 	 *
 	 * @return static
 	 */
-	public function addFilterChips(string $name, array $options=[], bool $all=true):static
+	public function addFilterChips(string $name, array $options=[], bool $all=true, bool $hide_empty=true):static
 	{
 
-		$this->chips = ['name' => $name, 'options' => $options, 'all' => $all];
+		$this->chips = ['name' => $name, 'options' => $options, 'all' => $all, 'hide_empty' => $hide_empty];
+		return $this;
+
+	}
+
+	/**
+	 * background of the chips by value, badge colors (grey, orange, red, green, blue...), ex: ['error' => 'red']
+	 *
+	 * @param array $colors value => color
+	 *
+	 * @return static
+	 */
+	public function chipColors(array $colors):static
+	{
+
+		$this->chips['colors'] = $colors;
 		return $this;
 
 	}
@@ -701,6 +786,13 @@ class DataGrid
 				$parts[] = (($operator === '!eq') ? 'NOT ' : '')."EXISTS(SELECT 1 FROM xcore_tag t WHERE t.deleted = 'no' AND t.signature = '{$this->table}' AND t.record_id = `{$this->table}`.id AND t.tag = :_c{$i})";
 
 			}
+			elseif($filter['type'] === 'multiselect')
+			{
+
+				$binds["_c{$i}"] = '%'.$this->escapeLike(json_encode((string)$value)).'%';
+				$parts[] = (($operator === '!eq') ? 'NOT ' : '')."COALESCE({$filter['sql']}, '') LIKE :_c{$i}";
+
+			}
 			else $parts[] = $this->filterSql($filter['sql'], $operator, $value, $binds, "_c{$i}");
 			$conditions[] = ['f' => $name, 'o' => $operator, 'v' => $value];
 
@@ -713,6 +805,14 @@ class DataGrid
 		{
 
 			$chips = ['name' => $this->chips['name'], 'all' => $this->chips['all']] + $this->chipOptions(implode(' AND ', $wheres), $binds);
+			if($this->chips['hide_empty'])
+			{
+
+				// chips at 0 hidden (the active one stays), All too when nothing is counted and no chip is active
+				$chips['options'] = array_values(array_filter($chips['options'], fn($o) => $o['count'] > 0 || $o['value'] === $chip));
+				if($chips['total'] === 0 && $chip === '')$chips['all'] = false;
+
+			}
 			if($chip === '' && !$this->chips['all'] && $chips['options'])$chip = $chips['options'][0]['value'];
 			$chips['active'] = $chip;
 
@@ -752,18 +852,23 @@ class DataGrid
 		$recs = DB()->query($sql, $binds)->fetchAll();
 
 		$rows = [];
-		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column', 'avatar_column', 'filter_column', 'human_column', 'file_column'])));
+		$keep = array_flip(array_merge(['id'], array_keys($this->columns), ...array_map(fn($key) => array_filter(array_column($this->columns, $key)), ['color_column', 'class_column', 'style_column', 'icon_column', 'avatar_column', 'filter_column', 'human_column', 'file_column', 'sub_column', 'sub_url_column', 'flag_column'])));
 		$locale = (string)(App()->locale ?? 'en');
 		foreach($recs as $rec)
 		{
 
 			if($this->hook)$rec = call_user_func($this->hook, $rec);
 
+			// a column named like a password is never sent to the browser
+			foreach($this->columns as $name => $column)
+				if(preg_match('/password|pwd/i', $name))$rec[$name] = ((string)($rec[$name] ?? '') === '') ? '' : '*****';
+
 			// computed values of the columns: user avatar, relative date
 			foreach($this->columns as $name => $column)
 			{
 
 				if(!empty($column['avatar_column']))$rec[$column['avatar_column']] = \Core\Widget::avatar($rec)['avatar'];
+				if(!empty($column['flag_column']))$rec[$column['flag_column']] = \Core\I18n::flag((string)($rec[$name] ?? ''));
 				if(!empty($column['human_column']))$rec[$column['human_column']] = date_humanizer($rec[$name] ?? null, $locale);
 				if(!empty($column['file_column']) && (string)($rec[$name] ?? '') !== '')$rec[$column['file_column']] = ['name' => basename((string)$rec[$name]), 'size' => \Core\File::privateSize((string)$rec[$name]), 'url' => "/api/{$this->module}/{$rec['id']}/file/{$name}/"];
 
@@ -797,6 +902,7 @@ class DataGrid
 				'actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->batch_actions)),
 			] : null,
 			'detail' => $this->detail,
+			'duplicate' => $this->duplicate,
 			'row_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label'])] + $a, $this->row_actions)),
 			'grid_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label']), 'confirm' => ($a['confirm'] !== '') ? ts($a['confirm']) : ''] + $a, $this->grid_actions)),
 			'mobile' => $this->mobile,
@@ -839,15 +945,17 @@ class DataGrid
 
 		$binds[$key] = match($operator)
 		{
-			'contains' => '%'.$this->escapeLike($value).'%',
-			'begins' => $this->escapeLike($value).'%',
-			'ends' => '%'.$this->escapeLike($value),
+			'contains', '!contains' => '%'.$this->escapeLike($value).'%',
+			'begins', '!begins' => $this->escapeLike($value).'%',
+			'ends', '!ends' => '%'.$this->escapeLike($value),
 			default => $value,
 		};
 
 		return match($operator)
 		{
 			'contains', 'begins', 'ends' => "{$sql} LIKE :{$key}",
+			// null holds no text: kept by the negations
+			'!contains', '!begins', '!ends' => "({$sql} IS NULL OR {$sql} NOT LIKE :{$key})",
 			'!eq' => "{$sql} != :{$key}",
 			'lte' => "{$sql} <= :{$key}",
 			'gte' => "{$sql} >= :{$key}",
@@ -886,7 +994,12 @@ class DataGrid
 
 		$list = $this->options($options);
 		foreach($list as $k => $option)
+		{
+
 			$list[$k]['count'] = $counts[$option['value']] ?? 0;
+			if(isset($this->chips['colors'][$option['value']]))$list[$k]['color'] = $this->chips['colors'][$option['value']];
+
+		}
 
 		return ['options' => $list, 'total' => array_sum($counts)];
 

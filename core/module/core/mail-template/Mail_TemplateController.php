@@ -20,11 +20,6 @@ class Mail_TemplateController extends \Core\CrudController
 	public string $object_label = 'template';
 	public array $ucfirst = ['category', 'description']; # name is a key of the code
 
-	/**
-	 * flag of a language (country code of core/theme/core-admin/src/components/Flag.tsx)
-	 */
-	private const array FLAGS = ['en' => 'gb', 'cs' => 'cz', 'da' => 'dk', 'el' => 'gr', 'he' => 'il', 'ja' => 'jp', 'ko' => 'kr', 'nb' => 'no', 'sv' => 'se', 'uk' => 'ua', 'zh' => 'cn', 'ar' => 'sa'];
-
 	protected function grid(DataGrid $grid):void
 	{
 
@@ -33,15 +28,17 @@ class Mail_TemplateController extends \Core\CrudController
 		$grid->addFilterChips('category');
 		$grid->addFilter('category', 'Category');
 		$grid->addFilter('name', 'Name');
+		$grid->addFilter('xcore_layout_id', 'Layout', 'select', DB()->query("SELECT id, name FROM xcore_layout WHERE deleted = 'no' AND category = 'mail' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR));
+		$grid->addFilter('active', 'Active', 'boolean');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'description');
 		$grid->batchEdit(['category', 'xcore_layout_id']);
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('category', 'Category', true)->width(140);
-		$grid->addCol('name', 'Name', true);
+		$grid->addCol('name', 'Name', true)->subText('description');
 		$grid->addCol('layout', 'Layout')->width(160);
-		$grid->addCol('description', 'Description');
+		$grid->addColBoolean('active', 'Active', true, true)->width(90);
 
 	}
 
@@ -55,11 +52,12 @@ class Mail_TemplateController extends \Core\CrudController
 		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('used by the code, ex: core.password.forgot');
 		$form->addText('description', 'Description')->maxLength(255);
 		$form->addSelectSql('xcore_layout_id', 'Layout', 'xcore_layout', 'name', false, "category = 'mail'");
+		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 		foreach($this->languages() as $lang => $label)
 		{
 
-			$form->tab($lang, $label, self::FLAGS[$lang] ?? $lang);
+			$form->tab($lang, $label, \Core\I18n::flag($lang));
 			$form->addText("sender_{$lang}", 'Sender')->maxLength(255)->placeholder('Name|email@example.com')->help('empty = noreply_email of the config');
 			$form->addText("subject_{$lang}", 'Subject', true)->maxLength(255);
 			$form->addCode("body_{$lang}", 'Message', true, 'html');

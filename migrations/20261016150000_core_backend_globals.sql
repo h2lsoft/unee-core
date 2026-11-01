@@ -11,3 +11,7 @@ FROM (
 	UNION ALL SELECT 'backend.login.notice_severity', 'text', 'notice color: info, warning, error or success'
 ) g
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_globals` x WHERE x.name = g.name AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_globals` WHERE `name` IN ('backend.logo', 'backend.login.image', 'backend.login.title', 'backend.login.subtitle', 'backend.login.notice', 'backend.login.notice_severity') AND `created_by` = 'unee-migrate';

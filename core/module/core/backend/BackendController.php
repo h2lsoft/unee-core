@@ -39,10 +39,11 @@ class BackendController extends \Core\Controller
 		$module = (string)$request->query->get('module');
 		if(!\Model\User::hasRight($module, 'list'))return \Core\JsonResponse::error(403, 'access denied');
 
-		$recs = DB()->query("SELECT id, xcore_user_id, xcore_group_id, name, conditions
+		// mine, or shared with my group (xcore_group_ids: json ["id"])
+		$recs = DB()->query("SELECT id, xcore_user_id, xcore_group_ids, name, conditions
 							 FROM xcore_user_filter
-							 WHERE deleted = 'no' AND plugin = :plugin AND (xcore_user_id = :user_id OR xcore_group_id = :group_id)
-							 ORDER BY (xcore_user_id = :user_id2) DESC, name", ['plugin' => $module, 'user_id' => \Model\User::getUID(), 'user_id2' => \Model\User::getUID(), 'group_id' => (int)\Core\Session::get('auth.group_id')])->fetchAll();
+							 WHERE deleted = 'no' AND plugin = :plugin AND (xcore_user_id = :user_id OR xcore_group_ids LIKE :group_like)
+							 ORDER BY (xcore_user_id = :user_id2) DESC, name", ['plugin' => $module, 'user_id' => \Model\User::getUID(), 'user_id2' => \Model\User::getUID(), 'group_like' => '%"'.(int)\Core\Session::get('auth.group_id').'"%'])->fetchAll();
 
 		$filters = [];
 		foreach($recs as $rec)
@@ -52,7 +53,7 @@ class BackendController extends \Core\Controller
 			$filters[] = [
 				'id' => (int)$rec['id'],
 				'name' => $rec['name'],
-				'shared' => ($rec['xcore_group_id'] !== null),
+				'shared' => (bool)json_decode((string)$rec['xcore_group_ids'], true),
 				'mine' => ((int)$rec['xcore_user_id'] === \Model\User::getUID()),
 				'match' => (($data['match'] ?? '') === 'any') ? 'any' : 'all',
 				'conditions' => array_values((array)($data['conditions'] ?? [])),
@@ -105,7 +106,7 @@ class BackendController extends \Core\Controller
 
 		$id = (int)DB('xcore_user_filter')->insert([
 			'xcore_user_id' => \Model\User::getUID(),
-			'xcore_group_id' => ($request->request->get('shared')) ? (int)\Core\Session::get('auth.group_id') : null,
+			'xcore_group_ids' => json_encode(($request->request->get('shared')) ? [(string)(int)\Core\Session::get('auth.group_id')] : []),
 			'plugin' => $module,
 			'name' => $name,
 			'conditions' => json_encode(['match' => ($request->request->get('match') === 'any') ? 'any' : 'all', 'conditions' => $conditions]),

@@ -18,6 +18,10 @@ class User extends \Core\Entity
 	public const int GROUP_SUPERADMIN = 1;
 	public const int GROUP_SYSTEM = 2;
 
+	// pending logon waiting for its second factor: lifetime in seconds, wrong codes before the password is asked again
+	public const int TWO_FACTOR_TTL = 300;
+	public const int TWO_FACTOR_MAX_ATTEMPTS = 5;
+
 	/**
 	 * is a user logged in the current session
 	 *
@@ -103,7 +107,7 @@ class User extends \Core\Entity
 	 * @param string $login email or login, depending on auth/backend/key
 	 * @param string $password
 	 *
-	 * @return string '' on success, 'throttled' or 'invalid'
+	 * @return string '' on success, 'throttled', 'invalid', 'two_factor' (code to type) or 'two_factor_setup' (app to set up), see twoFactorCheck()
 	 */
 	public static function logon(string $login, string $password):string
 	{
@@ -143,22 +147,144 @@ class User extends \Core\Entity
 		if(!$user || !$password_ok || $user['active'] !== 'yes' || $user['access_backend'] !== 'yes')
 		{
 
-			\Core\Log::write('logon_failed', 'logon failed', [], 0, 'warning', 'auth', mb_substr($login, 0, 255));
+			\Core\Log::write('logon_failed', 'logon failed', [], (int)($user['id'] ?? 0), 'warning', 'auth', mb_substr($login, 0, 255));
 			return 'invalid';
 
 		}
 
-		$row = ['last_connection_date' => now(), 'last_connection_application' => 'backend', 'last_connection_ip' => $ip];
-
 		// algo or cost changed in config
 		if(password_needs_rehash($user['password'], $password_cfg['algo'], $password_cfg['algo_options']))
-			$row['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
+		{
 
+			$user['password'] = password_hash($password, $password_cfg['algo'], $password_cfg['algo_options']);
+			DB(self::$table)->update(['password' => $user['password']], (int)$user['id'], 1, $user['login']);
+
+		}
+
+		// second factor: the session opens once the code is checked, except on a trusted device
+		if(\Core\TwoFactor::enabled('backend') && !\Core\TwoFactor::isTrustedDevice((int)$user['id']))
+		{
+
+			$setup = empty($user['two_factor_secret']);
+			session_regenerate_id(true);
+			\Core\Session::set('two_factor', ['user_id' => (int)$user['id'], 'expires' => time() + self::TWO_FACTOR_TTL, 'attempts' => 0, 'secret' => $setup ? \Core\TwoFactor::generateSecret() : '']);
+
+			return $setup ? 'two_factor_setup' : 'two_factor';
+
+		}
+
+		self::completeLogon($user);
+		return '';
+
+	}
+
+	/**
+	 * pending logon waiting for its second factor (password checked less than TWO_FACTOR_TTL seconds ago)
+	 *
+	 * @return array {"user": row of xcore_user, "secret": base32 secret to set up, '' when the user has one}, [] when none
+	 */
+	public static function twoFactorPending():array
+	{
+
+		$pending = (array)\Core\Session::get('two_factor', []);
+		if(empty($pending['user_id']) || $pending['expires'] < time())return [];
+
+		$user = DB()->query("SELECT u.*, g.access_backend
+							 FROM xcore_user u
+							 INNER JOIN xcore_group g ON g.id = u.xcore_group_id AND g.deleted = 'no' AND g.active = 'yes'
+							 WHERE u.deleted = 'no' AND u.id = :id
+							 LIMIT 1", ['id' => (int)$pending['user_id']])->fetch();
+
+		if(!$user || $user['active'] !== 'yes' || $user['access_backend'] !== 'yes')return [];
+
+		return ['user' => $user, 'secret' => (string)$pending['secret']];
+
+	}
+
+	/**
+	 * checks the code of a pending logon (twoFactorPending) and opens the session, the secret is saved on setup
+	 * each wrong code counts as a failed logon (auth/logon_throttle), after TWO_FACTOR_MAX_ATTEMPTS the password is asked again
+	 *
+	 * @param string $code 6 digits of the app
+	 * @param bool $trust_device remember the device (auth/security/backend/two_factor/trust_days)
+	 *
+	 * @return string '' on success, 'expired' (password to type again) or 'invalid'
+	 */
+	public static function twoFactorCheck(string $code, bool $trust_device):string
+	{
+
+		$pending = self::twoFactorPending();
+		if(!$pending)
+		{
+
+			\Core\Session::destroy('two_factor');
+			return 'expired';
+
+		}
+
+		$user = $pending['user'];
+		$setup = ($pending['secret'] !== '');
+		$secret = $setup ? $pending['secret'] : \Core\TwoFactor::decrypt((string)$user['two_factor_secret']);
+		$step = ($secret === '') ? 0 : \Core\TwoFactor::verify($secret, $code, $setup ? 0 : (int)$user['two_factor_last_step']);
+
+		if(!$step)
+		{
+
+			\Core\Log::write('logon_failed', 'two-factor code invalid', [], (int)$user['id'], 'warning', 'auth', (string)$user['login']);
+
+			$session = (array)\Core\Session::get('two_factor', []);
+			$attempts = (int)($session['attempts'] ?? 0) + 1;
+			if($attempts >= self::TWO_FACTOR_MAX_ATTEMPTS)
+			{
+
+				\Core\Session::destroy('two_factor');
+				return 'expired';
+
+			}
+
+			\Core\Session::set('two_factor', ['attempts' => $attempts] + $session);
+			return 'invalid';
+
+		}
+
+		$row = ['two_factor_last_step' => $step];
+		if($setup)$row += ['two_factor_secret' => \Core\TwoFactor::encrypt($secret), 'two_factor_enabled_at' => now()];
 		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
-		self::openSession(['password' => $row['password'] ?? (string)$user['password']] + $user);
-		\Core\Log::write('logon', 'logon', [], (int)$user['id'], 'info', 'auth', $user['login']);
+
+		\Core\Session::destroy('two_factor');
+		self::completeLogon($user);
+		if($trust_device)\Core\TwoFactor::trustDevice((int)$user['id']);
 
 		return '';
+
+	}
+
+	/**
+	 * last step of a logon: connection columns, session, log
+	 *
+	 * @param array $user row of xcore_user
+	 *
+	 * @return void
+	 */
+	private static function completeLogon(array $user):void
+	{
+
+		$ip = getVisitorIp();
+		$row = ['last_connection_date' => now(), 'last_connection_application' => 'backend', 'last_connection_ip' => $ip, 'last_connection_plugin' => null];
+		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+
+		// ip never seen for this user over 90 days: mail to the user (not on his first logon)
+		$history = DB()->query("SELECT COUNT(*) AS total, COALESCE(SUM(ip = :ip), 0) AS known FROM xcore_log WHERE deleted = 'no' AND action = 'logon' AND record_id = :id AND date >= DATE_SUB(NOW(), INTERVAL 90 DAY)", ['id' => (int)$user['id'], 'ip' => $ip])->fetch();
+		if((int)$history['total'] > 0 && !(int)$history['known'])
+		{
+
+			$sent = \Core\Mailer::sendTemplate('core.logon.new_ip', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => $ip, 'browser' => mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)], (string)$user['language']);
+			if(!$sent)\Core\Log::write('logon_new_ip', 'new ip mail not sent: '.\Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
+
+		}
+
+		self::openSession($user);
+		\Core\Log::write('logon', 'logon', [], (int)$user['id'], 'info', 'auth', $user['login']);
 
 	}
 
@@ -182,6 +308,7 @@ class User extends \Core\Entity
 		\Core\Session::set('auth.group_id', (int)$user['xcore_group_id']);
 		\Core\Session::set('auth.last_activity', time());
 		\Core\Session::set('auth.password_check', self::passwordCheck((string)$user['password']));
+		\Core\Session::set('auth.plugin', '');
 
 	}
 

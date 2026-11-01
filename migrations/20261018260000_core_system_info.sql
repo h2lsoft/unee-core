@@ -7,3 +7,10 @@ WHERE m.name = 'Tools' AND m.deleted = 'no'
 AND NOT EXISTS (SELECT 1 FROM `xcore_plugin` WHERE `route_prefix_name` = 'system-info' AND `deleted` = 'no')
 ORDER BY m.id
 LIMIT 1;
+
+-- @down
+
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('system-info') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('system-info') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('system-info') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('system-info') AND `created_by` = 'unee-migrate';

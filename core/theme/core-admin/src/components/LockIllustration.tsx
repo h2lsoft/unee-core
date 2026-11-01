@@ -1,4 +1,4 @@
-// default image of the login page: a lock with the colors of the unee logo
+// default image of the login page: a lock in royal blue tones
 export default function LockIllustration()
 {
 
@@ -6,8 +6,8 @@ export default function LockIllustration()
 		<svg viewBox="0 0 200 240" width="150" height="180" role="img" aria-label="lock">
 			<defs>
 				<linearGradient id="unee-lock" x1="0" y1="0" x2="1" y2="1">
-					<stop offset="0" stopColor="#1a8cff" />
-					<stop offset="1" stopColor="#d01bff" />
+					<stop offset="0" stopColor="#6a8cf0" />
+					<stop offset="1" stopColor="#2a4bb8" />
 				</linearGradient>
 			</defs>
 			<path d="M50 105V75a50 50 0 0 1 100 0v30" fill="none" stroke="url(#unee-lock)" strokeWidth="18" strokeLinecap="round" />

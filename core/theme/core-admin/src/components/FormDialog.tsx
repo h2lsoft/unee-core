@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
-import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, PasswordOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
+import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, OpenInNewOutlined, PasswordOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import HistoryDialog from './HistoryDialog'
 import { BADGES } from './DataGrid'
 import CodeEditor from './Code'
@@ -20,9 +20,41 @@ export function toInput(field: FormField, value: unknown): string
 
 	if(field.type === 'tags' || field.type === 'multiselect')return JSON.stringify(Array.isArray(value) ? value : [])
 	const text = String(value ?? '')
+	if(field.mask === 'thousands')return applyMask(text, 'thousands')
 	// foreign key 0 = none: empty select
 	if(field.type === 'select' && text === '0' && !field.options?.some((o) => o.value === '0'))return ''
 	return (field.type === 'datetime' && text) ? text.replace(' ', 'T').slice(0, 16) : text
+
+}
+
+// mask: 9 = a digit, the other characters added between the digits; a value starting with + is free (digits and spaces)
+// mask thousands: number with a space between the thousands, decimal point . (a typed , becomes .)
+export function applyMask(value: string, mask: string): string
+{
+
+	if(mask === 'thousands')
+	{
+
+		const clean = value.replace(/,/g, '.').replace(/[^\d.-]/g, '')
+		const sign = clean.startsWith('-') ? '-' : ''
+		const [int = '', ...dec] = clean.replace(/-/g, '').split('.')
+		return sign + int.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (dec.length ? '.' + dec.join('') : '')
+
+	}
+
+	if(value.trimStart().startsWith('+'))return '+' + value.trimStart().slice(1).replace(/[^\d ]/g, '').replace(/ {2,}/g, ' ')
+
+	const digits = value.replace(/\D/g, '')
+	let out = ''
+	let i = 0
+	for(const char of mask)
+	{
+
+		if(i >= digits.length)break
+		out += (char === '9') ? digits[i++] : char
+
+	}
+	return out
 
 }
 
@@ -30,6 +62,7 @@ export function toApi(field: FormField, value: string): unknown
 {
 
 	if(field.type === 'tags' || field.type === 'multiselect')return words(value)
+	if(field.mask === 'thousands')return value.replace(/ /g, '')
 	return (field.type === 'datetime' && value) ? `${value.replace('T', ' ')}:00`.slice(0, 19) : value
 
 }
@@ -266,18 +299,26 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		error,
 		fullWidth: true,
 		disabled: field.readonly,
-		placeholder: field.placeholder,
-		onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value),
-		inputProps: {maxLength: field.max_length},
-		endAdornment: (error && !multiline && field.type !== 'password') ? <InputAdornment position="end"><ErrorOutlineOutlined color="error" fontSize="small" /></InputAdornment> : undefined,
+		// mask: its format as placeholder, 9 shown as _
+		placeholder: field.placeholder ?? (field.mask !== 'thousands' ? field.mask?.replace(/9/g, '_') : undefined),
+		onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(field.mask ? applyMask(e.target.value, field.mask) : e.target.value),
+		inputProps: {maxLength: field.max_length, inputMode: field.mask ? (field.mask === 'thousands' ? 'decimal' as const : 'tel' as const) : undefined, style: field.align ? {textAlign: field.align} : undefined},
+		endAdornment: ((error || field.open_link) && !multiline && field.type !== 'password') ? (
+			<InputAdornment position="end">
+				{error && <ErrorOutlineOutlined color="error" fontSize="small" />}
+				{/* open_link: test the url in a popup */}
+				{field.open_link && <IconButton size="small" edge="end" aria-label={t('Open the link')} title={t('Open the link')} disabled={!value.trim()} onClick={() => window.open(value.trim(), 'unee-link', 'popup,width=1100,height=750')}><OpenInNewOutlined sx={{fontSize: 18}} /></IconButton>}
+			</InputAdornment>
+		) : undefined,
 		startAdornment: field.adornment ? <InputAdornment position="start" sx={{mr: 0.5}}><MenuIcon name={field.adornment} fontSize={20} color="var(--u-muted)" /></InputAdornment> : undefined,
 	}
 
 	if(field.type === 'password')return <PasswordInput {...common} onGenerate={onChange} />
 
-	const type = {email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text'
+	// a masked number is typed as text (separators)
+	const type = field.mask ? 'text' : ({email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text')
 	// textareas: 150px high at least, they grow with the content
-	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : ({date: {width: 130, maxWidth: '100%'}, datetime: {width: 180, maxWidth: '100%'}}[field.type as string])} />
+	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : ((field.mask || field.name === 'phone' || field.name === 'mobile') ? {maxWidth: {md: 250}} : {date: {width: 130, maxWidth: '100%'}, datetime: {width: 180, maxWidth: '100%'}}[field.type as string])} />
 
 }
 
@@ -321,8 +362,9 @@ function Control({field, value, errors, onChange, from}: {field: FormField, valu
 function FieldRow({field, inline = [], values, errors, onChange}: {field: FormField, inline?: FormField[], values: Record<string, string>, errors: Record<string, string[]>, onChange: (name: string, value: string) => void})
 {
 
+	// hide_label: kept for the screen readers only (ex: currency next to an amount)
 	const label = (f: FormField, sx: object) => (
-		<InputLabel id={`field-${f.name}-label`} htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', whiteSpace: 'normal', ...sx}}>
+		<InputLabel id={`field-${f.name}-label`} htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', whiteSpace: 'normal', ...sx, ...(f.hide_label ? {position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)'} : {})}}>
 			{f.label}{f.required && <Box component="span" aria-hidden="true" sx={{color: 'error.main', ml: 0.5}}>*</Box>}
 		</InputLabel>
 	)
@@ -351,7 +393,7 @@ function FieldRow({field, inline = [], values, errors, onChange}: {field: FormFi
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
  * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
-export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored, defaults, onDeleted}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void, defaults?: Record<string, string>, onDeleted?: () => void})
+export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored, defaults, onDeleted, copy}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void, defaults?: Record<string, string>, onDeleted?: () => void, copy?: number})
 {
 
 	const theme = useTheme()
@@ -376,18 +418,22 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 		setError('')
 
 		// url: a form of its own (ex: profile/), read with GET and saved with PUT
-		api<FormPayload>(url ?? (id ? `${module}/${id}/` : `${module}/form/`))
-			.then((payload) => {
+		// copy: the add form prefilled with the record to duplicate, files and passwords left empty
+		const source = (!id && !url && copy) ? api<FormPayload>(`${module}/${copy}/`) : Promise.resolve(null)
+		Promise.all([api<FormPayload>(url ?? (id ? `${module}/${id}/` : `${module}/form/`)), source])
+			.then(([payload, original]) => {
 
 				setData(payload)
 				setTab(payload.form.tabs?.[0]?.key ?? '')
 				// defaults: values given by the page for a new record (ex: the day clicked in the calendar)
-				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name, (!id && defaults?.[f.name] !== undefined) ? defaults[f.name] : toInput(f, payload.record[f.name])])))
+				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name,
+					(original && f.type !== 'file' && f.type !== 'password' && f.name in original.record) ? toInput(f, original.record[f.name])
+						: ((!id && defaults?.[f.name] !== undefined) ? defaults[f.name] : toInput(f, payload.record[f.name]))])))
 
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
 
-	}, [open, module, id, url, reload])
+	}, [open, module, id, url, reload, copy])
 
 	// field errors on top, messages of h2lsoft/validator (they hold the label of the field)
 	const summary = Object.values(errors).flat()

@@ -26,3 +26,22 @@ This email was sent automatically, please do not reply.
 </body>
 </html>', `updated_at` = NOW(), `updated_by` = 'unee-migrate'
 WHERE `name` = 'core.mail' AND `deleted` = 'no' AND `content` NOT LIKE '%logo-mail.png%' AND (`updated_by` IS NULL OR `updated_by` = 'unee-migrate');
+
+-- @down
+
+UPDATE `xcore_layout`
+SET `content` = '<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#f4f5f8;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f8;padding:32px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;">
+<tr><td style="padding:32px 36px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1f2335;">
+[CONTENT]
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>', `updated_at` = NULL, `updated_by` = NULL
+WHERE `name` = 'core.mail' AND `deleted` = 'no' AND `content` LIKE '%logo-mail.png%' AND `updated_by` = 'unee-migrate';

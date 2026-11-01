@@ -170,9 +170,10 @@ function Sidebar({menu, collapsed, onNavigate}: {menu: MenuCategory[] | null, co
 	return (
 		<Box component="nav" aria-label={t('Main menu')} sx={{display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0}}>
 			<SideLink to="/" icon="speed" label={t('Dashboard')} collapsed={false} onClick={onNavigate} />
+			<Box sx={{height: '1px', mx: 1.5, my: 0.75, bgcolor: BORDER}} />
 			{menu?.map((category) => (
 				<Box key={category.name} sx={{display: 'flex', flexDirection: 'column', gap: 0.25}}>
-					<Typography component="p" sx={{m: '18px 12px 6px', display: 'flex', alignItems: 'center', gap: 0.75, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}><MenuIcon name={category.icon} fontSize={15} />{category.name}</Typography>
+					<Typography component="p" sx={{m: '18px 12px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{category.name}</Typography>
 					{category.items.map((item) => (
 						<SideLink key={item.route} to={item.url ?? `/${item.route}/`} external={!!item.url} icon={item.icon} label={item.name} collapsed={false} onClick={onNavigate} />
 					))}
@@ -223,8 +224,8 @@ const THEMES = [
 	{mode: 'system', label: 'System', icon: SettingsBrightnessOutlined},
 ] as const
 
-// theme of the interface (above the collapse button): light by default, dark or the setting of the system
-function ThemeButton({collapsed}: {collapsed: boolean})
+// theme of the interface (next to the collapse button): light by default, dark or the setting of the system, icon only with a tooltip when collapsed
+function ThemeButton({collapsed, tip = 'right'}: {collapsed: boolean, tip?: 'right' | 'top'})
 {
 
 	const {mode, setMode} = useColorScheme()
@@ -232,11 +233,15 @@ function ThemeButton({collapsed}: {collapsed: boolean})
 	const current = THEMES.find((th) => th.mode === mode) ?? THEMES[0]
 	const Icon = current.icon
 
+	const button = (
+		<ButtonBase onClick={(e) => setAnchor(e.currentTarget)} aria-label={t('Theme')} aria-haspopup="menu" sx={{height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: 'var(--u-text3)', fontSize: 13, '&:hover': {bgcolor: 'var(--u-hover)'}}}>
+			<Icon sx={{fontSize: 20}} />{!collapsed && t('Theme')}
+		</ButtonBase>
+	)
+
 	return (
 		<>
-			<ButtonBase onClick={(e) => setAnchor(e.currentTarget)} aria-label={t('Theme')} aria-haspopup="menu" sx={{mt: 'auto', height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: 'var(--u-text3)', fontSize: 13, '&:hover': {bgcolor: 'var(--u-hover)'}}}>
-				<Icon sx={{fontSize: 20}} />{!collapsed && t('Theme')}
-			</ButtonBase>
+			{(collapsed) ? <Tooltip title={t('Theme')} placement={tip}>{button}</Tooltip> : button}
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} anchorOrigin={{vertical: 'top', horizontal: 'right'}} transformOrigin={{vertical: 'bottom', horizontal: 'left'}} slotProps={{paper: {sx: {minWidth: 180, ml: 1}}}}>
 				{THEMES.map((th) => (
 					<MenuItem key={th.mode} selected={th.mode === current.mode} onClick={() => { setMode(th.mode); setAnchor(null) }} sx={{fontSize: 14}}>
@@ -393,43 +398,53 @@ export default function BackendLayout()
 
 	return (
 		<MenuContext.Provider value={{menu, find, bookmarks, toggleBookmark}}>
-			<Box sx={{minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'var(--u-bg)', color: 'text.primary'}}>
+			{/* menu on the full height at the left, header and content in the column on the right */}
+			<Box sx={{minHeight: '100vh', display: 'flex', bgcolor: 'var(--u-page)', color: 'text.primary'}}>
 
-				<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-paper)', borderBottom: `1px solid ${BORDER}`, boxShadow: '0 2px 6px rgba(16, 20, 40, 0.06)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
-					{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
-					<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
-					<Box sx={{flexGrow: 1}} />
-					{/* calendar: module calendar (hidden from the menus), shown with its list right */}
-					<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
-						{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
-						<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
-						{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
-					</Box>
-					<UserMenu compact={is_mobile} />
-				</Box>
-
-				<Box sx={{flexGrow: 1, display: 'flex', minHeight: 0}}>
-					{is_mobile
-						? (
-							<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5, display: 'flex', flexDirection: 'column'}}}}>
-								<Box sx={{px: 1, pb: 1.5, pt: 0.5}}><Box component="img" src={logo} alt="logo" sx={{height: 26, width: 'auto'}} /></Box>
-								<Sidebar menu={visible_menu} collapsed={false} onNavigate={() => setDrawer(false)} />
-								<Box sx={{display: 'flex', flexDirection: 'column', mt: 'auto', pt: 1.5}}><ThemeButton collapsed={false} /></Box>
-							</Drawer>
-						)
-						: (
-							<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: 'var(--u-paper)', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 60, height: 'calc(100vh - 60px)', overflowY: 'auto', overflowX: 'hidden'}}>
-								<Sidebar menu={visible_menu} collapsed={collapsed} />
-								<ThemeButton collapsed={collapsed} />
-								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{height: 36, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', alignSelf: collapsed ? 'center' : 'stretch', width: collapsed ? 44 : 'auto', gap: 1.5, px: collapsed ? 0 : 1.5, borderRadius: 2, color: 'var(--u-text3)', fontSize: 13, '&:hover': {bgcolor: 'var(--u-hover)'}}}>
-									{collapsed ? <MenuOpenOutlined sx={{fontSize: 20, transform: 'scaleX(-1)'}} /> : <><MenuOpenOutlined sx={{fontSize: 20}} />{t('Collapse menu')}</>}
+				{!is_mobile && (
+					<Box sx={{width: collapsed ? 64 : 248, flexShrink: 0, display: 'flex', flexDirection: 'column', p: collapsed ? '12px 10px 16px' : '12px 12px 16px', bgcolor: 'var(--u-sidebar)', borderRight: `1px solid ${BORDER}`, transition: 'width .15s', position: 'sticky', top: 0, height: '100vh', overflowX: 'hidden'}}>
+						{/* the menu scrolls alone, the footer keeps its size */}
+						<Box sx={{flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin'}}>
+							<Sidebar menu={visible_menu} collapsed={collapsed} />
+						</Box>
+						<Box sx={{flexShrink: 0, display: 'flex', flexDirection: collapsed ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', gap: 0.5, mt: 1, pt: 1, borderTop: `1px solid ${BORDER}`}}>
+							<ThemeButton collapsed tip={collapsed ? 'right' : 'top'} />
+							<Tooltip title={collapsed ? t('Expand menu') : t('Collapse menu')} placement={collapsed ? 'right' : 'top'}>
+								<ButtonBase onClick={toggle} aria-label={collapsed ? t('Expand menu') : t('Collapse menu')} sx={{width: 44, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, color: 'var(--u-text3)', '&:hover': {bgcolor: 'var(--u-hover)'}}}>
+									<MenuOpenOutlined sx={{fontSize: 20, transform: collapsed ? 'scaleX(-1)' : undefined}} />
 								</ButtonBase>
-							</Box>
-						)}
+							</Tooltip>
+						</Box>
+					</Box>
+				)}
 
-					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '10px 8px 50px', md: '14px 16px 50px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
+				<Box sx={{flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column'}}>
+
+					<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-page)', borderBottom: '1px solid var(--u-border-soft)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
+						{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
+						<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
+						<Box sx={{flexGrow: 1}} />
+						{/* calendar: module calendar (hidden from the menus), shown with its list right */}
+						<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
+							{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
+							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
+							{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
+						</Box>
+						<UserMenu compact={is_mobile} />
+					</Box>
+
+					{is_mobile && (
+						<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5, display: 'flex', flexDirection: 'column'}}}}>
+							<Box sx={{px: 1, pb: 1.5, pt: 0.5}}><Box component="img" src={logo} alt="logo" sx={{height: 26, width: 'auto'}} /></Box>
+							<Sidebar menu={visible_menu} collapsed={false} onNavigate={() => setDrawer(false)} />
+							<Box sx={{display: 'flex', flexDirection: 'column', mt: 'auto', pt: 1.5}}><ThemeButton collapsed={false} /></Box>
+						</Drawer>
+					)}
+
+					<Box component="main" sx={{flex: '1 1 auto', minWidth: 0, p: {xs: '10px 13px 50px', md: '14px 21px 50px'}, display: 'flex', flexDirection: 'column', gap: {xs: 2, md: 2.5}}}>
 						<Outlet />
 					</Box>
+
 				</Box>
 
 			</Box>
@@ -438,12 +453,12 @@ export default function BackendLayout()
 
 }
 
-// page title row: h1 and actions on the right
+// page title row: h1 and actions on the right, half the gap of the page below
 export function PageHeader({title, children}: {title: string, children?: ReactNode})
 {
 
 	return (
-		<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: {xs: 1, md: 2}}}>
+		<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: {xs: 1, md: 2}, mb: {xs: -1, md: -1.25}}}>
 			<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em', flexGrow: 1}}>{title}</Typography>
 			{children}
 		</Box>

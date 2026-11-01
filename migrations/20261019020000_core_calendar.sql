@@ -30,3 +30,11 @@ SELECT m.id, 'Calendar', 'normal', 'calendar_month', 'calendar', '["list","add",
 FROM `xcore_menu` m
 WHERE m.id = (SELECT MIN(t.id) FROM `xcore_menu` t WHERE t.name = 'Tools' AND t.deleted = 'no')
 AND NOT EXISTS (SELECT 1 FROM `xcore_plugin` x WHERE x.route_prefix_name = 'calendar' AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('calendar') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('calendar') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('calendar') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('calendar') AND `created_by` = 'unee-migrate';
+DROP TABLE IF EXISTS `xcore_agenda`;

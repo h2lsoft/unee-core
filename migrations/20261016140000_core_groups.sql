@@ -15,3 +15,8 @@ WHERE NOT EXISTS (SELECT 1 FROM `xcore_group` WHERE `id` = 2);
 INSERT INTO `xcore_user` (`id`, `xcore_group_id`, `avatar`, `language`, `lastname`, `firstname`, `company`, `email`, `login`, `password`, `bio`, `active`, `note`, `created_at`, `created_by`)
 SELECT 1, 2, '', 'en', '', 'System', '', 'system@localhost', 'system', '', '', 'no', '', NOW(), 'unee-migrate'
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_user` WHERE `id` = 1);
+
+-- @down
+
+DELETE FROM `xcore_user` WHERE `id` = 1 AND `created_by` = 'unee-migrate';
+DELETE FROM `xcore_group` WHERE `id` IN (1, 2) AND `created_by` = 'unee-migrate';

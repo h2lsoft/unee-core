@@ -37,14 +37,14 @@ class GlobalsController extends \Core\CrudController
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('category', 'Category', true)->width(130);
-		$grid->addCol('name', 'Name', true);
+		$grid->addCol('name', 'Name', true)->subText('description');
 		$grid->addColBadge('type', 'Type', true, ['text' => 'orange', 'int' => 'red', 'float' => 'red', 'boolean' => 'yellow', 'url' => 'green', 'json-array' => 'purple', 'json-object' => 'purple', 'list' => 'cyan'])->width(120);
 		$grid->addCol('value', 'Value');
 
 		$grid->hookData(function(array $row):array {
 
-			if(self::isSecret($row['name']) && $row['value'] !== '')$row['value'] = '********';
-			$row['value'] = mb_strimwidth((string)$row['value'], 0, 120, '...');
+			if(self::isSecret($row['name']) && $row['value'] !== '')$row['value'] = '*****';
+			$row['value'] = str_cut((string)$row['value'], 30);
 
 			return $row;
 

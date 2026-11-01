@@ -2,10 +2,14 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { api, UNAUTHORIZED_EVENT, type User } from './api'
 import { setLanguage } from './i18n'
 
+// logon waiting for its second factor (config auth/security/backend/two_factor): code to type, or app to set up with its secret
+export type TwoFactorStep = {two_factor: 'verify' | 'setup', trust_days: number, secret?: string, uri?: string}
+
 type Auth = {
 	user: User | null
 	loading: boolean
-	login: (login: string, password: string) => Promise<void>
+	login: (login: string, password: string) => Promise<TwoFactorStep | null>
+	verifyTwoFactor: (code: string, trust: boolean) => Promise<void>
 	logout: () => Promise<void>
 	changeLanguage: (language: string) => Promise<void>
 	reload: () => Promise<void>
@@ -47,7 +51,17 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	const login = async (login: string, password: string) => {
 
-		const data = await api<{user: User}>('auth/login/', {method: 'POST', body: {login, password}})
+		const data = await api<{user?: User} & Partial<TwoFactorStep>>('auth/login/', {method: 'POST', body: {login, password}})
+		if(data.two_factor)return data as TwoFactorStep
+
+		setUser(data.user ?? null)
+		return null
+
+	}
+
+	const verifyTwoFactor = async (code: string, trust: boolean) => {
+
+		const data = await api<{user: User}>('auth/2fa/', {method: 'POST', body: {code, trust}})
 		setUser(data.user)
 
 	}
@@ -74,7 +88,7 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	}
 
-	return <AuthContext.Provider value={{user, loading, login, logout, changeLanguage, reload}}>{children}</AuthContext.Provider>
+	return <AuthContext.Provider value={{user, loading, login, verifyTwoFactor, logout, changeLanguage, reload}}>{children}</AuthContext.Provider>
 
 }
 

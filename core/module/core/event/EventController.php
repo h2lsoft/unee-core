@@ -30,9 +30,8 @@ class EventController extends \Core\CrudController
 		$grid->setMobile('name', 'description');
 
 		$grid->addCol('id', 'ID', true)->width(72);
-		$grid->addCol('name', 'Name', true);
-		$grid->addCol('description', 'Description');
-		$grid->addColDatetime('created_at', 'Registered', true)->width(150);
+		$grid->addCol('name', 'Name', true)->subText('description');
+		$grid->addColDatetime('created_at', 'Registered', true)->width(150)->humanize()->small();
 
 	}
 
@@ -40,7 +39,7 @@ class EventController extends \Core\CrudController
 	{
 
 		$form->addText('name', 'Name')->readonly()->help('registered by the code (debug mode), listened with \Core\EventManager::on()');
-		$form->addTextarea('description', 'Description')->maxLength(2000);
+		$form->addText('description', 'Description')->maxLength(2000);
 
 	}
 

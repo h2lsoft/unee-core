@@ -20,13 +20,13 @@ import NotFound from './pages/NotFound'
 import BackendLayout from './components/BackendLayout'
 import { ToastProvider } from './components/Toast'
 
-// corporate theme: primary color from the unee logo gradient, compact controls (40px), ibm plex sans
+// corporate theme: primary color royal blue (same in light and dark), compact controls (40px), ibm plex sans
 // light and dark schemes (class on <html>, mode kept by mui in localStorage), the other colors are the --u-* variables of colors.css
 const theme = createTheme({
 	cssVariables: {colorSchemeSelector: 'class'},
 	colorSchemes: {
-		light: {palette: {primary: {main: '#6d4aff'}, text: {primary: '#1f2335', secondary: '#5b6178'}, background: {default: '#f7f8fb', paper: '#fff'}}},
-		dark: {palette: {primary: {main: '#8b6dff'}, text: {primary: '#e7e9f1', secondary: '#a4a9bd'}, background: {default: '#12141c', paper: '#1b1e29'}, divider: '#2a2e3c'}},
+		light: {palette: {primary: {main: '#4169e1'}, text: {primary: '#1f2335', secondary: '#5b6178'}, background: {default: '#f7f8fb', paper: '#fff'}}},
+		dark: {palette: {primary: {main: '#4169e1'}, text: {primary: '#e7e9f1', secondary: '#a4a9bd'}, background: {default: '#12141c', paper: '#1b1e29'}, divider: '#2a2e3c'}},
 	},
 	typography: {
 		fontFamily: '"IBM Plex Sans", system-ui, sans-serif',

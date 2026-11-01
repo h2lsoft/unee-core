@@ -7,7 +7,7 @@ use Component\Form;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * saved filters of the grids (xcore_user_filter): owner, plugin, shared with a group or private, conditions in json
+ * saved filters of the grids (xcore_user_filter): owner, plugin, shared with groups (xcore_group_ids, json) or private, conditions in json
  * the grids save and read them with /api/backend/filters/
  */
 #[Route('/api/user-filter', name: 'api.user_filter.')]
@@ -30,13 +30,13 @@ class User_FilterController extends \Core\CrudController
 	{
 
 		$grid->qSelect("(SELECT TRIM(CONCAT(u.firstname, ' ', u.lastname)) FROM xcore_user u WHERE u.id = xcore_user_filter.xcore_user_id)", 'owner');
-		$grid->qSelect("(SELECT g.name FROM xcore_group g WHERE g.id = xcore_user_filter.xcore_group_id)", 'shared_with');
 		$grid->qSelect("(SELECT p.name FROM xcore_plugin p WHERE p.route_prefix_name = xcore_user_filter.plugin AND p.deleted = 'no' LIMIT 1)", 'plugin_name');
 		$grid->setSearch(['name', 'plugin'], 'Search name...');
 		$grid->addFilter('name', 'Name');
 		$grid->addFilter('plugin', 'Plugin', 'select', self::plugins());
 		$grid->addFilter('xcore_user_id', 'Owner', 'select', DB()->query("SELECT id, TRIM(CONCAT(firstname, ' ', lastname)) FROM xcore_user WHERE deleted = 'no' ORDER BY firstname, lastname")->fetchAll(\PDO::FETCH_KEY_PAIR));
-		$grid->addFilter('xcore_group_id', 'Shared with', 'select', DB()->query("SELECT id, name FROM xcore_group WHERE deleted = 'no' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR));
+		$groups = DB()->query("SELECT id, name FROM xcore_group WHERE deleted = 'no' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR);
+		$grid->addFilter('xcore_group_ids', 'Shared with', 'multiselect', $groups);
 		$grid->setMobile('name', 'plugin_name');
 
 		$grid->addCol('id', 'ID', true)->width(72);
@@ -45,9 +45,11 @@ class User_FilterController extends \Core\CrudController
 		$grid->addCol('owner', 'Owner')->width(170);
 		$grid->addCol('shared_with', 'Shared with')->width(170);
 
-		$grid->hookData(function(array $row):array{
+		// names of the groups, - = private
+		$grid->hookData(function(array $row) use ($groups):array{
 
-			if(($row['shared_with'] ?? null) === null)$row['shared_with'] = '-';
+			$ids = json_decode((string)($row['xcore_group_ids'] ?? ''), true);
+			$row['shared_with'] = implode(', ', array_filter(array_map(fn($id) => $groups[$id] ?? '', (is_array($ids)) ? $ids : []))) ?: '-';
 			return $row;
 
 		});
@@ -60,7 +62,7 @@ class User_FilterController extends \Core\CrudController
 		$form->addSelectSql('xcore_user_id', 'Owner', 'xcore_user', 'login', true, 'id > 1');
 		$form->addSelect('plugin', 'Plugin', self::plugins(), true)->autocomplete()->set('translate', false);
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addSelectSql('xcore_group_id', 'Shared with', 'xcore_group', 'name')->help('empty = private to its owner');
+		$form->addSelectMultiple('xcore_group_ids', 'Shared with', DB()->query("SELECT id, name FROM xcore_group WHERE deleted = 'no' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR))->set('translate', false)->help('empty = private to its owner');
 		$form->addCode('conditions', 'Conditions', true, 'json')->help('{"match": "all|any", "conditions": [{"f": "field", "o": "operator", "v": "value"}]}');
 
 	}
@@ -79,9 +81,6 @@ class User_FilterController extends \Core\CrudController
 
 	protected function onSaveBefore(array $row, array $record):array
 	{
-
-		// no group = private (null in the table)
-		if(array_key_exists('xcore_group_id', $row) && !(int)$row['xcore_group_id'])$row['xcore_group_id'] = null;
 
 		$data = json_decode((string)($row['conditions'] ?? ''), true);
 		if(is_array($data))$row['conditions'] = json_encode(['match' => (($data['match'] ?? '') === 'any') ? 'any' : 'all', 'conditions' => array_values($data['conditions'])]);

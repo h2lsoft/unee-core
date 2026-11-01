@@ -10,6 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * users of the backend (xcore_user), login and password rules from config auth/security
  * right connect_as: open the session of another user (logged)
+ * right two_factor_reset: removes the 2fa of a user (lost phone), he sets it up again at his next logon
  */
 #[Route('/api/user', name: 'api.user.')]
 class UserController extends \Core\CrudController
@@ -29,11 +30,12 @@ class UserController extends \Core\CrudController
 		$grid->qSelect("(SELECT g.name FROM xcore_group g WHERE g.id = xcore_user.xcore_group_id)", 'group_name');
 		$grid->setSearch(['lastname', 'firstname', 'email', 'login'], 'Search name, email...');
 		$grid->addFilterChips('xcore_group_id', $groups);
-		$grid->addFilter('lastname', 'Last name');
-		$grid->addFilter('firstname', 'First name');
+		$grid->addFilter('lastname', 'Lastname');
+		$grid->addFilter('firstname', 'Firstname');
 		$grid->addFilter('email', 'Email');
 		$grid->addFilter('login', 'Login');
 		$grid->addFilter('xcore_group_id', 'Group', 'select', $groups);
+		$grid->addFilter('language', 'Language', 'select', \Core\Config::get('backend.languages'));
 		$grid->addFilter('active', 'Active', 'boolean');
 		$grid->addFilterTags();
 		$grid->addFilter('last_connection_date', 'Last connection', 'date', [], 'DATE(last_connection_date)');
@@ -42,14 +44,17 @@ class UserController extends \Core\CrudController
 		$grid->setMobile('fullname', 'email');
 		$grid->batchEdit(['xcore_group_id', 'active']);
 		$grid->rowAction('connect-as', 'Connect as', 'login', 'connect_as');
+		$grid->rowAction('connections', 'Connections', 'history', 'list', 'log/?search[]=action||begins||logon&search[]=record_id||{id}');
+		if(\Core\TwoFactor::enabled('backend'))$grid->rowAction('two-factor-reset', 'Reset 2FA', 'phonelink_lock', 'two_factor_reset');
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('group_name', 'Group', true)->width(150)->filterOnClick('xcore_group_id');
-		$grid->addCol('fullname', 'Full name', true)->avatar();
+		$grid->addColFlag('language', 'Lang', true)->width(60);
+		$grid->addCol('fullname', 'Fullname', true)->avatar();
 		$grid->addColEmail('email', 'Email');
 		$grid->addColTags()->width(180);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
-		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(150)->humanize();
+		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(150)->humanize()->small();
 
 	}
 
@@ -78,11 +83,22 @@ class UserController extends \Core\CrudController
 		$login = \Core\Config::get('auth/security/login');
 		$password = \Core\Config::get('auth/security/password');
 		$languages = \Core\Config::get('backend.languages');
+		$phone_mask = (string)\Core\Globals::get('phone.mask', '99 99 99 99 99', true, 'text', 'mask of the phone fields: 9 = a digit, the other characters are kept, a number starting with + is free (international)');
+
+		// values of the other users as suggestions, in the users module only (the profile does not see the other accounts)
+		$suggestions = function(string $column) use ($with_group):array
+		{
+
+			if(!$with_group)return [];
+			$values = DB()->query("SELECT DISTINCT `{$column}` FROM xcore_user WHERE deleted = 'no' AND `{$column}` != '' ORDER BY `{$column}`")->fetchAllOne();
+			return array_combine($values, $values);
+
+		};
 
 		$form->addSelect('language', 'Language', $languages, true)->defaultValue(array_key_first($languages))->set('translate', false);
 		if($with_group)$form->addSelectSql('xcore_group_id', 'Group', 'xcore_group', 'name', true);
-		$form->addText('lastname', 'Last name', true)->maxLength(50);
-		$form->addText('firstname', 'First name', true)->maxLength(50);
+		$form->addText('lastname', 'Lastname', true)->maxLength(50);
+		$form->addText('firstname', 'Firstname', true)->maxLength(50);
 		$form->addEmail('email', 'Email', true)->maxLength((int)\Core\Config::get('auth/security/email/max_length', 255))->unique();
 
 		$form->tab('credentials', 'Credentials');
@@ -91,18 +107,18 @@ class UserController extends \Core\CrudController
 			 ->help(ts('[MIN] to [MAX] characters', ['MIN' => $password['min_length'], 'MAX' => $password['max_length']]).(($record) ? ', '.ts('unchanged when empty') : ''));
 
 		$form->tab('information', 'Information');
-		$form->addText('company', 'Company')->maxLength(50);
+		$form->addSelect('company', 'Company', $suggestions('company'))->autocomplete(true)->maxLength(50)->set('translate', false);
 		$form->addText('address', 'Address')->maxLength(255);
 		$form->addText('address2', 'Address 2')->maxLength(255);
 		$form->addText('address3', 'Address 3')->maxLength(255);
 		$form->addText('zip_code', 'Zip code')->maxLength(20);
-		$form->addText('city', 'City')->maxLength(255);
-		$form->addText('country', 'Country')->maxLength(255);
-		$form->addText('phone', 'Phone')->maxLength(30);
-		$form->addText('mobile', 'Mobile')->maxLength(30);
+		$form->addSelect('city', 'City', $suggestions('city'))->autocomplete(true)->maxLength(255)->set('translate', false);
+		$form->addSelect('country', 'Country', $suggestions('country'))->autocomplete(true)->maxLength(255)->set('translate', false);
+		$form->addText('phone', 'Phone')->maxLength(30)->set('mask', $phone_mask);
+		$form->addText('mobile', 'Mobile')->maxLength(30)->set('mask', $phone_mask);
 		$form->addDate('birthdate', 'Birthdate');
-		$form->addText('service', 'Service')->maxLength(255);
-		$form->addText('job', 'Job')->maxLength(255);
+		$form->addSelect('service', 'Service', $suggestions('service'))->autocomplete(true)->maxLength(255)->set('translate', false);
+		$form->addSelect('job', 'Job', $suggestions('job'))->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addTextarea('bio', 'Bio');
 
 		$form->tab('');
@@ -206,6 +222,24 @@ class UserController extends \Core\CrudController
 	}
 
 	/**
+	 * removes the 2fa of the user and forgets his trusted devices (lost or stolen phone)
+	 *
+	 * @param array $record
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"message"}
+	 */
+	protected function rowTwoFactorReset(array $record, Request $request):\Core\JsonResponse
+	{
+
+		\Core\TwoFactor::reset((int)$record['id'], $this->author());
+		\Core\Log::write('two_factor_reset', "two-factor reset of {$record['login']}", [], (int)$record['id'], 'warning', $this->module);
+
+		return new \Core\JsonResponse(['message' => ts('Two-factor authentication reset, it will be set up again at the next sign in')]);
+
+	}
+
+	/**
 	 * open the session of the user, the backend reloads with his menu and rights
 	 *
 	 * @param array $record
@@ -247,38 +281,42 @@ class UserController extends \Core\CrudController
 	}
 
 	/**
-	 * widget of the dashboard: the 10 last connected users of the backend and of the frontend
+	 * widget of the dashboard: the 20 last connected users of the backend and the 20 of the frontend in one list, filtered by toggleable chips
 	 *
 	 * @return array see \Core\Widget
 	 */
 	public static function widgetLastActive():array
 	{
 
-		$tabs = [];
-		foreach(['backend' => 'Backend', 'frontend' => 'Frontend'] as $application => $label)
+		$recs = [];
+		foreach(['backend', 'frontend'] as $application)
 		{
 
-			$recs = DB()->query("SELECT u.id, u.firstname, u.lastname, u.login, u.avatar, u.last_connection_date, u.last_connection_ip, g.name AS group_name FROM xcore_user u LEFT JOIN xcore_group g ON g.id = u.xcore_group_id WHERE u.deleted = 'no' AND u.last_connection_application = :app AND u.last_connection_date IS NOT NULL ORDER BY u.last_connection_date DESC LIMIT 10", ['app' => $application])->fetchAll();
-
-			$rows = [];
-			foreach($recs as $rec)
-			{
-
-				$rows[] = [
-					\Core\Widget::avatar($rec),
-					['text' => trim("{$rec['firstname']} {$rec['lastname']}") ?: $rec['login'], 'grow' => true, 'strong' => true],
-					['text' => ts((string)$rec['group_name']), 'muted' => true, 'width' => 140],
-					['text' => (string)$rec['last_connection_ip'], 'mono' => true, 'muted' => true, 'width' => 130],
-					['date' => $rec['last_connection_date'], 'align' => 'right', 'width' => 120],
-				];
-
-			}
-
-			$tabs[] = ['label' => ts($label), 'rows' => $rows, 'empty' => ts('No connection')];
+			$recs = array_merge($recs, DB()->query("SELECT u.id, u.firstname, u.lastname, u.login, u.avatar, u.last_connection_date, u.last_connection_ip, u.last_connection_application, u.last_connection_plugin, g.name AS group_name, p.name AS plugin_name FROM xcore_user u LEFT JOIN xcore_group g ON g.id = u.xcore_group_id LEFT JOIN xcore_plugin p ON p.route_prefix_name = u.last_connection_plugin AND p.deleted = 'no' WHERE u.deleted = 'no' AND u.last_connection_application = :app AND u.last_connection_date IS NOT NULL ORDER BY u.last_connection_date DESC LIMIT 20", ['app' => $application])->fetchAll());
 
 		}
 
-		return ['type' => 'tabs', 'tabs' => $tabs];
+		// last connection first, both applications mixed
+		usort($recs, fn($a, $b) => strcmp($b['last_connection_date'], $a['last_connection_date']));
+
+		$labels = ['backend' => ts('Backend'), 'frontend' => ts('Frontend')];
+		$rows = [];
+		foreach($recs as $rec)
+		{
+
+			$rows[] = [
+				\Core\Widget::avatar($rec),
+				['text' => trim("{$rec['firstname']} {$rec['lastname']}") ?: $rec['login'], 'strong' => true, 'link' => 'user/?search[]='.rawurlencode("q||{$rec['login']}")],
+				['text' => $labels[$rec['last_connection_application']], 'badge' => ($rec['last_connection_application'] === 'backend') ? 'blue' : 'purple'],
+				['text' => ts((string)$rec['group_name']), 'muted' => true],
+				['text' => ($rec['last_connection_plugin'] === 'dashboard') ? ts('Dashboard') : ts((string)$rec['plugin_name']), 'muted' => true],
+				['text' => (string)$rec['last_connection_ip'], 'mono' => true, 'muted' => true],
+				['date' => $rec['last_connection_date'], 'grow' => true, 'small' => true],
+			];
+
+		}
+
+		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No connection'), 'filter' => ['column' => 2, 'options' => array_values($labels)], 'scroll' => 165];
 
 	}
 

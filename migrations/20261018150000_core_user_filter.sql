@@ -22,3 +22,7 @@ CREATE TABLE IF NOT EXISTS `xcore_user_filter` (
   KEY `plugin` (`plugin`),
   UNIQUE KEY `xcore_user_id_plugin_name` (`xcore_user_id`, `plugin`, `name`, `deleted_key`)
 ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- @down
+
+DROP TABLE IF EXISTS `xcore_user_filter`;

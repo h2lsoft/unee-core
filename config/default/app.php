@@ -13,7 +13,7 @@ return [
 	// HTTP_HOST already holds the port when it is not the default one (set url in the instance config in production)
 	'url' => "https://{$_SERVER['HTTP_HOST']}",
 	'timezone' => "", # empty = default timezone
-	'backend.dirname' => 'backend',
+	'backend.dirname' => 'admin',
 	'backend.languages' => ['en' => 'English', 'fr' => 'Français'], # languages of the backend, the user picks one in the user menu
 	'upload_dir' => APP_PATH."/instances/".APP_DIR."/public/upload",
 	'tmp_dir' => (APP_DIR != '' && APP_DIR != '_default') ? APP_PATH."/instances/".APP_DIR."/.tmp" : APP_PATH."/.tmp",
@@ -229,7 +229,26 @@ return [
 				'regex' => "/^.{8,72}$/s",
 				'regex_error_message' => "`password`: 8 to 72 characters (accented characters count double)",
 				'regex_error_message_added' => [],
-			]
+			],
+
+			// 32 bytes in base64, encrypts the 2fa secrets: set it in the config of the instance, never change it once used
+			// php -r "echo base64_encode(random_bytes(32));"
+			'encryption_key' => 'nlZhzqppHPjTKTovQJ/5eFYcxNV5tw3FDYpsFl7uwlw=',
+
+			// two-factor authentication (totp app): when enabled, every user of the application must use it
+			'backend' => [
+				'two_factor' => [
+					'enabled' => true,
+					'trust_days' => 30, # "trust this device" checkbox, 0 = disabled
+				],
+			],
+
+			'frontend' => [
+				'two_factor' => [
+					'enabled' => false,
+					'trust_days' => 30, # "trust this device" checkbox, 0 = disabled
+				],
+			],
 		],
 
 		'backend' => [
@@ -242,7 +261,7 @@ return [
 
 		// api (react backend) ************************************************************************************
 		'api' => [
-			'public_routes' => ['api.auth.login', 'api.auth.config', 'api.auth.password.forgot', 'api.auth.password.reset'], # route names reachable without logon
+			'public_routes' => ['api.auth.login', 'api.auth.two_factor', 'api.auth.config', 'api.auth.password.forgot', 'api.auth.password.reset'], # route names reachable without logon
 			'idle_timeout_seconds' => 60*60*2, # logout after 2 hours without request, 0 = disabled
 		],
 	],
@@ -256,6 +275,11 @@ return [
 	// keyed absolute paths: an instance can override a key, add a new one, or set it to null to disable it
 	'middlewares' => [
 				'auth.api' => CORE_PATH.'/core/module/core/auth/middleware/api.php',
+	],
+
+	// run before the router (the route is not known yet, urls without route included), same rules as middlewares
+	'middlewares_before' => [
+				'url.redirect' => CORE_PATH.'/core/module/core/url-redirect/middleware/redirect.php',
 	],
 
 	// COMMANDS ********************************************************************************************************

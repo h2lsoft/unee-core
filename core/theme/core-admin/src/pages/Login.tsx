@@ -1,16 +1,18 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router'
-import { Alert, Box, Button, CircularProgress, Link } from '@mui/material'
+import { Alert, Box, Button, ButtonBase, Checkbox, CircularProgress, FormControlLabel, Link, Typography } from '@mui/material'
+import QRCode from 'qrcode'
 import { ApiException } from '../api'
-import { useAuth } from '../auth'
+import { useAuth, type TwoFactorStep } from '../auth'
 import AuthLayout, { useLoginConfig } from '../components/AuthLayout'
+import CodeInput from '../components/CodeInput'
 import { Field, PasswordField } from '../components/Field'
 import { t } from '../i18n'
 
 export default function Login()
 {
 
-	const {user, login} = useAuth()
+	const {user, login, verifyTwoFactor} = useAuth()
 	const navigate = useNavigate()
 	const location = useLocation()
 	const config = useLoginConfig()
@@ -18,6 +20,20 @@ export default function Login()
 	const [error, setError] = useState('')
 	const [fields, setFields] = useState<Record<string, string[]>>({})
 	const [submitting, setSubmitting] = useState(false)
+
+	// second factor (config auth/security/backend/two_factor): code to type, or app to set up first
+	const [step, setStep] = useState<TwoFactorStep | null>(null)
+	const [code, setCode] = useState('')
+	const [trust, setTrust] = useState(true)
+	const [qr, setQr] = useState('')
+	const [copied, setCopied] = useState(false)
+
+	useEffect(() => {
+
+		setQr('')
+		if(step?.uri)QRCode.toDataURL(step.uri, {margin: 1, width: 444}).then(setQr).catch(() => setQr(''))
+
+	}, [step?.uri])
 
 	// message from another page, ex: password changed
 	const notice = (location.state as {notice?: string} | null)?.notice ?? ''
@@ -34,7 +50,16 @@ export default function Login()
 		try
 		{
 
-			await login(form.login, form.password)
+			const next = await login(form.login, form.password)
+			if(next)
+			{
+
+				setStep(next)
+				setCode('')
+				return
+
+			}
+
 			navigate('/', {replace: true})
 
 		}
@@ -53,6 +78,105 @@ export default function Login()
 			setSubmitting(false)
 
 		}
+
+	}
+
+	const submitCode = async (value: string) => {
+
+		if(value.length !== 6 || submitting)return
+		setSubmitting(true)
+		setError('')
+
+		try
+		{
+
+			await verifyTwoFactor(value, trust)
+			navigate('/', {replace: true})
+
+		}
+		catch(err)
+		{
+
+			const api_error = (err instanceof ApiException) ? err.error : null
+			setError(api_error?.message ?? t('network error, please retry'))
+			setCode('')
+
+			// pending logon expired or too many wrong codes: password again
+			if(api_error?.code === 440)
+			{
+
+				setStep(null)
+				setForm({...form, password: ''})
+
+			}
+
+		}
+		finally
+		{
+
+			setSubmitting(false)
+
+		}
+
+	}
+
+	const backToSignIn = () => {
+
+		setStep(null)
+		setError('')
+		setForm({...form, password: ''})
+
+	}
+
+	const copyKey = () => {
+
+		navigator.clipboard?.writeText(step?.secret ?? '').then(() => setCopied(true)).catch(() => null)
+
+	}
+
+	if(step)
+	{
+
+		const setup = (step.two_factor === 'setup')
+		return (
+			<AuthLayout config={config} title={setup ? t('Set up two-step verification') : t('Two-step verification')} documentTitle={t('Two-step verification')} subtitle={setup ? t('It is required to access the back office. Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password...).') : t('Enter the 6-digit code shown in your authenticator app.')}>
+				<Box component="form" onSubmit={(e: FormEvent) => { e.preventDefault(); submitCode(code) }} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
+					{error && <Alert severity="error">{error}</Alert>}
+
+					{setup && (
+						<Box sx={{display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', textAlign: 'center', p: 2.25, bgcolor: 'var(--u-widget)', borderRadius: '12px'}}>
+							<Box sx={{width: 222, height: 222, flexShrink: 0, p: 0.5, boxSizing: 'border-box', bgcolor: '#fff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+								{qr ? <Box component="img" src={qr} alt="QR code" sx={{width: '100%', height: '100%'}} /> : <CircularProgress size={22} />}
+							</Box>
+							<Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, minWidth: 0, maxWidth: '100%'}}>
+								<Typography sx={{fontSize: 12.5, color: 'var(--u-text3)'}}>{t('Cannot scan? Enter this key:')}</Typography>
+								<Box component="code" sx={{fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 13, lineHeight: 1.6, wordBreak: 'break-all'}}>{(step.secret ?? '').replace(/(.{4})/g, '$1 ').trim()}</Box>
+								<Button type="button" size="small" variant="outlined" onClick={copyKey} sx={{height: 30, fontSize: 12.5, bgcolor: 'var(--u-paper)'}}>{copied ? t('Key copied') : t('Copy the key')}</Button>
+							</Box>
+						</Box>
+					)}
+
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1}}>
+						<Typography id="two-factor-label" sx={{fontSize: 13, fontWeight: 500, color: 'var(--u-text2)'}}>{setup ? t('Code shown by the app') : t('Code')}</Typography>
+						<CodeInput value={code} onChange={setCode} onComplete={submitCode} disabled={submitting} autoFocus={!setup} labelledBy="two-factor-label" />
+					</Box>
+
+					{step.trust_days > 0 && (
+						<FormControlLabel control={<Checkbox size="small" checked={trust} onChange={(e) => setTrust(e.target.checked)} />} label={t('Trust this device for [DAYS] days', {DAYS: step.trust_days})} sx={{m: 0, gap: 0.75, '& .MuiFormControlLabel-label': {fontSize: 13.5}}} />
+					)}
+
+					<Box sx={{display: 'flex', flexDirection: 'column', gap: 1.75}}>
+						<Button type="submit" variant="contained" fullWidth disabled={submitting || code.length !== 6}>
+							{submitting ? <CircularProgress size={20} color="inherit" /> : (setup ? t('Activate') : t('Verify'))}
+						</Button>
+						<Box sx={{display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 1}}>
+							{!setup && <Typography sx={{fontSize: 12.5, color: 'var(--u-muted)'}}>{t('Lost your phone? Contact your administrator.')}</Typography>}
+							<ButtonBase onClick={backToSignIn} sx={{ml: 'auto', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: 'var(--u-text3)', '&:hover': {textDecoration: 'underline'}}}>{t('Back to sign in')}</ButtonBase>
+						</Box>
+					</Box>
+				</Box>
+			</AuthLayout>
+		)
 
 	}
 

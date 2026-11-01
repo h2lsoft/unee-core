@@ -26,7 +26,7 @@ class LogController extends \Core\CrudController
 		$levels = array_combine(array_keys(self::LEVELS), array_keys(self::LEVELS));
 
 		$grid->setSearch(['message', 'action', 'author'], 'Search message...');
-		$grid->addFilterChips('level', $levels);
+		$grid->addFilterChips('level', $levels)->chipColors(self::LEVELS);
 		$grid->addFilter('date', 'Date', 'date', [], 'DATE(`date`)');
 		$grid->addFilter('level', 'Level', 'select', $levels);
 		$grid->addFilter('application', 'Application');
@@ -36,6 +36,7 @@ class LogController extends \Core\CrudController
 		$grid->addFilter('record_id', 'Record', 'number');
 		$grid->addFilter('message', 'Message');
 		$grid->addFilter('ip', 'IP');
+		$grid->addFilter('user_agent', 'User agent');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setOrderByFirst('id', 'desc');
 		$grid->setMobile('message', 'date');
@@ -44,14 +45,16 @@ class LogController extends \Core\CrudController
 		$grid->gridAction('purge', 'Purge logs', 'delete_sweep', 'purge', 'Purge every log?', true);
 
 		$grid->addCol('id', 'ID', true)->width(80);
-		$grid->addColDatetime('date', 'Date', true)->width(150);
+		$grid->addCol('date', 'Date', true)->width(160); // sql format: Y-m-d H:i:s as stored
 		$grid->addColBadge('level', 'Level', true, self::LEVELS)->width(90);
 		$grid->addCol('application', 'Application', true)->width(110);
 		$grid->addCol('plugin', 'Plugin', true)->width(110);
 		$grid->addCol('action', 'Action', true)->width(130);
 		$grid->addCol('author', 'Author', true)->width(120);
 		$grid->addCol('record_id', 'Record', true, 'text', ['align' => 'right'])->width(80);
-		$grid->addCol('message', 'Message');
+		$grid->addCol('message', 'Message')->small();
+		$grid->addCol('ip', 'IP')->small()->width(110);
+		$grid->addCol('user_agent', 'User agent')->small()->width(220);
 
 		$grid->hookData(function(array $row):array{
 

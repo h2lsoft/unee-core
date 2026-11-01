@@ -18,3 +18,17 @@ FROM (
 ) w
 JOIN `xcore_plugin` p ON p.route_prefix_name = w.route AND p.deleted = 'no'
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_widget` x WHERE x.method = w.method AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_widget` WHERE `created_by` = 'unee-migrate' AND `method` IN (
+	CONCAT('Plugin', CHAR(92), 'Core_Backend', CHAR(92), 'User_TaskController::widgetMyTasks'),
+	CONCAT('Plugin', CHAR(92), 'Core', CHAR(92), 'CronController::widgetCron'),
+	CONCAT('Plugin', CHAR(92), 'Core', CHAR(92), 'JobberController::widgetJobber'),
+	CONCAT('Plugin', CHAR(92), 'Core', CHAR(92), 'UserController::widgetLastActive')
+);
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('widget') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('widget') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('widget') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('widget') AND `created_by` = 'unee-migrate';
+ALTER TABLE `xcore_widget` DROP COLUMN IF EXISTS `size`;

@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * api authentication for the react backend, session cookie (HttpOnly, SameSite=Lax)
  * errors: 401 invalid credentials, 422 missing fields, 429 throttled
+ * two-factor (config auth/security/backend/two_factor): login answers {"two_factor": "verify"|"setup"}, then POST /api/auth/2fa/ opens the session
  */
 #[Route('/api/auth', name: 'api.auth.')]
 class AuthController extends \Core\Controller
@@ -18,7 +19,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @param Request $request
 	 *
-	 * @return \Core\JsonResponse {"user": {...}}
+	 * @return \Core\JsonResponse {"user": {...}} or {"two_factor": "verify", "trust_days"} or {"two_factor": "setup", "trust_days", "secret", "uri"}
 	 */
 	#[Route('/login/', name: 'login', methods: ['POST'])]
 	public function login(Request $request):\Core\JsonResponse
@@ -41,10 +42,65 @@ class AuthController extends \Core\Controller
 
 		}
 
+		if($error === 'two_factor' || $error === 'two_factor_setup')
+			return new \Core\JsonResponse($this->twoFactorStep());
+
 		if($error !== '')
 			return \Core\JsonResponse::error(401, 'invalid credentials');
 
 		return new \Core\JsonResponse(['user' => \Model\User::getCurrent()]);
+
+	}
+
+	/**
+	 * second factor of a pending logon, json body: {"code": "123456", "trust": true}
+	 * the secret is saved on the first use (setup), each wrong code counts as a failed logon
+	 *
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"user": {...}}, 401 invalid code, 440 pending logon expired (password to type again)
+	 */
+	#[Route('/2fa/', name: 'two_factor', methods: ['POST'])]
+	public function twoFactor(Request $request):\Core\JsonResponse
+	{
+
+		$this->validator->input('code', ts('Code'))->required();
+
+		if($this->validator->fails())
+			return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $this->validator->result()['error_stack_deep']]);
+
+		$error = \Model\User::twoFactorCheck((string)$request->request->get('code'), (bool)$request->request->get('trust', false));
+
+		if($error === 'expired')
+			return \Core\JsonResponse::error(440, 'verification expired, sign in again');
+
+		if($error !== '')
+			return \Core\JsonResponse::error(401, 'invalid code');
+
+		return new \Core\JsonResponse(['user' => \Model\User::getCurrent()]);
+
+	}
+
+	/**
+	 * answer of a logon waiting for its second factor, with the secret and its qr code uri on setup
+	 *
+	 * @return array
+	 */
+	private function twoFactorStep():array
+	{
+
+		$pending = \Model\User::twoFactorPending();
+		$data = ['two_factor' => ($pending['secret'] !== '') ? 'setup' : 'verify', 'trust_days' => (int)\Core\Config::get('auth/security/backend/two_factor/trust_days', 0)];
+
+		if($pending['secret'] !== '')
+		{
+
+			$account = (string)$pending['user'][(\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email'];
+			$data += ['secret' => $pending['secret'], 'uri' => \Core\TwoFactor::uri($pending['secret'], $account)];
+
+		}
+
+		return $data;
 
 	}
 
@@ -125,7 +181,7 @@ class AuthController extends \Core\Controller
 	/**
 	 * public settings of the login page: whitelist of globals, the other globals are never exposed
 	 *
-	 * @return \Core\JsonResponse {"name", "login_key", "logo", "header_background", "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
+	 * @return \Core\JsonResponse {"name", "login_key", "logo", "header_background", "stylesheets": [url], "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
 	 */
 	#[Route('/config/', name: 'config', methods: ['GET'])]
 	public function config():\Core\JsonResponse
@@ -138,11 +194,15 @@ class AuthController extends \Core\Controller
 		$header_background = $get('backend.header.background');
 		if($header_background !== null && !preg_match('/^(#[0-9a-f]{3,8}|[a-z]{3,30}|(rgb|hsl)a?\([0-9a-z\s.,%\/-]{1,60}\))$/i', trim($header_background)))$header_background = null;
 
+		// stylesheets overriding the backend: absolute path or http(s) url only
+		$stylesheets = array_values(array_filter(array_map('trim', (array)($globals['backend.stylesheets'] ?? [])), fn($url) => preg_match('#^(/[^/]|https?://)#i', $url)));
+
 		return new \Core\JsonResponse([
 			'name' => (string)\Core\Config::get('name'),
 			'login_key' => (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email',
 			'logo' => $get('backend.logo'),
 			'header_background' => ($header_background !== null) ? trim($header_background) : null,
+			'stylesheets' => $stylesheets,
 			'login' => [
 				'image' => $get('backend.login.image'),
 				'title' => $get('backend.login.title'),

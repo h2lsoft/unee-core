@@ -48,3 +48,13 @@ WHERE m.name = 'Administration' AND m.deleted = 'no'
 AND NOT EXISTS (SELECT 1 FROM `xcore_plugin` WHERE `route_prefix_name` = 'log' AND `deleted` = 'no')
 ORDER BY m.id
 LIMIT 1;
+
+-- @down
+
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('user', 'right', 'layout', 'mail-template', 'log') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('user', 'right', 'layout', 'mail-template', 'log') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('user', 'right', 'layout', 'mail-template', 'log') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('user', 'right', 'layout', 'mail-template', 'log') AND `created_by` = 'unee-migrate';
+ALTER TABLE `xcore_user` MODIFY `avatar` text NOT NULL, MODIFY `company` varchar(50) NOT NULL, MODIFY `bio` longtext NOT NULL, MODIFY `note` text NOT NULL;
+ALTER TABLE `xcore_mail_template` DROP COLUMN IF EXISTS `variables`, MODIFY `sender_en` varchar(255) NOT NULL, MODIFY `sender_fr` varchar(255) NOT NULL;
+ALTER TABLE `xcore_layout` DROP COLUMN IF EXISTS `description`;

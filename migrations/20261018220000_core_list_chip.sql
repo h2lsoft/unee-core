@@ -15,3 +15,19 @@ WHERE `class` NOT REGEXP '^(default|primary|secondary|error|warning|info|success
 
 ALTER TABLE `xcore_list` DROP COLUMN IF EXISTS `color`;
 ALTER TABLE `xcore_list` MODIFY `class` varchar(255) NOT NULL DEFAULT 'default filled';
+
+-- @down
+
+-- the color comes back from the class, the classes replaced by the up part (ex: bootstrap) are not restored
+ALTER TABLE `xcore_list` ADD COLUMN IF NOT EXISTS `color` varchar(20) NOT NULL DEFAULT 'grey' AFTER `style`;
+UPDATE `xcore_list` SET `color` = CASE `class`
+	WHEN 'warning filled' THEN 'orange'
+	WHEN 'error filled' THEN 'red'
+	WHEN 'success filled' THEN 'green'
+	WHEN 'info filled' THEN 'blue'
+	WHEN 'secondary filled' THEN 'purple'
+	WHEN 'warning outlined' THEN 'yellow'
+	WHEN 'info outlined' THEN 'cyan'
+	ELSE 'grey'
+END;
+ALTER TABLE `xcore_list` MODIFY `class` varchar(255) NOT NULL DEFAULT '';

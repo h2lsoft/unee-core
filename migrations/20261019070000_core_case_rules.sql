@@ -13,3 +13,8 @@ UPDATE `xcore_blacklist` SET `email` = LOWER(`email`) WHERE BINARY `email` != LO
 UPDATE `xcore_ticket` SET `email` = LOWER(`email`) WHERE BINARY `email` != LOWER(`email`);
 UPDATE `xcore_ticket_message` SET `sender_email` = LOWER(`sender_email`) WHERE BINARY `sender_email` != LOWER(`sender_email`);
 UPDATE `xcore_newsletter` SET `expeditor_email` = LOWER(`expeditor_email`), `reply_to` = LOWER(`reply_to`), `return_path` = LOWER(`return_path`);
+
+-- @down
+
+-- irreversible: the case before the change is not kept
+-- nothing to undo

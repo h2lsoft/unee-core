@@ -63,9 +63,11 @@ function DB(string $table="")
 {
 	global $app, $DB;
 
+	// before the kernel (ex: backend answered early by run.php): the connection opened by run.php
+	$db = $app->db ?? $DB;
 	if(!empty($table))
-		$app->db->table($table);
-	return $app->db;
+		$db->table($table);
+	return $db;
 
 
 

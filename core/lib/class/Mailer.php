@@ -42,6 +42,14 @@ class Mailer
 
 		}
 
+		if(($template['active'] ?? 'yes') === 'no')
+		{
+
+			self::$last_error = "mail template inactive: {$template_name}";
+			return false;
+
+		}
+
 		// templates hold en and fr columns: other languages fall back to en
 		if(!array_key_exists("body_{$locale}", $template))$locale = 'en';
 

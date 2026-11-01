@@ -13,3 +13,7 @@ SELECT 'core', (SELECT l.id FROM `xcore_layout` l WHERE l.name = 'core.mail' AND
 NOW(), 'unee-migrate'
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_mail_template` x WHERE x.name = 'core.password.changed' AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_mail_template` WHERE `name` = 'core.password.changed' AND `created_by` = 'unee-migrate';

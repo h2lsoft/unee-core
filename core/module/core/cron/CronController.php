@@ -38,15 +38,15 @@ class CronController extends \Core\CrudController
 		$grid->rowAction('run', 'Run now', 'play_arrow', 'edit');
 		$grid->rowAction('unlock', 'Unlock', 'lock_open', 'edit');
 
-		$grid->addColNumber('priority', 'Priority', true)->width(80);
+		$grid->addCol('priority', 'Priority', true, 'number', ['align' => 'center'])->width(64);
 		$grid->addCol('id', 'ID', true)->width(64);
 		$grid->addCol('category', 'Category', true)->width(110);
 		$grid->addCol('name', 'Name', true);
-		$grid->addCol('schedule', 'Schedule')->width(170);
+		$grid->addCol('schedule', 'Schedule', false, 'text', ['align' => 'center'])->small()->width(170);
 		$grid->addColBadge('status', 'Status', true, self::STATUSES)->labels(['idle' => 'idle', 'running' => 'running', 'success' => 'success', 'error' => 'error'])->width(100);
-		$grid->addColDatetime('last_execution_date_start', 'Last run', true)->width(150);
+		$grid->addColDatetime('last_execution_date_start', 'Last run', true)->small()->width(150);
 		$grid->addCol('duration', 'Duration', false, 'text', ['align' => 'right'])->width(90);
-		$grid->addColBoolean('locked', 'Locked', true)->width(80);
+		$grid->addColBoolean('locked', 'Locked', true, false, true)->width(80);
 		$grid->addColBoolean('active', 'Active', true, true)->width(80);
 
 		$grid->hookData(function(array $row):array{

@@ -27,3 +27,8 @@ UPDATE `xcore_user_task` SET
 	`category` = CONCAT(REGEXP_SUBSTR(`category`, '^([[:space:]]|<[^>]*>)*'), UPPER(SUBSTRING(`category`, CHAR_LENGTH(REGEXP_SUBSTR(`category`, '^([[:space:]]|<[^>]*>)*')) + 1, 1)), SUBSTRING(`category`, CHAR_LENGTH(REGEXP_SUBSTR(`category`, '^([[:space:]]|<[^>]*>)*')) + 2)),
 	`title` = CONCAT(REGEXP_SUBSTR(`title`, '^([[:space:]]|<[^>]*>)*'), UPPER(SUBSTRING(`title`, CHAR_LENGTH(REGEXP_SUBSTR(`title`, '^([[:space:]]|<[^>]*>)*')) + 1, 1)), SUBSTRING(`title`, CHAR_LENGTH(REGEXP_SUBSTR(`title`, '^([[:space:]]|<[^>]*>)*')) + 2)),
 	`description` = CONCAT(REGEXP_SUBSTR(`description`, '^([[:space:]]|<[^>]*>)*'), UPPER(SUBSTRING(`description`, CHAR_LENGTH(REGEXP_SUBSTR(`description`, '^([[:space:]]|<[^>]*>)*')) + 1, 1)), SUBSTRING(`description`, CHAR_LENGTH(REGEXP_SUBSTR(`description`, '^([[:space:]]|<[^>]*>)*')) + 2));
+
+-- @down
+
+-- irreversible: the case before the change is not kept
+-- nothing to undo

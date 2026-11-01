@@ -54,7 +54,6 @@ class ListController extends \Core\CrudController
 		$grid->addFilter('category', 'Category');
 		$grid->addFilter('name', 'Name');
 		$grid->addFilter('label', 'Label');
-		$grid->addFilter('class', 'Class', 'select', self::classes());
 		$grid->addFilter('active', 'Active', 'boolean');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'category');
@@ -62,7 +61,7 @@ class ListController extends \Core\CrudController
 
 		$grid->addColPosition();
 		$grid->addCol('id', 'ID', true)->width(72);
-		$grid->addCol('category', 'Category', true);
+		$grid->addCol('category', 'Category', true)->width(1); // 1px: the column shrinks to its content
 		$grid->addCol('name', 'Name', true);
 		$grid->addColChip('label', 'Label', 'class', 'style', 'icon')->width(180);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);

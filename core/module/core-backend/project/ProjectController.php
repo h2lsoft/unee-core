@@ -18,6 +18,11 @@ class ProjectController extends \Core\CrudController
 {
 
 	public string $table = 'xcore_project';
+
+	/**
+	 * currencies of the budget: iso 4217 code => symbol
+	 */
+	public const array CURRENCIES = ['EUR' => '€', 'USD' => '$', 'GBP' => '£', 'CHF' => 'CHF', 'CAD' => 'CA$', 'JPY' => '¥'];
 	public string $title = 'Projects';
 	public string $object_label = 'project';
 
@@ -70,14 +75,16 @@ class ProjectController extends \Core\CrudController
 	{
 
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addTextarea('description', 'Description')->maxLength(5000);
-		$form->addSelect('xcore_user_id', 'Responsible', self::users((int)($record['xcore_user_id'] ?? 0)), false)->autocomplete()->defaultValue((string)\Model\User::getUID())->set('translate', false);
-		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('active');
+		$form->addText('description', 'Description')->maxLength(5000);
+		$form->addSelect('xcore_user_id', 'Responsible', self::users((int)($record['xcore_user_id'] ?? 0)), true)->autocomplete()->defaultValue((string)\Model\User::getUID())->set('translate', false);
 		$form->addRadio('priority', 'Priority', self::PRIORITIES, true)->defaultValue('normal');
+		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('active');
 		$form->addDate('date_start', 'Start date');
-		$form->addDate('date_end', 'End date');
-		$form->addNumber('budget', 'Budget')->defaultValue('0');
-		$form->addColor('color', 'Color')->defaultValue('#6d4aff');
+		$form->addDate('date_end', 'End date')->set('inline', true);
+		$form->addNumber('budget', 'Budget')->defaultValue('0')->set('size', 150)->set('align', 'center')->set('mask', 'thousands');
+		$currency = (string)\Core\Globals::get('backend.currency.default', 'EUR', true, 'text', 'currency selected by default for the amounts (iso 4217 code: EUR, USD, GBP, CHF, CAD, JPY)');
+		$form->addSelect('currency', 'Currency', self::CURRENCIES, true)->defaultValue(isset(self::CURRENCIES[$currency]) ? $currency : 'EUR')->set('translate', false)->set('inline', true)->set('size', 80)->set('hide_label', true);
+		$form->addColor('color', 'Color')->defaultValue('#4169e1');
 		$form->addTextarea('note', 'Note')->maxLength(5000);
 
 	}
@@ -180,7 +187,7 @@ class ProjectController extends \Core\CrudController
 			'project' => [
 				'id' => (int)$project['id'],
 				'name' => $project['name'],
-				'color' => $project['color'] ?: '#6d4aff',
+				'color' => $project['color'] ?: '#4169e1',
 				'status' => $project['status'],
 				'status_label' => ts($project['status']),
 				'status_color' => self::STATUS_COLORS[$project['status']] ?? 'grey',
@@ -759,9 +766,9 @@ class ProjectController extends \Core\CrudController
 	public static function widgetProjects():array
 	{
 
-		$recs = DB()->query("SELECT name, color, progress, status FROM xcore_project WHERE deleted = 'no' AND status IN ('active', 'paused') ORDER BY FIELD(status, 'active', 'paused'), date_end IS NULL, date_end, id LIMIT 8")->fetchAll();
+		$recs = DB()->query("SELECT id, name, color, progress, status FROM xcore_project WHERE deleted = 'no' AND status IN ('active', 'paused') ORDER BY FIELD(status, 'active', 'paused'), date_end IS NULL, date_end, id LIMIT 8")->fetchAll();
 
-		return ['type' => 'progress', 'empty' => ts('No project in progress'), 'items' => array_map(fn($r) => ['name' => $r['name'], 'color' => $r['color'] ?: '#6d4aff', 'percent' => (int)$r['progress'], 'badge' => ['text' => ts($r['status']), 'color' => self::STATUS_COLORS[$r['status']] ?? 'grey']], $recs)];
+		return ['type' => 'progress', 'empty' => ts('No project in progress'), 'items' => array_map(fn($r) => ['name' => $r['name'], 'link' => "project/?board={$r['id']}", 'color' => $r['color'] ?: '#4169e1', 'percent' => (int)$r['progress'], 'badge' => ['text' => ts($r['status']), 'color' => self::STATUS_COLORS[$r['status']] ?? 'grey']], $recs)];
 
 	}
 

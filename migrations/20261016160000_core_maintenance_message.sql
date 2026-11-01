@@ -6,3 +6,9 @@ FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_globals` x WHERE x.name = 'backend.maintenance.message' AND x.deleted = 'no');
 
 UPDATE `xcore_globals` SET `deleted` = 'yes', `deleted_at` = NOW(), `deleted_by` = 'unee-migrate' WHERE `name` IN ('backend.login.notice', 'backend.login.notice_severity') AND `deleted` = 'no';
+
+-- @down
+
+UPDATE `xcore_globals` SET `deleted` = 'no', `deleted_at` = NULL, `deleted_by` = NULL WHERE `name` IN ('backend.login.notice', 'backend.login.notice_severity') AND `deleted` = 'yes' AND `deleted_by` = 'unee-migrate';
+UPDATE `xcore_globals` n JOIN `xcore_globals` m ON m.`name` = 'backend.maintenance.message' AND m.`deleted` = 'no' SET n.`value` = m.`value` WHERE n.`name` = 'backend.login.notice' AND n.`deleted` = 'no';
+DELETE FROM `xcore_globals` WHERE `name` IN ('backend.maintenance.message') AND `created_by` = 'unee-migrate';

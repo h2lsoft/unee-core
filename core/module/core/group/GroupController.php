@@ -34,12 +34,12 @@ class GroupController extends \Core\CrudController
 		$grid->qSelect("(SELECT COUNT(*) FROM xcore_user u WHERE u.xcore_group_id = xcore_group.id AND u.deleted = 'no')", 'users');
 
 		$grid->addCol('id', 'ID', true)->width(72);
-		$grid->addCol('name', 'Name', true);
-		$grid->addCol('description', 'Description');
+		$grid->addCol('name', 'Name', true)->subText('description');
 		$grid->addColNumber('priority', 'Priority', true)->width(100);
 		$grid->addColCount('users', 'Users', 'person')->width(100);
-		$grid->addColBoolean('access_backend', 'Backend access', true, true)->width(140);
-		$grid->addColBoolean('access_frontend', 'Frontend access', true, true)->width(140);
+		if(\Model\User::hasRight('user', 'list'))$grid->link('user/?search[]=xcore_group_id||{id}');
+		$grid->addColBoolean('access_backend', 'Backend access', true, false, true)->width(140);
+		$grid->addColBoolean('access_frontend', 'Frontend access', true, false, true)->width(140);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
 
 		if(\Model\User::hasRight('right', 'list'))

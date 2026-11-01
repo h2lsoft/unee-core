@@ -16,7 +16,7 @@ class RightController extends \Core\Controller
 	/**
 	 * groups, plugins by menu and rights of the chosen group
 	 *
-	 * @param Request $request query string: group (id, default the first group)
+	 * @param Request $request query string: group (id, none by default: the groups only, no right)
 	 *
 	 * @return \Core\JsonResponse {"title", "groups": [{"id", "name"}], "group", "menus": [{"name", "icon", "color", "plugins": [{"id", "name", "icon", "actions"}]}], "rights": ["<plugin id>:<action>"], "can_edit"}
 	 */
@@ -27,8 +27,8 @@ class RightController extends \Core\Controller
 		if(!\Model\User::hasRight($this->module, 'list'))return \Core\JsonResponse::error(403, 'access denied');
 
 		$groups = $this->groups();
-		$group_id = (int)$request->query->get('group', $groups[0]['id'] ?? 0);
-		if($groups && !in_array($group_id, array_column($groups, 'id'), true))return \Core\JsonResponse::error(404, 'group not found');
+		$group_id = (int)$request->query->get('group', 0);
+		if($group_id && !in_array($group_id, array_column($groups, 'id'), true))return \Core\JsonResponse::error(404, 'group not found');
 
 		$recs = DB()->query("SELECT p.id, p.name, p.icon, p.type, p.actions, m.id AS menu_id, m.name AS menu_name, m.icon AS menu_icon, m.color AS menu_color
 							 FROM xcore_plugin p

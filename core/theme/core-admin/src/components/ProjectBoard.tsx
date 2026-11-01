@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Box, Button, ButtonBase, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, ListItemIcon, Menu, MenuItem, OutlinedInput, Switch, Typography } from '@mui/material'
+import { Box, Button, ButtonBase, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, ListItemIcon, Menu, MenuItem, OutlinedInput, Switch, Tooltip, Typography } from '@mui/material'
 import { AddOutlined, ArrowBackOutlined, AttachFileOutlined, CloseOutlined, DeleteOutlineOutlined, DragIndicatorOutlined, EditOutlined, MoreHorizOutlined, ViewKanbanOutlined, ViewTimelineOutlined, WestOutlined, EastOutlined } from '@mui/icons-material'
 import { api, ApiException, dataChanged } from '../api'
 import { getLanguage, t } from '../i18n'
@@ -265,6 +265,27 @@ function GanttView({board, tasks, onOpen, onReload}: {board: Board, tasks: Task[
 	const [drag, setDrag] = useState<{id: number, mode: 'move' | 'start' | 'end', x: number, delta: number} | null>(null)
 	const moved = useRef(false)
 	const scroller = useRef<HTMLDivElement>(null)
+	// drag on the background scrolls horizontally (the bars and the task titles keep their own clicks)
+	const pan = useRef<{x: number, left: number} | null>(null)
+	const panStart = (e: React.PointerEvent<HTMLDivElement>) => {
+
+		if(e.button !== 0 || (e.target as HTMLElement).closest('button, [role="button"]'))return
+		pan.current = {x: e.clientX, left: e.currentTarget.scrollLeft}
+		e.currentTarget.setPointerCapture(e.pointerId)
+		e.currentTarget.style.cursor = 'grabbing'
+
+	}
+	const panMove = (e: React.PointerEvent<HTMLDivElement>) => {
+
+		if(pan.current)e.currentTarget.scrollLeft = pan.current.left - (e.clientX - pan.current.x)
+
+	}
+	const panEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+
+		pan.current = null
+		e.currentTarget.style.cursor = ''
+
+	}
 
 	// visible days: the project and its tasks, 2 days of margin, 4 weeks at least
 	const today = parse(ymd(new Date()))
@@ -351,7 +372,7 @@ function GanttView({board, tasks, onOpen, onReload}: {board: Board, tasks: Task[
 
 	return (
 		<>
-			<Box ref={scroller} sx={{bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: '5px', overflow: 'auto', userSelect: drag ? 'none' : 'auto'}}>
+			<Box ref={scroller} onPointerDown={panStart} onPointerMove={panMove} onPointerUp={panEnd} onPointerCancel={panEnd} sx={{bgcolor: 'var(--u-paper)', border: '1px solid var(--u-border)', borderRadius: '5px', overflow: 'auto', userSelect: 'none', cursor: 'grab'}}>
 				<Box sx={{width: 240 + width, minWidth: '100%'}}>
 					<Box sx={{display: 'flex', position: 'sticky', top: 0, zIndex: 2, bgcolor: 'var(--u-paper)', borderBottom: '1px solid var(--u-border)'}}>
 						<Box sx={{width: 240, flexShrink: 0, position: 'sticky', left: 0, zIndex: 1, bgcolor: 'var(--u-paper)', borderRight: '1px solid var(--u-border-soft)'}} />
@@ -397,12 +418,22 @@ function GanttView({board, tasks, onOpen, onReload}: {board: Board, tasks: Task[
 												{today_left >= 0 && today_left <= width && <Box sx={{position: 'absolute', left: today_left, top: 0, bottom: 0, width: 2, bgcolor: 'var(--u-accent-border)'}} />}
 												{d
 													? (
-														<Box role="button" tabIndex={0} aria-label={`${task.title}, ${range(ymd(d.start), ymd(d.end))}`} title={`${task.title} - ${range(ymd(d.start), ymd(d.end))} - ${task.progress}%`}
+														// details on hover, hidden while a bar is dragged
+														<Tooltip arrow placement="top" disableHoverListener={!!drag} disableInteractive title={
+															<Box sx={{fontSize: 12, lineHeight: 1.5}}>
+																<Box sx={{fontWeight: 600, fontSize: 12.5}}>{task.title}</Box>
+																<div>{range(ymd(d.start), ymd(d.end))} - {task.progress}%</div>
+																{(task.category || task.priority) && <div>{[task.category, t(task.priority)].filter(Boolean).join(' - ')}</div>}
+																<div>{task.user ? task.user.name : t('Not assigned')}</div>
+															</Box>
+														}>
+														<Box role="button" tabIndex={0} aria-label={`${task.title}, ${range(ymd(d.start), ymd(d.end))}`}
 															onPointerDown={(e) => down(e, task)} onPointerMove={move} onPointerUp={() => up(task)} onClick={() => { if(!moved.current)onOpen(task) }} onKeyDown={(e) => { if(e.key === 'Enter')onOpen(task) }}
 															sx={{position: 'absolute', left, top: 9, height: 20, width: bar, borderRadius: '4px', border: '1px solid', borderColor: color, bgcolor: `color-mix(in srgb, ${color} 20%, transparent)`, overflow: 'hidden', cursor: can_edit ? (drag?.id === task.id ? 'grabbing' : 'grab') : 'pointer', touchAction: 'none',
 																'&::before, &::after': can_edit ? {content: '""', position: 'absolute', top: 0, bottom: 0, width: 8, cursor: 'ew-resize'} : {}, '&::before': {left: 0}, '&::after': {right: 0}}}>
 															<Box sx={{height: '100%', width: `${task.progress}%`, bgcolor: `color-mix(in srgb, ${color} 55%, transparent)`}} />
 														</Box>
+														</Tooltip>
 													)
 													: <Box component="span" sx={{position: 'absolute', left: Math.max(0, today_left + 8), top: 11, fontSize: 11.5, color: 'var(--u-faint)', whiteSpace: 'nowrap'}}>{t('no dates')}</Box>}
 											</Box>
@@ -454,7 +485,8 @@ export default function ProjectBoard({id, view}: {id: number, view: 'board' | 'g
 
 	return (
 		<>
-			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap'}}>
+			{/* half the gap of the page below the title */}
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap', mb: {xs: -1, md: -1.25}}}>
 				<IconButton aria-label={t('Back')} onClick={() => navigate('/project/')} sx={{border: '1px solid var(--u-border)', bgcolor: 'var(--u-paper)', width: 34, height: 34}}><ArrowBackOutlined fontSize="small" /></IconButton>
 				<Box component="span" sx={{width: 12, height: 12, borderRadius: '50%', bgcolor: p.color, flexShrink: 0}} />
 				<Typography component="h1" sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>{p.name}</Typography>
@@ -469,11 +501,13 @@ export default function ProjectBoard({id, view}: {id: number, view: 'board' | 'g
 			</Box>
 
 			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--u-muted)'}}>
-				{(p.date_start || p.date_end) && <span>{range(p.date_start, p.date_end, true)}</span>}
-				{p.responsible && <Box component="span" sx={{display: 'flex', alignItems: 'center', gap: 0.75}}>{t('Responsible')} <UserAvatar avatar={p.responsible.avatar} size={20} /> {p.responsible.name}</Box>}
-				<Box sx={{flexGrow: 1, maxWidth: 420, minWidth: 120, display: 'flex'}}><Progress value={p.progress} color="var(--u-green)" height={6} /></Box>
-				<Box component="span" sx={{fontWeight: 600, color: 'var(--u-green)'}}>{p.progress}%</Box>
-				{board.categories.length > 0 && <Box sx={{ml: 'auto', display: 'flex', gap: 0.75, flexWrap: 'wrap'}}>{chip('', t('All'))}{board.categories.map((c) => chip(c, c))}</Box>}
+				{/* categories on the left, progress and responsible on the right */}
+				{board.categories.length > 0 && <Box sx={{display: 'flex', gap: 0.75, flexWrap: 'wrap'}}>{chip('', t('All'))}{board.categories.map((c) => chip(c, c))}</Box>}
+				<Box sx={{ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5}}>
+					<Box sx={{width: 220, display: 'flex'}}><Progress value={p.progress} color="var(--u-green)" height={6} /></Box>
+					<Box component="span" sx={{fontWeight: 600, color: 'var(--u-green)'}}>{p.progress}%</Box>
+					{p.responsible && <Box component="span" sx={{display: 'flex', alignItems: 'center', gap: 0.75}}>{t('Responsible')} <UserAvatar avatar={p.responsible.avatar} size={20} /> {p.responsible.name}</Box>}
+				</Box>
 			</Box>
 
 			{view === 'board'

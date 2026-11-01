@@ -62,3 +62,13 @@ SELECT 'Core', (SELECT l.id FROM `xcore_layout` l WHERE l.name = 'core.mail' AND
 NOW(), 'unee-migrate'
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `xcore_mail_template` x WHERE x.name = 'core.cron.report' AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_mail_template` WHERE `name` = 'core.cron.report' AND `created_by` = 'unee-migrate';
+DELETE FROM `xcore_crontask` WHERE `script_path` = 'vendor/h2lsoft/unee-core/core/cron/jobber.php' AND `created_by` = 'unee-migrate';
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('cron', 'jobber', 'entity-log', 'event') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('cron', 'jobber', 'entity-log', 'event') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('cron', 'jobber', 'entity-log', 'event') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('cron', 'jobber', 'entity-log', 'event') AND `created_by` = 'unee-migrate';
+DROP TABLE IF EXISTS `xcore_job_queue`;

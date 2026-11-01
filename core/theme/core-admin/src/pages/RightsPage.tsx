@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Box, Button, ButtonBase, Checkbox, CircularProgress, MenuItem, Select, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, ButtonBase, Checkbox, CircularProgress, TextField, Typography } from '@mui/material'
 import { SaveOutlined } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type RightsPayload } from '../api'
 import { t } from '../i18n'
@@ -91,7 +91,8 @@ export default function RightsPage({icon}: {icon: string})
 
 	return (
 		<>
-			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25}}>
+			{/* half the gap of the page below the title */}
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 1.25, mb: {xs: -1, md: -1.25}}}>
 				<Box sx={{width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, bgcolor: 'var(--u-accent-bg)', color: 'primary.main'}}><MenuIcon name={icon} /></Box>
 				<Typography component="h1" noWrap sx={{m: 0, fontSize: {xs: 20, md: 22}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 					<ButtonBase onClick={() => navigate({search: ''})} sx={{font: 'inherit', letterSpacing: 'inherit', color: 'inherit', '&:hover': {color: 'primary.main'}}}>{data.title}</ButtonBase>
@@ -101,16 +102,19 @@ export default function RightsPage({icon}: {icon: string})
 
 			<Box sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px'}}>
 				<Box component="label" htmlFor="rights-group" sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)'}}>{t('Group')}</Box>
-				<Select id="rights-group" value={data.groups.length ? data.group : ''} onChange={(e) => navigate({search: `?group=${e.target.value}`}, {replace: true})} sx={{width: {xs: '100%', sm: 320}, height: 40, fontSize: 14}}>
-					{data.groups.map((g) => <MenuItem key={g.id} value={g.id}>{g.name} (#{g.id})</MenuItem>)}
-				</Select>
+				{/* searchable: many groups */}
+				<Autocomplete id="rights-group" options={data.groups} value={data.groups.find((g) => g.id === data.group) ?? null} disabled={!data.groups.length}
+					getOptionLabel={(g) => `${g.name} (#${g.id})`} isOptionEqualToValue={(a, b) => a.id === b.id}
+					onChange={(_, g) => navigate({search: g ? `?group=${g.id}` : ''}, {replace: true})}
+					renderInput={(params) => <TextField {...params} placeholder={t('Choose a group')} />}
+					sx={{width: {xs: '100%', sm: 320}, '& .MuiOutlinedInput-root': {height: 40, py: 0, fontSize: 14}}} />
 				<Typography sx={{fontSize: 13, color: 'var(--u-muted)'}}>{t('Super admin has every right, it is not listed.')}</Typography>
-				{data.can_edit && <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />} disabled={saving || !dirty || !data.groups.length} onClick={save} sx={{ml: 'auto'}}>{t('Save')}</Button>}
+				{data.can_edit && <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />} disabled={saving || !dirty || !data.group} onClick={save} sx={{ml: 'auto'}}>{t('Save')}</Button>}
 			</Box>
 
 			{data.groups.length === 0 && <Typography sx={{fontSize: 14, color: 'var(--u-muted)'}}>{t('No group with a backend access.')}</Typography>}
 
-			{data.groups.length > 0 && data.menus.map((menu) => {
+			{data.group > 0 && data.menus.map((menu) => {
 
 				const all = menu.plugins.flatMap(keys)
 				return (

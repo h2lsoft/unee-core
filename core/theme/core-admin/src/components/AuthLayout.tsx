@@ -32,7 +32,21 @@ export function useLoginConfig(): LoginConfig | null
 
 	useEffect(() => {
 
-		config_request ??= api<LoginConfig>('auth/config/').catch(() => null)
+		config_request ??= api<LoginConfig>('auth/config/').then((c) => {
+
+			// globals backend.stylesheets: loaded once, at the end of the head to override the backend
+			for(const href of c.stylesheets ?? [])
+			{
+
+				const link = document.createElement('link')
+				link.rel = 'stylesheet'
+				link.href = href
+				document.head.appendChild(link)
+
+			}
+			return c
+
+		}).catch(() => null)
 		config_request.then(setConfig)
 
 	}, [])

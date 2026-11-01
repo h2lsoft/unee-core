@@ -32,6 +32,7 @@ class Log
 		$f['values'] = json_encode($values, JSON_PRETTY_PRINT);
 		$f['record_id'] = $record_id;
 		$f['ip'] = getVisitorIp();
+		$f['user_agent'] = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
 		$f['author'] = $author;
 		
 		

@@ -6,9 +6,9 @@ import {
 } from '@mui/material'
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-	CheckBoxOutlined, CloseOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
+	CheckBoxOutlined, CloseOutlined, ContentCopyOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
-	MailOutlined,
+	MailOutlined, OpenInNewOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
@@ -19,6 +19,7 @@ import BookmarkButton from './BookmarkButton'
 import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
+import { Flag } from './Flag'
 
 const BORDER = 'var(--u-border)'
 const ROW_BORDER = 'var(--u-border-soft)'
@@ -38,10 +39,13 @@ export const BADGES: Record<string, {bg: string, fg: string}> = {
 
 const OPERATOR_LABELS: Record<string, string> = {
 	'contains': 'contains',
+	'!contains': 'not contains',
 	'eq': 'equals',
 	'!eq': 'not equal',
 	'begins': 'begins with',
+	'!begins': 'not begins with',
 	'ends': 'ends with',
+	'!ends': 'not ends with',
 	'empty': 'is empty',
 	'!empty': 'is not empty',
 	'lte': 'lower or equal',
@@ -66,18 +70,16 @@ function serialize(params: URLSearchParams): string
 
 }
 
-const tab_sx = (on: boolean) => ({
-	height: 32,
-	px: 1.25,
-	gap: 0.75,
+export const tab_sx = (on: boolean) => ({
+	height: 20,
+	px: 0.75,
+	gap: 0.5,
 	flexShrink: 0,
-	border: '1px solid',
-	borderColor: on ? 'var(--u-accent-border)' : 'var(--u-border)',
 	borderRadius: 1,
 	bgcolor: on ? 'var(--u-accent-bg)' : HEAD_BG,
 	color: on ? 'var(--u-accent-text)' : 'var(--u-text2)',
 	fontWeight: on ? 500 : 400,
-	fontSize: 13,
+	fontSize: 11,
 	'&:hover': {bgcolor: on ? 'var(--u-accent-bg)' : 'var(--u-border)'},
 })
 
@@ -172,7 +174,7 @@ export function ListChip({label, className = '', css = '', icon = ''}: {label: s
 }
 
 // id, dates and datetimes on the right, badges and active columns centered
-const alignOf = (column: GridColumn) => column.align ?? ((column.name === 'id' || column.type === 'date' || column.type === 'datetime') ? 'right' : ((column.type === 'badge' || column.name === 'active' || column.name === 'visible') ? 'center' : 'left'))
+const alignOf = (column: GridColumn) => column.align ?? ((column.name === 'id' || column.type === 'date' || column.type === 'datetime') ? 'right' : ((column.type === 'badge' || column.type === 'boolean' || column.name === 'active' || column.name === 'visible') ? 'center' : 'left'))
 
 // cell content by column type
 // tags of a row, clickable when the grid has the tags filter
@@ -204,6 +206,28 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	const ctx = useContext(TagFilter)
 
+	// second line in small under the value (ex: description under the name)
+	if(column.sub_column)
+	{
+
+		const inner = <Cell column={{...column, sub_column: undefined}} row={row} can_edit={can_edit} onToggle={onToggle} />
+		const sub = String(row[column.sub_column] ?? '')
+		if(sub === '')return inner
+		const sub_url = column.sub_url_column ? String(row[column.sub_url_column] ?? '') : ''
+
+		return (
+			<>
+				<Box component="span" sx={{display: 'block', overflow: 'hidden', textOverflow: 'ellipsis'}}>{inner}</Box>
+				<Box component="small" sx={{display: 'block', fontSize: 12, fontWeight: 400, color: 'var(--u-muted)', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+					{sub_url
+						? <Box component="a" href={sub_url} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{color: 'var(--u-accent-text)', textDecoration: 'none', '&:hover': {textDecoration: 'underline'}}}>{sub}</Box>
+						: sub}
+				</Box>
+			</>
+		)
+
+	}
+
 	// decorations of the value: avatar before, relative date after, click to filter
 	if(column.avatar_column || column.human_column || column.filter_column)
 	{
@@ -234,6 +258,8 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	{
 
 		if(column.toggle && can_edit)return <Switch size="small" checked={value === 'yes'} onClick={(e) => e.stopPropagation()} onChange={(e) => onToggle(row, column.name, e.target.checked ? 'yes' : 'no')} slotProps={{input: {'aria-label': column.label}}} />
+		// display only checkbox, no interaction
+		if(column.checkbox)return <Checkbox size="small" checked={value === 'yes'} disableRipple tabIndex={-1} slotProps={{input: {'aria-label': column.label, readOnly: true}}} sx={{p: 0, pointerEvents: 'none'}} />
 		return <>{value === 'yes' ? t('Yes') : t('No')}</>
 
 	}
@@ -259,6 +285,11 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	}
 
 	// email: icon with a mailto link, the address in the tooltip
+	// language: its flag, the code in the tooltip
+	if(column.type === 'flag')return <Tooltip title={text.toUpperCase()}><Box component="span" sx={{display: 'inline-flex', verticalAlign: 'middle'}}><Flag code={String(row[column.flag_column ?? ''] ?? text)} /></Box></Tooltip>
+
+	// url or path: opens in a new tab, to test it
+	if(column.type === 'url')return <Box component="a" href={text} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, maxWidth: '100%', color: 'var(--u-accent-text)', textDecoration: 'none', '&:hover': {textDecoration: 'underline'}}}><Box component="span" sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{text}</Box><OpenInNewOutlined sx={{fontSize: 14, flexShrink: 0}} /></Box>
 	if(column.type === 'email')return <Tooltip title={text}><IconButton size="small" component="a" href={`mailto:${text}`} aria-label={text} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{color: 'var(--u-accent-text)'}}><MailOutlined sx={{fontSize: 18}} /></IconButton></Tooltip>
 
 	// link to a page of the backend, {id} and {column} replaced by the values of the row
@@ -277,6 +308,10 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 	if(column.type === 'color')return <Box component="span" title={text} sx={{display: 'inline-block', width: 52, height: 14, borderRadius: 0.5, bgcolor: text, border: '1px solid rgba(0, 0, 0, 0.08)', verticalAlign: 'middle'}} />
 	if(column.type === 'count')return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: '1px', borderRadius: 1, bgcolor: HEAD_BG, border: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 500, color: 'var(--u-text2)'}}>{column.icon && <MenuIcon name={column.icon} fontSize={14} />}{text}</Box>
 	if(column.type === 'date' || column.type === 'datetime')return <>{formatDate(text, column.type === 'datetime')}</>
+	// text with an icon in front, icon_column = material symbol name of each row (ex: plugin icon)
+	const icon = column.type === 'text' && column.icon_column ? String(row[column.icon_column] ?? '') : ''
+	if(icon)return <Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: 0.75, verticalAlign: 'middle'}}><MenuIcon name={icon} fontSize={18} color="var(--u-text3)" />{text}</Box>
+	if(column.code)return <Box component="code" sx={{fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 11.5, color: 'var(--u-text3)'}}>{text}</Box>
 	return <>{text}</>
 
 }
@@ -303,7 +338,9 @@ function ConfirmDialog({open, title, onCancel, onConfirm, busy, label}: {open: b
 function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onSave}: {anchor: HTMLElement | null, filters: GridFilter[], conditions: Condition[], match: 'all' | 'any', onClose: () => void, onApply: (conditions: Condition[], match: 'all' | 'any') => void, onSave: (conditions: Condition[], match: 'all' | 'any') => void})
 {
 
-	const empty = (): Condition => ({f: filters[0]?.name ?? '', o: filters[0]?.operators[0] ?? 'eq', v: ''})
+	// a yes / no filter has no empty value: yes by default
+	const first_value = (f?: {type: string}) => f?.type === 'boolean' ? 'yes' : ''
+	const empty = (): Condition => ({f: filters[0]?.name ?? '', o: filters[0]?.operators[0] ?? 'eq', v: first_value(filters[0])})
 	const [draft, setDraft] = useState<Condition[]>([])
 	const [draft_match, setDraftMatch] = useState<'all' | 'any'>('all')
 
@@ -326,8 +363,9 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 		if(patch.f !== undefined && patch.f !== c.f)
 		{
 
-			next.o = filters.find((f) => f.name === patch.f)?.operators[0] ?? 'eq'
-			next.v = ''
+			const f = filters.find((f) => f.name === patch.f)
+			next.o = f?.operators[0] ?? 'eq'
+			next.v = first_value(f)
 
 		}
 
@@ -376,7 +414,7 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 							{(filter.options.length > 0 && c.o !== 'in' && !no_value(c.o))
 								? (
 									<Select size="small" displayEmpty value={c.v} onChange={(e) => set(i, {v: e.target.value})} sx={{...control, flexGrow: 1, minWidth: 0}} inputProps={{'aria-label': t('Value')}}>
-										<MenuItem value="">-</MenuItem>
+										{filter.type !== 'boolean' && <MenuItem value="">-</MenuItem>}
 										{filter.options.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
 									</Select>
 								)
@@ -402,11 +440,11 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 
 }
 
-function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction}: {row: Row, can_edit: boolean, can_delete: boolean, actions: RowAction[], onEdit: (row: Row) => void, onDelete: (row: Row) => void, onAction: (row: Row, action: RowAction) => void})
+function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction, onDuplicate}: {row: Row, can_edit: boolean, can_delete: boolean, actions: RowAction[], onEdit: (row: Row) => void, onDelete: (row: Row) => void, onAction: (row: Row, action: RowAction) => void, onDuplicate?: (row: Row) => void})
 {
 
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-	if(!can_edit && !can_delete && !actions.length)return null
+	if(!can_edit && !can_delete && !actions.length && !onDuplicate)return null
 
 	return (
 		<>
@@ -414,6 +452,7 @@ function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}>
 				{can_edit && <MenuItem onClick={() => { setAnchor(null); onEdit(row) }}><ListItemIcon><EditOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Edit')}</ListItemText></MenuItem>}
 				{actions.map((a) => <MenuItem key={a.name} onClick={() => { setAnchor(null); onAction(row, a) }}><ListItemIcon><MenuIcon name={a.icon} fontSize={20} /></ListItemIcon><ListItemText>{a.label}</ListItemText></MenuItem>)}
+				{onDuplicate && <MenuItem onClick={() => { setAnchor(null); onDuplicate(row) }}><ListItemIcon><ContentCopyOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Duplicate')}</ListItemText></MenuItem>}
 				{can_delete && <MenuItem onClick={() => { setAnchor(null); onDelete(row) }} sx={{color: 'error.main'}}><ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon><ListItemText>{t('Delete')}</ListItemText></MenuItem>}
 			</Menu>
 		</>
@@ -541,7 +580,7 @@ function PageInput({page, last, onChange}: {page: number, last: number, onChange
 /**
  * grid of a module (GET /api/<module>/), state kept in the url (search, chip, conditions, sort, page)
  */
-export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}: {module: string, icon: string, version: number, onAdd: () => void, onEdit: (row: Row) => void, onTitle?: (title: string, label: string) => void})
+export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle, onDuplicate}: {module: string, icon: string, version: number, onAdd: () => void, onEdit: (row: Row) => void, onTitle?: (title: string, label: string) => void, onDuplicate?: (row: Row) => void})
 {
 
 	const theme = useTheme()
@@ -677,6 +716,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 	const can_add = rights.has('add')
 	const can_edit = rights.has('edit')
 	const can_delete = rights.has('delete')
+	// duplicate opens the add form prefilled: add and edit rights
+	const duplicate = (grid?.duplicate && can_add && can_edit) ? onDuplicate : undefined
 	const batch_actions = (grid?.batch?.actions ?? []).filter((a) => rights.has(a.right))
 	const can_mass_edit = can_edit && (grid?.batch?.edit.length ?? 0) > 0
 	const batch = !!grid?.batch && (can_delete || can_mass_edit || batch_actions.length > 0)
@@ -1032,7 +1073,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					</Box>
 					{mobile_subtitle && <Typography component="span" noWrap sx={{fontSize: 13, color: 'var(--u-text3)'}}><Cell column={mobile_subtitle} row={row} can_edit={can_edit} onToggle={toggle} /></Typography>}
 				</Box>
-				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} />
+				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} />
 			</Box>
 		))
 
@@ -1047,16 +1088,21 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 			<Box component="table" sx={{width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 760}}>
 				<thead>
 					<Box component="tr" sx={{bgcolor: HEAD_BG}}>
-						{grid.position && <Box component="th" sx={{...th, width: 36, p: 0}}><Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Order')}</Box></Box>}
+						{grid.position && <Box component="th" sx={{...th, width: 28, p: 0}}><Box component="span" sx={{position: 'absolute', left: -9999}}>{t('Order')}</Box></Box>}
 						{batch && (
-							<Box component="th" sx={{...th, width: 56, p: '0 0 0 10px', textAlign: 'left'}}>
+							<Box component="th" sx={{...th, width: '1%', p: '0 0 0 10px', textAlign: 'left'}}>
 								{selection_control}
 							</Box>
 						)}
 						{columns.map((c, i) => (
-							<Box component="th" key={c.name} sx={{...th, width: c.width, textAlign: alignOf(c), pl: (i === 0 && !batch) ? 2 : 1.5}} aria-sort={grid.sort.column === c.name ? (grid.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+							<Box component="th" key={c.name} sx={{...th, width: c.name === 'id' ? '1%' : (c.width ? `${c.width}px` : undefined), textAlign: alignOf(c), pl: i === 0 ? ((batch || grid.position) ? 0.5 : 2) : 1.5}} aria-sort={grid.sort.column === c.name ? (grid.sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
 								{c.sortable
-									? <ButtonBase onClick={() => sortBy(c)} sx={{font: 'inherit', color: grid.sort.column === c.name ? 'var(--u-text)' : 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', gap: 0.25}}>{sort_icon(c)}{c.label}</ButtonBase>
+									? <ButtonBase onClick={() => sortBy(c)} sx={{font: 'inherit', color: grid.sort.column === c.name ? 'var(--u-text)' : 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', gap: 0.25, position: 'relative'}}>
+										{/* centered column: the arrow out of the flow after the label (before, it went over the previous column), the label stays centered over the values */}
+										{alignOf(c) !== 'center' && sort_icon(c)}
+										{c.label}
+										{alignOf(c) === 'center' && <Box component="span" sx={{position: 'absolute', left: '100%', display: 'flex'}}>{sort_icon(c)}</Box>}
+									</ButtonBase>
 									: c.label}
 							</Box>
 						))}
@@ -1070,7 +1116,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 					{rows.map((row) => (
 						<Box component="tr" key={row.id} onClick={() => grid.detail && setDetailId(row.id)} onDoubleClick={() => can_edit && onEdit(row)} onDragOver={(e) => dragOver(e, row)} onDrop={(e) => e.preventDefault()} sx={{cursor: grid.detail ? 'pointer' : 'default', opacity: drag_id === row.id ? 0.45 : 1, bgcolor: selected.includes(row.id) ? 'var(--u-accent-hover)' : 'transparent', '&:hover': {bgcolor: selected.includes(row.id) ? 'var(--u-accent-bg)' : 'var(--u-head)'}}}>
 							{grid.position && (
-								<Box component="td" sx={{...td, p: '0 0 0 10px', width: 36}}>
+								<Box component="td" sx={{...td, p: '0 0 0 10px', width: 28}}>
 									{can_drag && (
 										<Box
 											draggable
@@ -1093,16 +1139,16 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 									)}
 								</Box>
 							)}
-							{batch && <Box component="td" sx={{...td, p: '0 0 0 16px'}}><Checkbox size="small" checked={selected.includes(row.id)} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{p: 0}} /></Box>}
+							{batch && <Box component="td" sx={{...td, p: '0 0 0 17px'}}><Checkbox size="small" checked={selected.includes(row.id)} onChange={() => selectRow(row.id)} slotProps={{input: {'aria-label': t('Select row')}}} sx={{p: 0}} /></Box>}
 							{columns.map((c, i) => (
-								<Box component="td" key={c.name} sx={{...td, pl: (i === 0 && !batch) ? 2 : 1.5, textAlign: alignOf(c), color: c.name === 'id' ? 'var(--u-text3)' : 'var(--u-text)', fontWeight: c.name === grid.mobile.title ? 500 : 400, maxWidth: c.width ? undefined : 420, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+								<Box component="td" key={c.name} sx={{...td, pl: i === 0 ? ((batch || grid.position) ? 0.5 : 2) : 1.5, textAlign: alignOf(c), color: (c.name === 'id' || c.small) ? 'var(--u-text3)' : 'var(--u-text)', fontSize: c.small ? 11 : undefined, fontWeight: c.name === grid.mobile.title ? 500 : 400, maxWidth: c.width ? undefined : 420, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
 									<Cell column={c} row={row} can_edit={can_edit} onToggle={toggle} />
 								</Box>
 							))}
 							<Box component="td" sx={{...td, pr: 1.5}}>
 								<Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 0.25}}>
 									{can_edit && <IconButton size="small" aria-label={t('Edit')} onClick={() => onEdit(row)} sx={{width: 34, height: 34, color: 'primary.main'}}><EditOutlined sx={{fontSize: 18}} /></IconButton>}
-									<RowMenu row={row} can_edit={false} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} />
+									<RowMenu row={row} can_edit={false} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} />
 								</Box>
 							</Box>
 						</Box>
@@ -1152,11 +1198,19 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 				{can_add && <Button variant="contained" startIcon={<AddCircleOutlineOutlined />} onClick={onAdd}>{is_mobile ? t('Add') : `${t('Add')} ${grid.label}`}</Button>}
 			</Box>
 
-			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: -0.5, mb: {xs: -1, md: -1.25}}}>
+			{/* chips row: its margins halve the gaps of the page around it (title to table: 13px when empty) */}
+			<Box sx={{display: 'flex', flexWrap: {xs: 'nowrap', md: 'wrap'}, alignItems: 'flex-end', gap: 0.75, overflowX: {xs: 'auto', md: 'visible'}, mt: {xs: -1.25, md: -1.5}, mb: {xs: -1.5, md: -1.875}}}>
 				{grid.chips && (
 					<>
 						{grid.chips.all && <ButtonBase sx={tab_sx(chip === '')} onClick={() => setTab('')}>{t('All')}<TabCount value={grid.chips.total} on={chip === ''} /></ButtonBase>}
-						{grid.chips.options.map((o) => <ButtonBase key={o.value} sx={tab_sx(chip === o.value)} onClick={() => setTab(o.value)}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>)}
+						{grid.chips.options.map((o) => {
+
+							// colored chip: background of its badge color, the active one in bold
+							const c = o.color ? BADGES[o.color] : undefined
+							const sx = c ? {...tab_sx(false), bgcolor: c.bg, color: c.fg, fontWeight: chip === o.value ? 600 : 500, '&:hover': {bgcolor: c.bg}} : tab_sx(chip === o.value)
+							return <ButtonBase key={o.value} sx={sx} onClick={() => setTab(o.value)}>{o.label}<TabCount value={o.count} on={chip === o.value} /></ButtonBase>
+
+						})}
 					</>
 				)}
 				<Box component="span" sx={{ml: 'auto', flexShrink: 0, pl: 1, fontSize: 13, color: 'var(--u-text3)', display: 'flex', alignItems: 'center', gap: 1}}>
@@ -1246,7 +1300,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle}
 }
 
 // rows of a tab, with the search and the conditions applied
-function TabCount({value, on}: {value: number, on: boolean})
+export function TabCount({value, on}: {value: number, on: boolean})
 {
 
 	return <Box component="span" sx={{minWidth: 16, px: 0.5, borderRadius: 0.75, fontSize: 10.5, fontWeight: 600, lineHeight: '16px', textAlign: 'center', bgcolor: on ? 'var(--u-accent-bg2)' : 'var(--u-border)', color: on ? 'var(--u-accent-text)' : 'var(--u-text3)'}}>{value}</Box>

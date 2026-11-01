@@ -102,3 +102,14 @@ SELECT p.id, 'Projects', CONCAT('Plugin', CHAR(92), 'Core_Backend', CHAR(92), 'P
 FROM `xcore_plugin` p
 WHERE p.route_prefix_name = 'project' AND p.deleted = 'no'
 AND NOT EXISTS (SELECT 1 FROM `xcore_widget` x WHERE x.method LIKE '%ProjectController::widgetProjects' AND x.deleted = 'no');
+
+-- @down
+
+DELETE FROM `xcore_group_right` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('project') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_user_bookmark` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('project') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_widget` WHERE `xcore_plugin_id` IN (SELECT `id` FROM `xcore_plugin` WHERE `route_prefix_name` IN ('project') AND `created_by` = 'unee-migrate');
+DELETE FROM `xcore_plugin` WHERE `route_prefix_name` IN ('project') AND `created_by` = 'unee-migrate';
+DROP TABLE IF EXISTS `xcore_project_task_attachment`;
+DROP TABLE IF EXISTS `xcore_project_task`;
+DROP TABLE IF EXISTS `xcore_project_step`;
+DROP TABLE IF EXISTS `xcore_project`;

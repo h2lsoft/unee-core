@@ -67,4 +67,21 @@ class I18n
 
 	}
 
+	/**
+	 * flag of a language: country code of core/theme/core-admin/src/components/Flag.tsx, ex: en -> gb, fr -> fr
+	 *
+	 * @param string $lang
+	 *
+	 * @return string
+	 */
+	public static function flag(string $lang):string
+	{
+
+		$flags = ['en' => 'gb', 'cs' => 'cz', 'da' => 'dk', 'el' => 'gr', 'he' => 'il', 'ja' => 'jp', 'ko' => 'kr', 'nb' => 'no', 'sv' => 'se', 'uk' => 'ua', 'zh' => 'cn', 'ar' => 'sa'];
+		$lang = strtolower($lang);
+
+		return $flags[$lang] ?? $lang;
+
+	}
+
 }

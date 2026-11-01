@@ -56,3 +56,21 @@ if(!hash_equals((string)\Core\Session::get('auth.password_check', ''), \Model\Us
 // group changed by an admin: rights follow without a new logon
 \Core\Session::set('auth.group_id', (int)$account['xcore_group_id']);
 \Core\Session::set('auth.last_activity', time());
+
+// plugin the user is in, saved on change for the dashboard (last active users), routes outside a plugin (auth, i18n...) ignored
+$controller = $request->attributes->get('_controller');
+$class = is_string($controller) ? explode('::', $controller)[0] : '';
+if($class && class_exists($class))
+{
+
+	$module = basename(dirname((new \ReflectionClass($class))->getFileName()));
+	if($module !== \Core\Session::get('auth.plugin'))
+	{
+
+		\Core\Session::set('auth.plugin', $module);
+		if($module === 'dashboard' || DB()->query("SELECT id FROM xcore_plugin WHERE route_prefix_name = :module AND deleted = 'no' LIMIT 1", ['module' => $module])->fetchOne())
+			DB()->query("UPDATE xcore_user SET last_connection_plugin = :module WHERE id = :id", ['module' => $module, 'id' => \Model\User::getUID()]);
+
+	}
+
+}
