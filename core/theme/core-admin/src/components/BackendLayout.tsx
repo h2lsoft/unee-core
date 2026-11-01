@@ -9,6 +9,7 @@ import { t } from '../i18n'
 import { useLoginConfig, useLogo } from './AuthLayout'
 import { MenuIcon } from './icons'
 import FormDialog from './FormDialog'
+import NotificationBell from './NotificationBell'
 
 const COLLAPSED_KEY = 'unee.menu.collapsed'
 const BORDER = 'var(--u-border)'
@@ -466,6 +467,7 @@ export default function BackendLayout()
 							{/* calendar: module calendar (hidden from the menus), shown with its list right */}
 							<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
 								{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
+								<NotificationBell />
 								<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
 								{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
 							</Box>

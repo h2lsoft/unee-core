@@ -27,7 +27,7 @@ class Jobber
 	 *
 	 * @return int job id
 	 */
-	public static function push(string $type, array $payload = [], string $comment = '', int $priority = 0, ?string $scheduled_at = null, int $max_attempts = 3):int
+	public static function push(string $type, array $payload = [], string $comment = '', int $priority = 0, ?string $scheduled_at = null, int $max_attempts = 3, int $notify_user_id = 0):int
 	{
 
 		if(!isset(\Core\Config::get('jobs', [])[$type]))throw new \InvalidArgumentException("unknown job type: {$type}");
@@ -42,6 +42,7 @@ class Jobber
 			'attempts' => 0,
 			'max_attempts' => max(1, $max_attempts),
 			'scheduled_at' => $scheduled_at,
+			'notify_user_id' => max(0, $notify_user_id),
 		], 'jobber');
 
 	}
@@ -99,6 +100,20 @@ class Jobber
 	}
 
 	/**
+	 * name of a job in a notification: its comment, else its type and id
+	 *
+	 * @param array $job
+	 *
+	 * @return string
+	 */
+	private static function label(array $job):string
+	{
+
+		return ((string)($job['comment'] ?? '') !== '') ? (string)$job['comment'] : "{$job['type']} #{$job['id']}";
+
+	}
+
+	/**
 	 * runs a claimed job
 	 *
 	 * @param array $job
@@ -118,6 +133,7 @@ class Jobber
 			$data = (new $class())->handle(is_array($payload) ? $payload : []);
 
 			DB()->query("UPDATE xcore_job_queue SET status = 'completed', completed_at = :now, locked_by = '', error_message = '', result = :result WHERE id = :id", ['now' => now(), 'result' => ($data === null) ? null : json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), 'id' => $job['id']]);
+			\Core\Notification::send((int)($job['notify_user_id'] ?? 0), ts('Job completed'), self::label($job), 'jobber/', 'success');
 			return ['status' => 'completed', 'error' => ''];
 
 		}
@@ -130,7 +146,16 @@ class Jobber
 			// next attempt delayed: 1, 4, 9... minutes
 			$retry_at = date('Y-m-d H:i:s', time() + 60 * (int)$job['attempts'] ** 2);
 			DB()->query("UPDATE xcore_job_queue SET status = :status, locked_by = '', error_message = :error, scheduled_at = IF(:dead = 1, scheduled_at, :retry_at) WHERE id = :id", ['status' => $status, 'error' => $error, 'dead' => (int)($status === 'dead'), 'retry_at' => $retry_at, 'id' => $job['id']]);
-			if($status === 'dead')\Core\Log::write('error', "job #{$job['id']} {$job['type']}: {$error}", [], (int)$job['id'], 'error', 'jobber', 'jobber');
+			if($status === 'dead')
+			{
+
+				\Core\Log::write('error', "job #{$job['id']} {$job['type']}: {$error}", [], (int)$job['id'], 'error', 'jobber', 'jobber');
+
+				// abandoned: the user who queued it, else the super admins
+				if((int)($job['notify_user_id'] ?? 0) > 0)\Core\Notification::send((int)$job['notify_user_id'], ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning');
+				else \Core\Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning');
+
+			}
 
 			return ['status' => ($status === 'dead') ? 'dead' : 'failed', 'error' => $error];
 

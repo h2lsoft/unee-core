@@ -55,6 +55,9 @@ if(!hash_equals((string)\Core\Session::get('auth.password_check', ''), \Model\Us
 
 // group changed by an admin: rights follow without a new logon
 \Core\Session::set('auth.group_id', (int)$account['xcore_group_id']);
+
+// polling of the notifications (every minute) is not an activity: the idle timeout and the current plugin are kept
+if($request->attributes->get('_route') === 'api.notification.list')return;
 \Core\Session::set('auth.last_activity', time());
 
 // plugin the user is in, saved on change for the dashboard (last active users), routes outside a plugin (auth, i18n...) ignored
