@@ -82,6 +82,40 @@ class AuthController extends \Core\Controller
 	}
 
 	/**
+	 * end of a connect as: the session of the account that started it opens again (no password or code asked)
+	 *
+	 * @return \Core\JsonResponse {"redirect"}, 422 when not connected as, 403 when the account cannot sign in anymore
+	 */
+	#[Route('/impersonation/stop/', name: 'impersonation.stop', methods: ['POST'])]
+	public function impersonationStop():\Core\JsonResponse
+	{
+
+		$impersonator = \Core\Session::get('auth.impersonator');
+		if(!$impersonator)return \Core\JsonResponse::error(422, 'you are not connected as another user');
+
+		$user = DB()->query("SELECT u.*, g.access_backend
+							 FROM xcore_user u
+							 INNER JOIN xcore_group g ON g.id = u.xcore_group_id AND g.deleted = 'no' AND g.active = 'yes'
+							 WHERE u.deleted = 'no' AND u.id = :id
+							 LIMIT 1", ['id' => (int)$impersonator['id']])->fetch();
+
+		if(!$user || $user['active'] !== 'yes' || $user['access_backend'] !== 'yes')
+		{
+
+			\Core\Session::destroy();
+			return \Core\JsonResponse::error(403, 'your account cannot sign in anymore');
+
+		}
+
+		\Core\Log::write('connect_as_back', "back to {$user['login']}", [], (int)\Model\User::getUID(), 'warning', 'auth', $user['login']);
+		\Core\Session::destroy();
+		\Model\User::openSession($user);
+
+		return new \Core\JsonResponse(['redirect' => '/'.\Core\Backend::dirname().'/']);
+
+	}
+
+	/**
 	 * answer of a logon waiting for its second factor, with the secret and its qr code uri on setup
 	 *
 	 * @return array

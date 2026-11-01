@@ -256,6 +256,42 @@ function ThemeButton({collapsed, tip = 'right'}: {collapsed: boolean, tip?: 'rig
 
 }
 
+// connect as (white on dark orange, contrast 4.8:1): who is used and how to go back to the account that started it (full reload, like connect as)
+function ImpersonationBanner()
+{
+
+	const {user} = useAuth()
+	const [busy, setBusy] = useState(false)
+	if(!user?.impersonator)return null
+
+	const back = async () => {
+
+		setBusy(true)
+		try
+		{
+
+			const data = await api<{redirect: string}>('auth/impersonation/stop/', {method: 'POST'})
+			window.location.href = data.redirect
+
+		}
+		catch
+		{
+
+			window.location.reload()
+
+		}
+
+	}
+
+	return (
+		<Box role="status" sx={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: {xs: 1, md: 2}, minHeight: 38, px: 2, py: 0.5, bgcolor: '#b85600', color: '#fff', fontSize: 13.5, fontWeight: 500}}>
+			<span>{t('Connected as [NAME]', {NAME: `${user.firstname} ${user.lastname}`.trim() || user.login})}</span>
+			<Button size="small" variant="outlined" onClick={back} disabled={busy} sx={{height: 28, fontSize: 12.5, fontWeight: 600, color: '#fff', borderColor: 'rgba(255, 255, 255, .7)', '&:hover': {borderColor: '#fff', bgcolor: 'rgba(255, 255, 255, .15)'}}}>{t('Back to my account ([LOGIN])', {LOGIN: user.impersonator})}</Button>
+		</Box>
+	)
+
+}
+
 function UserMenu({compact}: {compact: boolean})
 {
 
@@ -420,17 +456,21 @@ export default function BackendLayout()
 
 				<Box sx={{flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column'}}>
 
-					<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-page)', borderBottom: '1px solid var(--u-border-soft)', position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
-						{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
-						<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
-						<Box sx={{flexGrow: 1}} />
-						{/* calendar: module calendar (hidden from the menus), shown with its list right */}
-						<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
-							{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
-							<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
-							{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
+					{/* sticky top: banner of a connect as and header */}
+					<Box sx={{position: 'sticky', top: 0, zIndex: theme.zIndex.appBar}}>
+						<ImpersonationBanner />
+						<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-page)', borderBottom: '1px solid var(--u-border-soft)'}}>
+							{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
+							<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
+							<Box sx={{flexGrow: 1}} />
+							{/* calendar: module calendar (hidden from the menus), shown with its list right */}
+							<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
+								{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
+								<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
+								{!is_mobile && <Box sx={{width: '1px', height: 28, mx: 1, bgcolor: BORDER}} />}
+							</Box>
+							<UserMenu compact={is_mobile} />
 						</Box>
-						<UserMenu compact={is_mobile} />
 					</Box>
 
 					{is_mobile && (

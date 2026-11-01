@@ -251,14 +251,19 @@ class UserController extends \Core\CrudController
 	{
 
 		if((int)$record['id'] === \Model\User::getUID())return \Core\JsonResponse::error(422, 'you are already connected with this account');
+		if((int)$record['xcore_group_id'] === \Model\User::GROUP_SUPERADMIN && !\Model\User::isSuperAdmin())return \Core\JsonResponse::error(403, 'only a super admin can connect as a super admin');
 
 		$group = DB()->query("SELECT access_backend, active FROM xcore_group WHERE id = :id AND deleted = 'no'", ['id' => (int)$record['xcore_group_id']])->fetch();
 		if($record['active'] !== 'yes' || !$group || $group['access_backend'] !== 'yes' || $group['active'] !== 'yes')
 			return \Core\JsonResponse::error(422, 'this account cannot sign in to the backend');
 
 		\Core\Log::write('connect_as', "connect as {$record['login']}", [], (int)$record['id'], 'warning', $this->module);
+
+		// account to go back to (banner of the backend), the first one when connecting as from an impersonated session
+		$impersonator = \Core\Session::get('auth.impersonator') ?? ['id' => \Model\User::getUID(), 'login' => (string)\Core\Session::get('auth.login')];
 		\Core\Session::destroy();
 		\Model\User::openSession($record);
+		\Core\Session::set('auth.impersonator', $impersonator);
 
 		return new \Core\JsonResponse(['redirect' => '/'.\Core\Config::get('backend.dirname').'/']);
 

@@ -457,6 +457,9 @@ class User extends \Core\Entity
 
 		$user['group_name'] = (string)DB()->query("SELECT name FROM xcore_group WHERE id = :id", ['id' => (int)$user['group_id']])->fetchOne();
 
+		// connect as: login of the account to go back to, null otherwise
+		$user['impersonator'] = \Core\Session::get('auth.impersonator')['login'] ?? null;
+
 		return $user;
 
 	}

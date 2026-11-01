@@ -9,6 +9,7 @@ export type User = {
 	language: string
 	group_id: number
 	group_name: string
+	impersonator: string | null
 }
 
 export type ApiError = {
