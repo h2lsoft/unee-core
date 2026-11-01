@@ -147,6 +147,38 @@ class Form
 	public function addSelectUser(string $name, string $label='User', bool $required=false, int $current=0):static
 	{
 
+		[$options, $avatars] = $this->userOptions($current);
+		return $this->add('select', $name, $label, $required, ['options' => $options, 'translate' => false, 'autocomplete' => true, 'free' => false, 'avatars' => (object)$avatars]);
+
+	}
+
+	/**
+	 * several users with their avatar (active ones), json array of ids like addSelectMultiple()
+	 *
+	 * @param string $name
+	 * @param string $label
+	 * @param bool $required
+	 *
+	 * @return static
+	 */
+	public function addSelectMultipleUser(string $name, string $label='Users', bool $required=false):static
+	{
+
+		[$options, $avatars] = $this->userOptions(0);
+		return $this->add('multiselect', $name, $label, $required, ['options' => $options, 'default' => [], 'translate' => false, 'avatars' => (object)$avatars]);
+
+	}
+
+	/**
+	 * active users (and the current one) with their avatar, the system account excluded
+	 *
+	 * @param int $current
+	 *
+	 * @return array [id => name, id => avatar]
+	 */
+	private function userOptions(int $current):array
+	{
+
 		$options = [];
 		$avatars = [];
 		foreach(DB()->query("SELECT id, firstname, lastname, login, avatar FROM xcore_user WHERE deleted = 'no' AND (active = 'yes' OR id = :current) AND id > 1 ORDER BY firstname, lastname", ['current' => $current])->fetchAll() as $rec)
@@ -158,7 +190,7 @@ class Form
 
 		}
 
-		return $this->add('select', $name, $label, $required, ['options' => $options, 'translate' => false, 'autocomplete' => true, 'free' => false, 'avatars' => (object)$avatars]);
+		return [$options, $avatars];
 
 	}
 

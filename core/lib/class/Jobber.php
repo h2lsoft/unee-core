@@ -133,7 +133,7 @@ class Jobber
 			$data = (new $class())->handle(is_array($payload) ? $payload : []);
 
 			DB()->query("UPDATE xcore_job_queue SET status = 'completed', completed_at = :now, locked_by = '', error_message = '', result = :result WHERE id = :id", ['now' => now(), 'result' => ($data === null) ? null : json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), 'id' => $job['id']]);
-			\Core\Notification::send((int)($job['notify_user_id'] ?? 0), ts('Job completed'), self::label($job), 'jobber/', 'success');
+			\Core\Notification::send((int)($job['notify_user_id'] ?? 0), ts('Job completed'), self::label($job), 'jobber/', 'success', 'Jobber');
 			return ['status' => 'completed', 'error' => ''];
 
 		}
@@ -152,8 +152,8 @@ class Jobber
 				\Core\Log::write('error', "job #{$job['id']} {$job['type']}: {$error}", [], (int)$job['id'], 'error', 'jobber', 'jobber');
 
 				// abandoned: the user who queued it, else the super admins
-				if((int)($job['notify_user_id'] ?? 0) > 0)\Core\Notification::send((int)$job['notify_user_id'], ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning');
-				else \Core\Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning');
+				if((int)($job['notify_user_id'] ?? 0) > 0)\Core\Notification::send((int)$job['notify_user_id'], ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning', 'Jobber');
+				else \Core\Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Job abandoned'), self::label($job).": {$error}", 'jobber/', 'warning', 'Jobber');
 
 			}
 

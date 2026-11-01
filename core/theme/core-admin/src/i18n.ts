@@ -34,6 +34,7 @@ const fr: Record<string, string> = {
 	'Mark all as read': 'Tout marquer comme lu',
 	'No notification': 'Aucune notification',
 	'You are up to date.': 'Vous êtes à jour.',
+	'Show them as browser notifications': 'Les afficher en notifications du navigateur',
 	'Back to my account ([LOGIN])': 'Revenir à mon compte ([LOGIN])',
 	'Forgot password': 'Mot de passe oublié',
 	'Forgot Password': 'Mot de passe oublié',

@@ -224,7 +224,7 @@ class Cron
 	{
 
 		DB()->query("UPDATE xcore_crontask SET locked = 'no', locked_date = NULL, status = :status, last_error_message = :error, last_execution_date_end = :now WHERE id = :id", ['status' => $status, 'error' => $error, 'now' => now(), 'id' => $cron['id']]);
-		if($status === 'error')\Core\Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Scheduled task in error'), "{$cron['name']}: {$error}", 'cron/', 'error');
+		if($status === 'error')\Core\Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Scheduled task in error'), "{$cron['name']}: {$error}", 'cron/', 'error', 'Cron');
 
 	}
 

@@ -8,7 +8,7 @@ import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
 	CheckBoxOutlined, CloseOutlined, FileDownloadOutlined, ContentCopyOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
 	SearchOutlined, ViewColumnOutlined,
-	MailOutlined, OpenInNewOutlined,
+	MailOutlined, OpenInNewOutlined, LanguageOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
 import { getLanguage, t } from '../i18n'
@@ -20,6 +20,7 @@ import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
 import { useToast } from './Toast'
 import { Flag } from './Flag'
+import { BASE } from '../base'
 
 const BORDER = 'var(--u-border)'
 const ROW_BORDER = 'var(--u-border-soft)'
@@ -264,6 +265,23 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	}
 
+	// stack: mini avatars overlapping (name in the tooltip) or mini chips, then +n
+	if(column.type === 'stack')
+	{
+
+		const stack = (value ?? {items: [], more: 0}) as {items: {avatar?: AvatarData, title?: string, label?: string}[], more: number}
+		if(!stack.items?.length)return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
+		return (
+			<Box component="span" sx={{display: 'inline-flex', alignItems: 'center', gap: stack.items[0].avatar ? 0 : 0.5, verticalAlign: 'middle', flexWrap: 'nowrap'}}>
+				{stack.items.map((i, k) => i.avatar
+					? <Box key={k} component="span" sx={{ml: k ? '-6px' : 0, display: 'inline-flex', borderRadius: '50%', boxShadow: '0 0 0 2px var(--u-paper)'}}><UserAvatar avatar={i.avatar} title={i.title} size={22} /></Box>
+					: <Chip key={k} label={i.label} size="small" sx={{height: 20, fontSize: 11, border: 0, bgcolor: 'var(--u-border-soft)'}} />)}
+				{stack.more > 0 && <Box component="span" sx={{ml: 0.75, fontSize: 11.5, fontWeight: 500, color: 'var(--u-text3)'}}>+{stack.more}</Box>}
+			</Box>
+		)
+
+	}
+
 	if(value === null || value === undefined || value === '')return <Box component="span" sx={{color: 'var(--u-faint)'}}>-</Box>
 
 	const text = String(value)
@@ -290,6 +308,14 @@ function Cell({column, row, can_edit, onToggle}: {column: GridColumn, row: Row, 
 
 	// url or path: opens in a new tab, to test it
 	if(column.type === 'url')return <Box component="a" href={text} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{display: 'inline-flex', alignItems: 'center', gap: 0.5, maxWidth: '100%', color: 'var(--u-accent-text)', textDecoration: 'none', '&:hover': {textDecoration: 'underline'}}}><Box component="span" sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{text}</Box><OpenInNewOutlined sx={{fontSize: 14, flexShrink: 0}} /></Box>
+	// weblink: globe icon, the url in its tooltip, test in a popup (a path of the backend is completed)
+	if(column.type === 'weblink')
+	{
+
+		const url = /^https?:\/\//i.test(text) ? text : BASE + text.replace(/^\/+/, '')
+		return <Tooltip title={url}><IconButton size="small" aria-label={url} onClick={(e: React.MouseEvent) => { e.stopPropagation(); window.open(url, 'unee-link', 'popup,width=1100,height=750') }} sx={{color: 'var(--u-accent-text)'}}><LanguageOutlined sx={{fontSize: 18}} /></IconButton></Tooltip>
+
+	}
 	if(column.type === 'email')return <Tooltip title={text}><IconButton size="small" component="a" href={`mailto:${text}`} aria-label={text} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{color: 'var(--u-accent-text)'}}><MailOutlined sx={{fontSize: 18}} /></IconButton></Tooltip>
 
 	// link to a page of the backend, {id} and {column} replaced by the values of the row

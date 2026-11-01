@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Badge, Box, ButtonBase, Dialog, IconButton, Popover, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { CheckOutlined, CloseOutlined, ErrorOutlineOutlined, InfoOutlined, NotificationsNoneOutlined, NotificationsOutlined, WarningAmberOutlined } from '@mui/icons-material'
+import { CheckOutlined, CloseOutlined, ErrorOutlineOutlined, InfoOutlined, NotificationsActiveOutlined, NotificationsNoneOutlined, NotificationsOutlined, WarningAmberOutlined } from '@mui/icons-material'
 import { api } from '../api'
 import { t } from '../i18n'
 import { relativeTime } from './time'
 
-type Notification = {id: number, level: 'info' | 'success' | 'warning' | 'error', title: string, message: string, link: string, date: string, read: boolean}
+type Item = {id: number, level: 'info' | 'success' | 'warning' | 'error', category: string, title: string, message: string, link: string, date: string, read: boolean}
+
+// notifications of the browser (system), only while the backend is open
+const BROWSER = typeof window !== 'undefined' && 'Notification' in window
 
 const POLL_MS = 60000
 
@@ -21,6 +24,7 @@ const LEVELS = {
 /**
  * bell of the header: unread count polled every minute (and when the tab comes back), list of the last notifications
  * desktop: popover under the bell, mobile: full screen
+ * new unread notifications are also shown by the browser when allowed and the tab is not in front
  */
 export default function NotificationBell()
 {
@@ -30,20 +34,44 @@ export default function NotificationBell()
 	const navigate = useNavigate()
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 	const [unread, setUnread] = useState(0)
-	const [items, setItems] = useState<Notification[]>([])
+	const [items, setItems] = useState<Item[]>([])
+	const [permission, setPermission] = useState(BROWSER ? window.Notification.permission : 'denied')
+
+	// highest id already seen: only newer unread ones go to the browser (none on the first load)
+	const seen = useRef<number | null>(null)
 
 	const load = useCallback(() => {
 
-		api<{unread: number, items: Notification[]}>('notification/')
-			.then((data) => { setUnread(data.unread); setItems(data.items) })
+		api<{unread: number, items: Item[]}>('notification-bell/')
+			.then((data) => {
+
+				setUnread(data.unread)
+				setItems(data.items)
+
+				const max = Math.max(0, ...data.items.map((i) => i.id))
+				if(seen.current !== null && BROWSER && window.Notification.permission === 'granted' && document.visibilityState !== 'visible')
+				{
+
+					for(const n of data.items.filter((i) => !i.read && i.id > (seen.current ?? 0)))
+					{
+
+						const popup = new window.Notification(n.title, {body: n.message, tag: `unee-notification-${n.id}`})
+						popup.onclick = () => { window.focus(); popup.close(); if(n.link)navigate(`/${n.link}`) }
+
+					}
+
+				}
+				seen.current = Math.max(seen.current ?? 0, max)
+
+			})
 			.catch(() => null)
 
-	}, [])
+	}, [navigate])
 
 	useEffect(() => {
 
 		load()
-		const timer = window.setInterval(() => { if(document.visibilityState === 'visible')load() }, POLL_MS)
+		const timer = window.setInterval(load, POLL_MS)
 		const onVisible = () => { if(document.visibilityState === 'visible')load() }
 		document.addEventListener('visibilitychange', onVisible)
 		return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
@@ -52,14 +80,20 @@ export default function NotificationBell()
 
 	const close = () => setAnchor(null)
 
-	const open = async (n: Notification) => {
+	const allowBrowser = () => {
+
+		window.Notification.requestPermission().then(setPermission).catch(() => null)
+
+	}
+
+	const open = async (n: Item) => {
 
 		close()
 		if(!n.read)
 		{
 
 			setItems((list) => list.map((i) => i.id === n.id ? {...i, read: true} : i))
-			api<{unread: number}>(`notification/${n.id}/read/`, {method: 'POST'}).then((data) => setUnread(data.unread)).catch(() => null)
+			api<{unread: number}>(`notification-bell/${n.id}/read/`, {method: 'POST'}).then((data) => setUnread(data.unread)).catch(() => null)
 
 		}
 		if(n.link)navigate(`/${n.link}`)
@@ -70,7 +104,7 @@ export default function NotificationBell()
 
 		setItems((list) => list.map((i) => ({...i, read: true})))
 		setUnread(0)
-		await api('notification/read-all/', {method: 'POST'}).catch(() => null)
+		await api('notification-bell/read-all/', {method: 'POST'}).catch(() => null)
 
 	}
 
@@ -112,7 +146,7 @@ export default function NotificationBell()
 										<Box sx={{display: 'flex', flexDirection: 'column', gap: 0.25, flex: '1 1 0', minWidth: 0}}>
 											<Typography sx={{fontSize: is_mobile ? 14 : 13.5, fontWeight: n.read ? 500 : 600, lineHeight: 1.35}}>{n.title}</Typography>
 											{n.message && <Typography sx={{fontSize: is_mobile ? 13 : 12.5, color: 'var(--u-text3)', lineHeight: 1.4, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>{n.message}</Typography>}
-											<Typography sx={{fontSize: is_mobile ? 12 : 11.5, color: 'var(--u-muted)'}}>{relativeTime(n.date)}</Typography>
+											<Typography sx={{fontSize: is_mobile ? 12 : 11.5, color: 'var(--u-muted)'}}>{n.category ? `${n.category} - ${relativeTime(n.date)}` : relativeTime(n.date)}</Typography>
 										</Box>
 										{!n.read && <Box aria-label={t('unread')} sx={{width: 8, height: 8, mt: 0.75, flexShrink: 0, borderRadius: '50%', bgcolor: 'primary.main'}} />}
 									</ButtonBase>
@@ -122,6 +156,13 @@ export default function NotificationBell()
 						})}
 					</Box>
 				)}
+
+			{/* browser notifications: asked once, from a click (the browsers refuse it otherwise) */}
+			{BROWSER && permission === 'default' && (
+				<ButtonBase onClick={allowBrowser} sx={{flexShrink: 0, justifyContent: 'center', gap: 0.75, minHeight: 44, px: 2, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500, color: 'var(--u-accent-text)', borderTop: '1px solid var(--u-border-soft)', '&:hover': {bgcolor: 'var(--u-hover)'}}}>
+					<NotificationsActiveOutlined sx={{fontSize: 18}} />{t('Show them as browser notifications')}
+				</ButtonBase>
+			)}
 		</Box>
 	)
 

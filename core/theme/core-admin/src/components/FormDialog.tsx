@@ -13,6 +13,7 @@ import TimeInput from './TimeInput'
 import FileInput from './FileInput'
 import UserAvatar from './UserAvatar'
 import { useToast } from './Toast'
+import { BASE } from '../base'
 
 // datetime-local works with "Y-m-dTH:i", the api with "Y-m-d H:i:s", tags are kept as a json array in the state
 export function toInput(field: FormField, value: unknown): string
@@ -211,7 +212,8 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 				getOptionLabel={(o) => o.label}
 				isOptionEqualToValue={(o, v) => o.value === v.value}
 				onChange={(_, list) => onChange(JSON.stringify(list.map((o) => o.value)))}
-				renderValue={(list, getItemProps) => list.map((o, index) => <Chip {...getItemProps({index})} key={o.value} label={o.label} size="small" />)}
+				renderOption={field.avatars ? ({key, ...props}, o) => <Box component="li" key={key} {...props} sx={{gap: 1.25, fontSize: 14}}>{field.avatars?.[o.value] && <UserAvatar avatar={field.avatars[o.value]} size={24} />}{o.label}</Box> : undefined}
+				renderValue={(list, getItemProps) => list.map((o, index) => <Chip {...getItemProps({index})} key={o.value} label={o.label} size="small" avatar={field.avatars?.[o.value] ? <UserAvatar avatar={field.avatars[o.value]} size={18} /> : undefined} />)}
 				renderInput={(params) => <TextField {...params} error={error} placeholder={chosen.length ? undefined : field.placeholder} sx={{'&& .MuiOutlinedInput-root.MuiOutlinedInput-root': {height: 'auto', minHeight: 34, py: 0, fontSize: 14}, '&& .MuiOutlinedInput-root .MuiAutocomplete-input': {py: '2px'}}} />}
 			/>
 		)
@@ -306,8 +308,8 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		endAdornment: ((error || field.open_link) && !multiline && field.type !== 'password') ? (
 			<InputAdornment position="end">
 				{error && <ErrorOutlineOutlined color="error" fontSize="small" />}
-				{/* open_link: test the url in a popup */}
-				{field.open_link && <IconButton size="small" edge="end" aria-label={t('Open the link')} title={t('Open the link')} disabled={!value.trim()} onClick={() => window.open(value.trim(), 'unee-link', 'popup,width=1100,height=750')}><OpenInNewOutlined sx={{fontSize: 18}} /></IconButton>}
+				{/* open_link: test the url in a popup, 'backend' = path of the backend (ex: cron/), full urls kept */}
+				{field.open_link && <IconButton size="small" edge="end" aria-label={t('Open the link')} title={t('Open the link')} disabled={!value.trim()} onClick={() => window.open((field.open_link === 'backend' && !/^https?:\/\//i.test(value.trim())) ? BASE + value.trim().replace(/^\/+/, '') : value.trim(), 'unee-link', 'popup,width=1100,height=750')}><OpenInNewOutlined sx={{fontSize: 18}} /></IconButton>}
 			</InputAdornment>
 		) : undefined,
 		startAdornment: field.adornment ? <InputAdornment position="start" sx={{mr: 0.5}}><MenuIcon name={field.adornment} fontSize={20} color="var(--u-muted)" /></InputAdornment> : undefined,

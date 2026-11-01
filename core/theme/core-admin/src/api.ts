@@ -122,7 +122,7 @@ export type Option = {value: string, label: string}
 export type GridColumn = {
 	name: string
 	label: string
-	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email' | 'file' | 'url' | 'flag'
+	type: 'text' | 'badge' | 'boolean' | 'date' | 'datetime' | 'number' | 'icon' | 'color' | 'count' | 'position' | 'chip' | 'tags' | 'email' | 'file' | 'url' | 'flag' | 'stack' | 'weblink'
 	sortable: boolean
 	width?: number
 	align?: 'left' | 'right'
@@ -217,7 +217,7 @@ export type FormField = {
 	language?: string
 	ucfirst?: boolean
 	lowercase?: boolean
-	open_link?: boolean
+	open_link?: boolean | 'backend'
 	mask?: string
 	align?: 'left' | 'center' | 'right'
 	hide_label?: boolean

@@ -127,6 +127,36 @@ class DataGrid
 	}
 
 	/**
+	 * stack of mini avatars or chips, the value of the column (set by hookData) is {"items": [{"avatar", "title"} | {"label"}], "more": n}
+	 *
+	 * @param string $name
+	 * @param string $label
+	 *
+	 * @return static
+	 */
+	public function addColStack(string $name, string $label=''):static
+	{
+
+		return $this->addCol($name, $label, false, 'stack');
+
+	}
+
+	/**
+	 * link as a globe icon, the url in its tooltip, opened in a popup (path of the backend completed, full url kept)
+	 *
+	 * @param string $name
+	 * @param string $label
+	 *
+	 * @return static
+	 */
+	public function addColWebLink(string $name, string $label='Link'):static
+	{
+
+		return $this->addCol($name, $label, false, 'weblink', ['align' => 'center']);
+
+	}
+
+	/**
 	 * tags of the rows (xcore_tag, \Core\Tag) shown as chips, column _tags
 	 */
 	public function addColTags(string $label='Tags'):static
