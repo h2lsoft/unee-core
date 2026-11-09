@@ -691,13 +691,14 @@ class DataGrid
 	 * @param array $options value => label, empty = distinct values of the column
 	 * @param bool $all tab All, false = a tab is always active (the first by default)
 	 * @param bool $hide_empty chips counting 0 rows hidden (the active one stays), All too when the total is 0, false = all the chips shown
+	 * @param string $sql expression compared instead of the column (ex: a state computed from dates), empty = the column $name
 	 *
 	 * @return static
 	 */
-	public function addFilterChips(string $name, array $options=[], bool $all=true, bool $hide_empty=true):static
+	public function addFilterChips(string $name, array $options=[], bool $all=true, bool $hide_empty=true, string $sql=''):static
 	{
 
-		$this->chips = ['name' => $name, 'options' => $options, 'all' => $all, 'hide_empty' => $hide_empty];
+		$this->chips = ['name' => $name, 'options' => $options, 'all' => $all, 'hide_empty' => $hide_empty, 'sql' => ($sql === '') ? $this->quote($name) : $sql];
 		return $this;
 
 	}
@@ -865,7 +866,7 @@ class DataGrid
 			if($chip !== '')
 			{
 
-				$wheres[] = "{$this->quote($this->chips['name'])} = :_chip";
+				$wheres[] = "{$this->chips['sql']} = :_chip";
 				$binds['_chip'] = $chip;
 
 			}
@@ -1023,7 +1024,7 @@ class DataGrid
 	{
 
 		$table = $this->quote($this->table);
-		$column = $this->quote($this->chips['name']);
+		$column = $this->chips['sql'];
 
 		$options = $this->chips['options'];
 		if(!$options)

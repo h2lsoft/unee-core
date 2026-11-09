@@ -66,7 +66,7 @@ class WidgetController extends \Core\CrudController
 	{
 
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', false, "type != 'url'")->help('the list right on this plugin shows the widget, its title links to the plugin, empty: shown to every user');
+		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', false, "type != 'url'")->help('the widget right on this plugin shows the widget, its title links to the plugin, empty: shown to every user');
 		$form->addText('method', 'Method', true)->maxLength(255)->placeholder('Plugin\Core\CronController::widgetCron')->help('public static method of a module returning the data of the widget');
 		$form->addRadio('size', 'Size', self::SIZES, true)->defaultValue('full');
 		$form->addBoolean('autorefresh', 'Auto refresh')->defaultValue('no');
@@ -84,6 +84,43 @@ class WidgetController extends \Core\CrudController
 
 		if($v->inputGet('autorefresh', $record['autorefresh'] ?? 'no') === 'yes' && (int)$v->inputGet('autorefresh_seconds', $record['autorefresh_seconds'] ?? 0) < 5)
 			$v->input('autorefresh_seconds')->addError(ts('`[FIELD]` must be at least 5'));
+
+	}
+
+	protected function onSaveAfterCreate(int $id, array $row):void
+	{
+
+		$this->offerWidgetRight((int)($row['xcore_plugin_id'] ?? 0));
+
+	}
+
+	protected function onSaveAfterEdit(int $id, array $row, array $changed):void
+	{
+
+		$this->offerWidgetRight((int)($row['xcore_plugin_id'] ?? 0));
+
+	}
+
+	/**
+	 * adds the action widget to the plugin of the widget, so the module right can give it to the groups
+	 *
+	 * @param int $plugin_id 0 = widget shown to every user
+	 *
+	 * @return void
+	 */
+	private function offerWidgetRight(int $plugin_id):void
+	{
+
+		if(!$plugin_id)return;
+
+		$actions = DB()->query("SELECT actions FROM xcore_plugin WHERE id = :id AND deleted = 'no' AND type != 'url'", ['id' => $plugin_id])->fetchOne();
+		if($actions === false || $actions === null)return;
+
+		$list = json_decode((string)$actions, true);
+		if(!is_array($list) || in_array('widget', $list, true))return;
+
+		$list[] = 'widget';
+		DB()->query("UPDATE xcore_plugin SET actions = :actions, updated_at = NOW(), updated_by = :author WHERE id = :id", ['actions' => json_encode($list), 'author' => $this->author(), 'id' => $plugin_id]);
 
 	}
 

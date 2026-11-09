@@ -68,7 +68,7 @@ class PluginController extends \Core\CrudController
 		$form->addIcon('icon', 'Icon', true)->help('name of a Material Symbols icon, ex: settings');
 		$form->addSelect('type', 'Type', self::TYPES, true)->defaultValue('normal');
 		$form->addText('route_prefix_name', 'Route', true)->maxLength(255)->showIf('type', 'normal')->help('folder of the module, ex: mail-template');
-		$form->addTags('actions', 'Actions', true, ['list', 'add', 'edit', 'delete'])->showIf('type', 'normal')->defaultValue(['list', 'add', 'edit', 'delete'])->help('rights of the module, given to the groups in the module right');
+		$form->addTags('actions', 'Actions', true, ['list', 'add', 'edit', 'delete', 'export', 'widget'])->showIf('type', 'normal')->defaultValue(['list', 'add', 'edit', 'delete'])->help('rights of the module, given to the groups in the module right');
 		$form->addText('url', 'Url', true)->maxLength(255)->showIf('type', 'url')->placeholder('https://');
 		$form->addBoolean('versioning', 'Versioning')->help('keeps a copy of each version of the records');
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes')->help('shown in the menu');

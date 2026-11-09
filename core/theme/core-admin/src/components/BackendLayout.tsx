@@ -10,6 +10,7 @@ import { useLoginConfig, useLogo } from './AuthLayout'
 import { MenuIcon } from './icons'
 import FormDialog from './FormDialog'
 import NotificationBell from './NotificationBell'
+import AnnounceBox from './AnnounceBox'
 
 const COLLAPSED_KEY = 'unee.menu.collapsed'
 const BORDER = 'var(--u-border)'
@@ -490,6 +491,9 @@ export default function BackendLayout()
 				</Box>
 
 			</Box>
+
+			{/* announcements not read yet, once the backend is loaded */}
+			<AnnounceBox />
 		</MenuContext.Provider>
 	)
 

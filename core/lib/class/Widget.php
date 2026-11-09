@@ -4,7 +4,7 @@ namespace Core;
 
 /**
  * widgets of the dashboard (xcore_widget): a public static method of a module, ex: Plugin\Core\CronController::widgetCron, returns json data drawn by the react dashboard
- * shown to the users with the list right on the plugin of the widget (no plugin: shown to every user, no link), size full or half
+ * shown to the users with the widget right on the plugin of the widget (no plugin: shown to every user, no link), size full or half
  * the method NOTES is the personal notes of the user, drawn by the react dashboard itself (type notes, no data call)
  *
  * data types:
@@ -65,7 +65,7 @@ class Widget
 	}
 
 	/**
-	 * widget shown to the logged user: no plugin = everybody, else the plugin is active and the user has its list right
+	 * widget shown to the logged user: no plugin = everybody, else the plugin is active and the user has its widget right
 	 *
 	 * @param array $rec xcore_plugin_id, route_prefix_name (null when the plugin is missing or inactive)
 	 *
@@ -76,7 +76,7 @@ class Widget
 
 		if((int)$rec['xcore_plugin_id'] === 0)return true;
 
-		return !empty($rec['route_prefix_name']) && \Model\User::hasRight($rec['route_prefix_name'], 'list');
+		return !empty($rec['route_prefix_name']) && \Model\User::hasRight($rec['route_prefix_name'], 'widget');
 
 	}
 
