@@ -55,17 +55,50 @@ class ApiController extends \Core\Controller
 <title>{$title}</title>
 <link rel="icon" type="image/png" href="/{$backend}/favicon-32.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
-<style>body{margin:0} .swagger-ui .topbar{display:none}</style>
+<style>
+body{margin:0}
+.swagger-ui .topbar{display:none}
+.swagger-ui .filter-container .operation-filter-input{width:100%;max-width:none;margin:0;padding:9px 12px;border:1px solid #d6d9e0;border-radius:6px;font-size:14px}
+.swagger-ui .opblock .opblock-summary-path-description-wrapper{flex-direction:column;align-items:flex-start;gap:2px 0;padding:4px 10px}
+.swagger-ui .opblock .opblock-summary-description{font-size:12px;color:#5b6272}
+</style>
 </head>
 <body>
 <div id="swagger-ui"></div>
 <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
 <script>
+// live search on the tag, the method, the path and the description of the routes (the default filter only reads the tags)
+const RouteSearch = () => ({
+	fn: {
+		opsFilter: (tagged, phrase) => {
+			const q = String(phrase || '').trim().toLowerCase();
+			if(!q)return tagged;
+			return tagged
+				.map((tag_ops, tag) => tag_ops.set('operations', tag_ops.get('operations').filter((op) => [tag, op.get('method'), op.get('path'), op.getIn(['operation', 'summary']) || '', op.getIn(['operation', 'description']) || ''].join(' ').toLowerCase().includes(q))))
+				.filter((tag_ops) => tag_ops.get('operations').size > 0);
+		},
+	},
+});
+
 SwaggerUIBundle({
 	url: '/api/openapi.json',
 	dom_id: '#swagger-ui',
 	deepLinking: true,
 	persistAuthorization: false,
+	// routes folded, the tags stay open
+	docExpansion: 'list',
+	filter: true,
+	plugins: [RouteSearch],
+	// the search box is drawn after the spec: its placeholder is replaced once it exists
+	onComplete: () => {
+		let tries = 0;
+		const relabel = () => {
+			const input = document.querySelector('.operation-filter-input');
+			if(input){ input.placeholder = 'Search a route: path, method, tag or description'; input.focus(); return; }
+			if(++tries < 50)setTimeout(relabel, 100);
+		};
+		relabel();
+	},
 	// csrf header of the api, the session cookie is sent by the browser (same origin)
 	requestInterceptor: (request) => { request.headers['X-Requested-With'] = 'XMLHttpRequest'; return request; },
 });
