@@ -80,12 +80,28 @@ if(isset($_GET['_format']) && in_array($_GET['_format'], ['json', 'text', 'html'
 
 // backend: react app under /<backend.dirname>/ (\Core\Backend), the api stays under /api/
 $cur_uri = strtok($request->getRequestUri(), '?');
+
+// debugbar open handler: datasets of the ajax requests, before the kernel so it has no dataset of its own
+if($cur_uri === \Core\Debugbar::OPEN_HANDLER_URL && \Core\Debugbar::enabled())
+{
+
+	(new \DebugBar\OpenHandler((new \DebugBar\DebugBar())->setStorage(\Core\Debugbar::storage())))->handle($request->query->all());
+	return;
+
+}
+
 if(\Core\Backend::matches($cur_uri))
 {
 
 	// answered before the kernel: the url redirects apply here too, unless the middleware url.redirect is disabled
 	$response = (\Core\Config::get('middlewares_before', [])['url.redirect'] ?? null) ? \Plugin\Core\Url_RedirectController::redirect($request) : null;
-	($response ?? \Core\Backend::response($cur_uri))->send();
+	$response ??= \Core\Backend::response($cur_uri);
+
+	// debugbar on the react shell: its fetch calls to /api/ are listed in it
+	$debugbar = \Core\Debugbar::create($request, $DB);
+	if($debugbar)\Core\Debugbar::attach($debugbar, $response);
+
+	$response->send();
 	return;
 
 }

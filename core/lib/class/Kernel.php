@@ -145,77 +145,7 @@ class Kernel extends HttpKernel {
 		foreach($files as $f)
 			include $f;
 
-		// debugbar: php-debugbar is a dev dependency, skipped when it is not installed
-		if(!APP_CLI_MODE && \Core\Config::get('debug')  && \Core\Config::get('debug_bar') && $request->getRequestFormat() == 'html' && class_exists(\DebugBar\DebugBar::class))
-		{
-			$this->debugbar = new \DebugBar\DebugBar();
-
-			$cfg = (array)\Core\Config::get();
-
-			// mask data sensitive
-			$stack = [&$cfg];
-
-			while (!empty($stack)) {
-				$current_array = &$stack[array_key_last($stack)];
-				array_pop($stack);
-
-				foreach ($current_array as $key => &$value)
-				{
-					if(in_array($key, ['password', 'pass', 'pwd', 'api_key']) || str_contains($key, '.password'))
-					{
-						if (!is_array($value))
-							$value = '*******';
-						else
-							$stack[] = &$value;
-
-					}
-					elseif(is_array($value))
-					{
-						$stack[] = &$value;
-					}
-				}
-				unset($value);
-			}
-
-
-
-			$cfg['APP_PATH'] = APP_PATH;
-			$cfg['CORE_PATH'] = CORE_PATH;
-			$cfg['APP_DIR'] = APP_DIR;
-			$cfg['APP_ENV'] = APP_ENV;
-			ksort($cfg);
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($cfg, 'CONFIG'));
-
-			$server = (array)$_SERVER;
-			ksort($server);
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($server, 'SERVER'));
-
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($this->globals, 'GLOBALS'));
-
-			$cookie = (array)$_COOKIE;
-			ksort($cookie);
-
-			$__files = (array)$_FILES;
-			ksort($__files);
-
-			$session = (array)\Core\Session::get();
-			$session['@cookie-parameters'] = session_get_cookie_params();
-			ksort($session, SORT_STRING);
-
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($session, 'SESSION'));
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($cookie, 'COOKIE'));
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($request->query->all(), 'GET'));
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($_POST, 'POST'));
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\ConfigCollector($__files, 'FILES'));
-
-			$connection_collector = new \DebugBar\DataCollector\PDO\TraceablePDO($this->pdo);
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\PDO\PDOCollector($connection_collector));
-
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\MemoryCollector());
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\PhpInfoCollector());
-			// $app->debugbar->addCollector(new \DebugBar\DataCollector\ExceptionsCollector());
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\TimeDataCollector());
-			$this->debugbar->addCollector(new \DebugBar\DataCollector\MessagesCollector());
-		}
+		// debugbar (dev): false when disabled
+		$this->debugbar = \Core\Debugbar::create($request, $this->db, $this->globals);
 	}
 }
