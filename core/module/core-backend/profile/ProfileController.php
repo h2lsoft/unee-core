@@ -29,7 +29,44 @@ class ProfileController extends \Core\Controller
 		foreach($form->fields as $name => $field)
 			$values[$name] = ($field['type'] === 'password') ? '' : ($record[$name] ?? '');
 
-		return new \Core\JsonResponse(['form' => $form->definition(), 'record' => $values]);
+		// file fields (avatar): uploaded by the route upload of the profile
+		$definition = $form->definition();
+		foreach($definition['fields'] as &$field)
+		{
+
+			if($field['type'] !== 'file')continue;
+			$field['upload_url'] = "profile/upload/{$field['name']}/";
+			if(!empty($field['public']))$field['public_url'] = \Core\File::url();
+
+		}
+		unset($field);
+
+		return new \Core\JsonResponse(['form' => $definition, 'record' => $values]);
+
+	}
+
+	/**
+	 * upload of a file field of the profile (avatar), kept until the profile is saved with the token as value
+	 *
+	 * @param Request $request multipart, field file
+	 * @param string $field name of the file field
+	 *
+	 * @return \Core\JsonResponse {"token": "upload:<token>", "name", "size"}
+	 */
+	#[Route('/upload/{field}/', name: 'upload', methods: ['POST'], requirements: ['field' => '[a-z0-9_]+'])]
+	public function upload(Request $request, string $field):\Core\JsonResponse
+	{
+
+		$record = \Model\User::findById(\Model\User::getUID());
+		if(!$record)return \Core\JsonResponse::error(404, 'record not found');
+
+		$f = $this->buildForm($record)->fields[$field] ?? null;
+		if(($f['type'] ?? '') !== 'file' || !empty($f['readonly']))return \Core\JsonResponse::error(404, 'field not found');
+
+		$result = \Core\File::uploadStore($request->files->get('file'), $f['extensions'], (int)$f['max_size'], (array)($f['convert'] ?? []));
+		if(is_string($result))return \Core\JsonResponse::error(422, $result);
+
+		return new \Core\JsonResponse($result, 201);
 
 	}
 
@@ -55,6 +92,7 @@ class ProfileController extends \Core\Controller
 		if($v->fails())return \Core\JsonResponse::error(422, 'validation failed', ['fields' => $v->result()['error_stack_deep']]);
 
 		$row = $form->hydrate($request->request->all(), true);
+		$removed = \Core\CrudController::fileFieldsMove($form, $row, $record);
 		if(isset($row['login']))$row['login'] = mb_strtolower($row['login']);
 		if(isset($row['password']))
 		{
@@ -76,6 +114,10 @@ class ProfileController extends \Core\Controller
 			\Core\Log::write('edit', 'profile', $changed, $id, 'info', 'profile');
 
 		}
+
+		// replaced or removed files
+		foreach($removed as [$relative, $public])
+			\Core\File::remove($relative, $public);
 
 		return new \Core\JsonResponse(['id' => $id]);
 

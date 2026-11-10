@@ -79,11 +79,11 @@ class PageController extends \Core\CrudController
 		$templates = DB()->query("SELECT name, CONCAT(name, IF(description != '', CONCAT(' - ', description), '')) FROM xcore_page_template WHERE deleted = 'no' AND (active = 'yes' OR name = :current) ORDER BY collection, name", ['current' => (string)($record['template'] ?? '')])->fetchAll(\PDO::FETCH_KEY_PAIR);
 		$parents = DB()->query("SELECT id, CONCAT(name, ' (', url, ')') FROM xcore_page WHERE deleted = 'no' AND id != :id ORDER BY language, xcore_page_zone_id, position", ['id' => $id])->fetchAll(\PDO::FETCH_KEY_PAIR);
 
-		if(count($languages) > 1)$form->addRadio('language', 'Language', $languages, true)->defaultValue((string)array_key_first($languages))->set('translate', false);
-		$form->addText('name', 'Name', true)->maxLength(255)->help('title of the page in the menus');
-		$form->addText('url', 'Url')->maxLength(255)->placeholder('/about/')->help('empty = made from the name');
+		if(count($languages) > 1)$form->addRadio('language', 'Language', $languages, true)->defaultValue((string)array_key_first($languages))->set('translate', false)->protect();
+		$form->addText('name', 'Name', true)->maxLength(255)->help('title of the page in the menus')->protect();
+		$form->addText('url', 'Url')->maxLength(255)->placeholder('/about/')->help('empty = made from the name')->protect();
 		$form->addSelectSql('xcore_page_zone_id', 'Zone', 'xcore_page_zone', 'name');
-		$form->addSelect('xcore_page_id', 'Parent page', $parents)->autocomplete()->set('translate', false);
+		$form->addSelect('xcore_page_id', 'Parent page', $parents)->autocomplete()->set('translate', false)->protect();
 		$form->addSelect('type', 'Type', array_combine($types, $types), true)->autocomplete(true)->maxLength(255)->defaultValue('page')->set('translate', false);
 		$form->addSelect('template', 'Template', $templates)->autocomplete()->set('translate', false);
 		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('draft');

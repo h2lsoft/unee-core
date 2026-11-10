@@ -10,7 +10,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * users of the backend (xcore_user), login and password rules from config auth/security
  * right connect_as: open the session of another user (logged)
- * right two_factor_reset: removes the 2fa of a user (lost phone), he sets it up again at his next logon
+ * right two_factor_reset (Reset OTP): removes the second factor of a user (lost phone), he sets it up again at his next logon, and changes his OTP method
+ * OTP method (two_factor_method): default = the method of the application (globals auth.backend.two_factor.method), never changed on the own account except by a super admin
  */
 #[Route('/api/user', name: 'api.user.')]
 class UserController extends \Core\CrudController
@@ -46,7 +47,12 @@ class UserController extends \Core\CrudController
 		$grid->allowExport();
 		$grid->rowAction('connect-as', 'Connect as', 'login', 'connect_as');
 		$grid->rowAction('connections', 'Connections', 'history', 'list', 'log/?search[]=action||begins||logon&search[]=record_id||{id}');
-		if(\Core\TwoFactor::enabled('backend'))$grid->rowAction('two-factor-reset', 'Reset 2FA', 'phonelink_lock', 'two_factor_reset');
+		if(\Core\TwoFactor::enabled('backend'))$grid->rowAction('two-factor-reset', 'Reset OTP', 'phonelink_lock', 'two_factor_reset');
+
+		// effective second factor: the method of the user, otherwise the one of the application (value of a fixed list)
+		$otp_sql = "IF(xcore_user.two_factor_method = '', '".\Core\TwoFactor::globalMethod('backend')."', xcore_user.two_factor_method)";
+		$grid->qSelect($otp_sql, 'otp');
+		$grid->addFilter('otp', 'OTP', 'select', \Core\TwoFactor::LABELS, $otp_sql);
 
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('group_name', 'Group', true)->width(150)->filterOnClick('xcore_group_id');
@@ -54,6 +60,7 @@ class UserController extends \Core\CrudController
 		$grid->addCol('fullname', 'Fullname', true)->avatar();
 		$grid->addColEmail('email', 'Email');
 		$grid->addColTags()->width(180);
+		$grid->addColBadge('otp', 'OTP', false, ['authenticator' => 'blue', 'sms' => 'green', 'email' => 'yellow', 'none' => 'red'])->labels(\Core\TwoFactor::LABELS)->width(130);
 		$grid->addColBoolean('active', 'Active', true, true)->width(90);
 		$grid->addColDatetime('last_connection_date', 'Last connection', true)->width(150)->humanize()->small();
 
@@ -63,7 +70,7 @@ class UserController extends \Core\CrudController
 	{
 
 		self::accountFields($form, $record, true);
-		$form->addBoolean('active', 'Active')->defaultValue('yes');
+		$form->addBoolean('active', 'Active')->defaultValue('yes')->protect();
 		$form->addTagManager($this->table)->help('free words to group the users, ex: team north (calendar)');
 		$form->addTextarea('note', 'Note');
 
@@ -96,6 +103,7 @@ class UserController extends \Core\CrudController
 
 		};
 
+		self::avatarField($form);
 		$form->addSelect('language', 'Language', $languages, true)->defaultValue(array_key_first($languages))->set('translate', false);
 		if($with_group)$form->addSelectSql('xcore_group_id', 'Group', 'xcore_group', 'name', true);
 		$form->addText('lastname', 'Lastname', true)->maxLength(50);
@@ -106,6 +114,7 @@ class UserController extends \Core\CrudController
 		$form->addText('login', 'Login', true)->maxLength((int)$login['max_length'])->unique();
 		$form->addPassword('password', 'Password', !$record)->maxLength((int)$password['max_length'])
 			 ->help(ts('[MIN] to [MAX] characters', ['MIN' => $password['min_length'], 'MAX' => $password['max_length']]).(($record) ? ', '.ts('unchanged when empty') : ''));
+		if($with_group)self::twoFactorField($form, $record);
 
 		$form->tab('information', 'Information');
 		$form->addSelect('company', 'Company', $suggestions('company'))->autocomplete(true)->maxLength(50)->set('translate', false);
@@ -126,6 +135,74 @@ class UserController extends \Core\CrudController
 
 	}
 
+	/**
+	 * OTP method of the user (users module only, never in the profile): default = the method of the application
+	 * read only without the right two_factor_reset, and on the own account except for a super admin
+	 *
+	 * @param Form $form
+	 * @param array $record [] on create
+	 *
+	 * @return void
+	 */
+	public static function twoFactorField(Form $form, array $record):void
+	{
+
+		$labels = \Core\TwoFactor::labels();
+		$options = ['default' => ts('Default ([METHOD])', ['METHOD' => $labels[\Core\TwoFactor::globalMethod('backend')]])] + $labels;
+
+		$form->addSelect('two_factor_method', 'OTP method', $options, true)
+			 ->defaultValue('default')
+			 ->set('translate', false)
+			 ->readonly(!self::canChangeTwoFactor($record))
+			 ->help('second factor asked at the sign in, Default = method of the application (Configuration), a change resets the OTP of the user')
+			 ->protect();
+
+	}
+
+	/**
+	 * the logged user can change the OTP method of an account: right two_factor_reset, not his own account unless super admin
+	 *
+	 * @param array $record [] on create
+	 *
+	 * @return bool
+	 */
+	private static function canChangeTwoFactor(array $record):bool
+	{
+
+		if(!\Model\User::hasRight('user', 'two_factor_reset'))return false;
+		return !($record && (int)$record['id'] === \Model\User::getUID() && !\Model\User::isSuperAdmin());
+
+	}
+
+	/**
+	 * avatar of the user: public picture of upload_dir/avatar (uuid name), cropped and converted at the upload, set by the globals user.avatar.*
+	 * read by \Core\Widget::avatar() (lists, selects, calendar)
+	 *
+	 * @param Form $form
+	 *
+	 * @return void
+	 */
+	public static function avatarField(Form $form):void
+	{
+
+		$extensions = (string)\Core\Globals::get('user.avatar.file.extension.allowed', 'jpg, jpeg, png, gif', true, 'text', 'extensions allowed for the avatar, separated by commas');
+		$max_size = (string)\Core\Globals::get('user.avatar.file.max_size', '1M', true, 'text', 'max size of the avatar sent, ex: 512K, 1M (capped by upload_max_filesize of php)');
+		$width = (int)\Core\Globals::get('user.avatar.file.conversion.width', '150', true, 'int', 'width in px of the avatar (cropped from its center)');
+		$height = (int)\Core\Globals::get('user.avatar.file.conversion.height', '150', true, 'int', 'height in px of the avatar (cropped from its center)');
+		$extension = (string)\Core\Globals::get('user.avatar.file.conversion.extension', 'webp', true, 'text', 'format of the avatar written: webp, jpg, png or gif');
+
+		$extensions = array_values(array_filter(array_map(fn($e) => strtolower(trim($e, " .\t")), explode(',', $extensions))));
+		$bytes = size_to_bytes($max_size);
+		$php_max = size_to_bytes((string)ini_get('upload_max_filesize'));
+		if($php_max > 0 && ($bytes === 0 || $bytes > $php_max))$bytes = $php_max;
+
+		$form->addFile('avatar', 'Avatar', false, 'avatar', $extensions, $bytes)
+			 ->set('public', true)
+			 ->set('convert', ['width' => max(16, $width), 'height' => max(16, $height), 'extension' => strtolower(trim($extension)), 'background' => '#ffffff'])
+			 ->protect();
+
+	}
+
 	protected function rulesOnSubmit(\Core\Validator $v, array $record):void
 	{
 
@@ -133,6 +210,18 @@ class UserController extends \Core\CrudController
 
 		if($record && (int)$record['id'] === \Model\User::getUID() && $v->inputGet('active', $record['active']) !== 'yes')
 			$v->input('active')->addError(ts('you cannot deactivate your own account'));
+
+		// OTP method: changed only by who may, sms only with a mobile
+		$current = (string)($record['two_factor_method'] ?? '');
+		$method = (string)$v->inputGet('two_factor_method', ($current === '') ? 'default' : $current);
+		$method = ($method === 'default') ? '' : $method;
+
+		if($method !== $current && !self::canChangeTwoFactor($record))
+			$v->input('two_factor_method')->addError(ts('you cannot change the OTP method of this account'));
+
+		$mobile = (string)$v->inputGet('mobile', $record['mobile'] ?? '');
+		if($method === 'sms' && ($method !== $current || $mobile !== (string)($record['mobile'] ?? '')) && \Core\Sms::normalize($mobile) === '')
+			$v->input('two_factor_method')->addError(ts('a valid mobile is required for the SMS verification'));
 
 	}
 
@@ -170,10 +259,20 @@ class UserController extends \Core\CrudController
 
 	}
 
+	// OTP method: default in the form, '' in the table
+	protected function getRecord(array $values, array $record):array
+	{
+
+		if(array_key_exists('two_factor_method', $values) && (string)$values['two_factor_method'] === '')$values['two_factor_method'] = 'default';
+		return $values;
+
+	}
+
 	protected function onSaveBefore(array $row, array $record):array
 	{
 
 		if(isset($row['login']))$row['login'] = mb_strtolower($row['login']);
+		if(isset($row['two_factor_method']) && !in_array($row['two_factor_method'], \Core\TwoFactor::METHODS, true))$row['two_factor_method'] = '';
 
 		if(isset($row['password']))
 		{
@@ -192,6 +291,15 @@ class UserController extends \Core\CrudController
 	{
 
 		if($id === \Model\User::getUID() && $changed)self::syncSession($row);
+
+		// another method: the secret and the trusted devices are forgotten
+		if(isset($changed['two_factor_method']))
+		{
+
+			\Core\TwoFactor::reset($id, $this->author());
+			\Core\Log::write('two_factor_method', "OTP method changed: ".($changed['two_factor_method'][0] ?: 'default')." -> ".($changed['two_factor_method'][1] ?: 'default'), [], $id, 'warning', $this->module);
+
+		}
 
 	}
 
@@ -236,7 +344,7 @@ class UserController extends \Core\CrudController
 		\Core\TwoFactor::reset((int)$record['id'], $this->author());
 		\Core\Log::write('two_factor_reset', "two-factor reset of {$record['login']}", [], (int)$record['id'], 'warning', $this->module);
 
-		return new \Core\JsonResponse(['message' => ts('Two-factor authentication reset, it will be set up again at the next sign in')]);
+		return new \Core\JsonResponse(['message' => ts('OTP reset: the authenticator app is set up again and the trusted devices are forgotten at the next sign in')]);
 
 	}
 

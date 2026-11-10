@@ -264,6 +264,8 @@ class Form
 	/**
 	 * file uploaded to private_dir/<dir> (POST /api/<module>/upload/<field>/ then saved with the form), the column keeps the path relative to private_dir
 	 * served by GET /api/<module>/<id>/file/<field>/ (list right)
+	 * ->set('public', true): stored in upload_dir/<dir> under an uuid name, served by the web server (no right check), the column keeps the path relative to upload_dir
+	 * ->set('convert', ['width' => 150, 'height' => 150, 'extension' => 'webp']): image cropped from its center at the upload (\Core\File::imageConvert), previewed as an image by the form
 	 *
 	 * @param string $dir folder in private_dir, ex: files
 	 * @param array $extensions allowed extensions (\Core\File::FORBIDDEN_EXTENSIONS are always refused)
@@ -436,6 +438,16 @@ class Form
 	{
 
 		return $this->set('show_if', ['field' => $field, 'values' => array_map('strval', (array)$values)]);
+
+	}
+
+	/**
+	 * field read by the code of the module (rules, hooks): the Studio keeps it in the form for everyone, never hidden nor removed
+	 */
+	public function protect():static
+	{
+
+		return $this->set('protected', true);
 
 	}
 

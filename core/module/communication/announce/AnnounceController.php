@@ -71,10 +71,10 @@ class AnnounceController extends \Core\CrudController
 		$form->addHtml('content', 'Content', true);
 		$form->addRadio('target', 'Target', self::TARGETS, true)->defaultValue('backend');
 		$form->addSelectMultiple('xcore_group_ids', 'Groups', $this->groups())->set('translate', false)->help('Empty: every logged user');
-		$form->addDatetime('start_at', 'Start', true)->defaultValue(date('Y-m-d H:i:s'));
-		$form->addDatetime('end_at', 'End')->set('inline', true)->help('Empty: no end');
+		$form->addDatetime('start_at', 'Start', true)->defaultValue(date('Y-m-d H:i:s'))->protect();
+		$form->addDatetime('end_at', 'End')->set('inline', true)->help('Empty: no end')->protect();
 		$form->addText('link_label', 'Learn more: label')->maxLength(100)->placeholder(ts('Learn more'));
-		$form->addText('link_url', 'Learn more: url')->maxLength(255)->placeholder('https://... or /path/')->help('Empty: no Learn more button');
+		$form->addText('link_url', 'Learn more: url')->maxLength(255)->placeholder('https://... or /path/')->help('Empty: no Learn more button')->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 	}

@@ -2,11 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, OpenInNewOutlined, PasswordOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import HistoryDialog from './HistoryDialog'
+import { StateDot, TransitionDialog, WorkflowBand, WorkflowHistoryDialog, type TransitionChoice } from './Workflow'
 import { BADGES } from './DataGrid'
 import CodeEditor from './Code'
 import RichText from './RichText'
 import { Flag } from './Flag'
-import { api, ApiException, type FormAction, type FormField, type FormPayload } from '../api'
+import { api, ApiException, dataChanged, type FormAction, type FormField, type FormPayload } from '../api'
 import { t } from '../i18n'
 import { MenuIcon } from './icons'
 import TimeInput from './TimeInput'
@@ -315,12 +316,61 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		startAdornment: field.adornment ? <InputAdornment position="start" sx={{mr: 0.5}}><MenuIcon name={field.adornment} fontSize={20} color="var(--u-muted)" /></InputAdornment> : undefined,
 	}
 
-	if(field.type === 'password')return <PasswordInput {...common} onGenerate={onChange} />
+	if(field.type === 'password')return <PasswordInput {...common} onGenerate={field.generate === false ? undefined : onChange} />
 
 	// a masked number is typed as text (separators)
 	const type = field.mask ? 'text' : ({email: 'email', number: 'number', integer: 'number', date: 'date', datetime: 'datetime-local'}[field.type as string] ?? 'text')
 	// textareas: 150px high at least, they grow with the content
 	return <OutlinedInput {...common} type={type} multiline={multiline} minRows={multiline ? field.rows ?? 4 : undefined} sx={multiline ? {height: 'auto', minHeight: 150, alignItems: 'flex-start'} : ((field.mask || field.name === 'phone' || field.name === 'mobile') ? {maxWidth: {md: 250}} : {date: {width: 130, maxWidth: '100%'}, datetime: {width: 180, maxWidth: '100%'}}[field.type as string])} />
+
+}
+
+// gsm 03.38: basic characters count 1, the extension 2, any other character makes the message unicode (same as \Core\Sms::measure)
+const GSM = '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà'
+const GSM_EXTENDED = '^{}\\[~]|€\f'
+
+export function measureSms(text: string): {length: number, unicode: boolean, parts: number}
+{
+
+	let length = 0
+	let unicode = false
+	for(const char of text)
+	{
+
+		if(GSM.includes(char))length++
+		else if(GSM_EXTENDED.includes(char))length += 2
+		else
+		{
+
+			unicode = true
+			break
+
+		}
+
+	}
+
+	// unicode: utf-16 units, an emoji counts 2
+	if(unicode)length = text.length
+	const parts = (length === 0) ? 0 : (length <= (unicode ? 70 : 160) ? 1 : Math.ceil(length / (unicode ? 67 : 153)))
+	return {length, unicode, parts}
+
+}
+
+// characters and sms of a message, extra = characters added at the sending (STOP mention)
+function SmsCounter({text, extra}: {text: string, extra: number})
+{
+
+	const m = measureSms(text + ' '.repeat(extra))
+	const max = (m.parts > 1) ? m.parts * (m.unicode ? 67 : 153) : (m.unicode ? 70 : 160)
+	const color = m.unicode ? 'var(--u-error)' : (m.parts > 1 ? BADGES.orange.fg : 'var(--u-text3)')
+
+	return (
+		<Box aria-live="polite" sx={{mt: 0.5, fontSize: 12.5, fontWeight: 500, color, fontVariantNumeric: 'tabular-nums'}}>
+			{t('[LENGTH] / [MAX] characters - [PARTS] SMS', {LENGTH: m.length, MAX: max, PARTS: m.parts})}
+			{extra > 0 && ` - ${t('STOP mention included')}`}
+			{m.unicode && ` - ${t('unicode (a character outside GSM): 70 per SMS')}`}
+		</Box>
+	)
 
 }
 
@@ -372,7 +422,7 @@ function FieldRow({field, inline = [], values, errors, onChange}: {field: FormFi
 	)
 
 	return (
-		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '150px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
+		<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '190px 1fr'}, columnGap: 2.5, rowGap: 0.5, alignItems: 'start'}}>
 			{label(field, {textAlign: {xs: 'left', sm: 'right'}, lineHeight: {sm: '34px'}})}
 			<Box sx={{minWidth: 0}}>
 				<Box sx={inline.length ? {display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5} : undefined}>
@@ -384,6 +434,7 @@ function FieldRow({field, inline = [], values, errors, onChange}: {field: FormFi
 						</Box>
 					))}
 				</Box>
+				{field.counter?.type === 'sms' && <SmsCounter text={values[field.name] ?? ''} extra={(field.counter.field && values[field.counter.field] === 'yes') ? field.counter.extra ?? 0 : 0} />}
 				{[field, ...inline].filter((f) => f.help).map((f) => <FormHelperText key={f.name} sx={{m: 0, mt: 0.5}}>{f.help}</FormHelperText>)}
 			</Box>
 		</Box>
@@ -395,7 +446,7 @@ function FieldRow({field, inline = [], values, errors, onChange}: {field: FormFi
  * add (id = 0) or edit form of a module, fields from the api, one row per field (label + control), errors listed on top
  * fields with a tab are shown under a tab bar, the active tab goes to the first field in error
  */
-export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored, defaults, onDeleted, copy}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void, defaults?: Record<string, string>, onDeleted?: () => void, copy?: number})
+export default function FormDialog({module, id, label, open, onClose, onSaved, url, title, onRestored, onChanged, defaults, onDeleted, copy}: {module: string, id: number, label: string, open: boolean, onClose: () => void, onSaved: () => void, url?: string, title?: string, onRestored?: () => void, onChanged?: () => void, defaults?: Record<string, string>, onDeleted?: () => void, copy?: number})
 {
 
 	const theme = useTheme()
@@ -411,6 +462,10 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const [history, setHistory] = useState(false)
 	const [deleting, setDeleting] = useState(false)
 	const [reload, setReload] = useState(0)
+	// workflow: values as loaded (changes saved before a transition), transition to confirm, history
+	const [initial, setInitial] = useState<Record<string, string>>({})
+	const [transition, setTransition] = useState<TransitionChoice | null>(null)
+	const [wf_history, setWfHistory] = useState(false)
 
 	useEffect(() => {
 
@@ -428,9 +483,11 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 				setData(payload)
 				setTab(payload.form.tabs?.[0]?.key ?? '')
 				// defaults: values given by the page for a new record (ex: the day clicked in the calendar)
-				setValues(Object.fromEntries(payload.form.fields.map((f) => [f.name,
+				const loaded = Object.fromEntries(payload.form.fields.map((f) => [f.name,
 					(original && f.type !== 'file' && f.type !== 'password' && f.name in original.record) ? toInput(f, original.record[f.name])
-						: ((!id && defaults?.[f.name] !== undefined) ? defaults[f.name] : toInput(f, payload.record[f.name]))])))
+						: ((!id && defaults?.[f.name] !== undefined) ? defaults[f.name] : toInput(f, payload.record[f.name]))]))
+				setValues(loaded)
+				setInitial(loaded)
 
 			})
 			.catch((e) => setError(e instanceof ApiException ? e.error.message : t('network error, please retry')))
@@ -441,10 +498,10 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const summary = Object.values(errors).flat()
 	const body = () => Object.fromEntries((data?.form.fields ?? []).filter((f) => !f.readonly).map((f) => [f.name, toApi(f, values[f.name] ?? '')]))
 
-	const submit = async (e: FormEvent) => {
+	// true when saved, the errors are shown by the form otherwise
+	const save = async (): Promise<boolean> => {
 
-		e.preventDefault()
-		if(!data)return
+		if(!data)return false
 		setSaving(true)
 		setErrors({})
 		setError('')
@@ -453,8 +510,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 		{
 
 			await api(url ?? (id ? `${module}/${id}/` : `${module}/`), {method: (id || url) ? 'PUT' : 'POST', body: body()})
-			toast((id || url) ? t('Saved') : t('Created'))
-			onSaved()
+			return true
 
 		}
 		catch(err)
@@ -470,6 +526,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 			}
 			else setError(api_error?.message ?? t('network error, please retry'))
+			return false
 
 		}
 		finally
@@ -481,6 +538,20 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 	}
 
+	const submit = async (e: FormEvent) => {
+
+		e.preventDefault()
+		if(!await save())return
+		toast((id || url) ? t('Saved') : t('Created'))
+		onSaved()
+
+	}
+
+	// workflow of the record: locked in its state = read only form, no save; the changes are saved before a transition
+	const wf = (id > 0) ? data?.workflow : undefined
+	const locked = !!wf && !wf.editable
+	const dirty = JSON.stringify(values) !== JSON.stringify(initial)
+
 	// button of the form: values of the form (not saved) and the active tab are sent
 	const runAction = async (action: FormAction) => {
 
@@ -489,7 +560,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 		try
 		{
 
-			const data = await api<{message?: string}>(`${module}/${id}/action/${action.name}/`, {method: 'POST', body: {...body(), tab}})
+			// a form of its own (url): its actions are under its url
+			const data = await api<{message?: string}>(url ? `${url}action/${action.name}/` : `${module}/${id}/action/${action.name}/`, {method: 'POST', body: {...body(), tab}})
 			toast(data?.message ?? t('Done'))
 
 		}
@@ -508,7 +580,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 	}
 
-	const fields = (data?.form.fields ?? []).filter((f) => isVisible(f, values))
+	const fields = (data?.form.fields ?? []).map((f) => locked ? {...f, readonly: true} : f).filter((f) => isVisible(f, values))
 	const tabs = data?.form.tabs ?? []
 	const first_tab = fields.findIndex((f) => f.tab)
 	// a field declared inline joins the row of the field before it
@@ -517,7 +589,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const wide = fields.some((f) => f.type === 'code' || f.type === 'html')
 
 	return (
-		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1000 : 760}}} as object}}>
+		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1040 : 800}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{title ?? `${id ? t('Edit') : t('Add')} ${label}`}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
@@ -531,6 +603,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 						{summary.length > 0 && <Box component="ul" sx={{m: 0, pl: 2.25}}>{summary.map((line) => <li key={line}>{line}</li>)}</Box>}
 					</Box>
 				)}
+				{data && wf && <WorkflowBand wf={wf} onHistory={() => setWfHistory(true)} />}
 				{data && (
 					<Box sx={{display: 'flex', flexDirection: 'column', gap: '9px', py: 0.5, ...FIELDS_SX}}>
 						{rows(fields.filter((f, i) => !f.tab && (first_tab < 0 || i < first_tab)))}
@@ -565,10 +638,16 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 				{id > 0 && data?.versions !== undefined && (
 					<Button variant="outlined" color="inherit" disabled={!data.versions} onClick={() => setHistory(true)} startIcon={<HistoryOutlined />} sx={{mr: 'auto', borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{t('History')} ({data.versions})</Button>
 				)}
-				{id > 0 && data?.form.actions?.map((a) => (
+				{(id > 0 || url) && data?.form.actions?.map((a) => (
 					<Button key={a.name} variant="outlined" color="inherit" disabled={running !== ''} onClick={() => runAction(a)} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} sx={{borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{a.label}</Button>
 				))}
-				<Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>
+				{wf?.transitions.map((x) => (
+					<Button key={x.code} variant="outlined" color="inherit" disabled={x.approvals.mine || saving} onClick={() => setTransition({code: x.code, label: x.label, from: wf.state?.code ?? '', to: x.to, to_label: x.to_label, comment: x.comment, needed: x.approvals.needed, given: x.approvals.given, users: x.approvals.users})}
+						startIcon={<StateDot color={wf.states[x.to]?.color} />} sx={{borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>
+						{x.approvals.mine ? t('Approved by you ([GIVEN]/[NEEDED])', {GIVEN: x.approvals.given, NEEDED: x.approvals.needed}) : (x.approvals.needed > 1 ? `${x.label} (${x.approvals.given}/${x.approvals.needed})` : x.label)}
+					</Button>
+				))}
+				{!locked && <Button type="submit" variant="contained" disabled={!data || saving}>{saving ? <CircularProgress size={20} color="inherit" /> : ((id || url) ? t('Save') : t('Create'))}</Button>}
 			</DialogActions>
 			<Dialog open={deleting} onClose={(_, reason) => reason !== 'backdropClick' && setDeleting(false)} maxWidth="xs" fullWidth>
 				<DialogTitle sx={{display: 'flex', alignItems: 'center', pr: 1.5, fontSize: 18, fontWeight: 600}}>
@@ -599,6 +678,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 					}}>{t('Delete')}</Button>
 				</DialogActions>
 			</Dialog>
+			{transition && wf && <TransitionDialog module={module} ids={[id]} transition={transition} states={wf.states} dirty={dirty && !locked} beforeFire={(dirty && !locked) ? save : undefined} onClose={() => setTransition(null)} onDone={() => { setTransition(null); dataChanged(module); setReload((v) => v + 1); onChanged?.() }} />}
+			{wf_history && <WorkflowHistoryDialog module={module} id={id} title={`${t('Workflow history')} - ${label} #${id}`} onClose={() => setWfHistory(false)} />}
 			{history && <HistoryDialog module={module} id={id} title={`${t('History')} - ${label} #${id}`} onClose={() => setHistory(false)} onRestored={() => { setHistory(false); setReload((v) => v + 1); onRestored?.() }} />}
 		</Dialog>
 	)

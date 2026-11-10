@@ -4,7 +4,7 @@
 // due = status scheduled or sending, programming_date and scheduler_date_start passed (when set), sent when every recipient is processed or after scheduler_date_end
 // start (scheduled -> sending): checks, credits (never started without enough credits: status error), html frozen in snapshot_json
 // each recipient gets a row in xcore_newsletter_data: the next run resumes where this one stopped
-// globals: newsletter.smtp.* (dedicated smtp), newsletter.pause.every / newsletter.pause.seconds, newsletter.credits.*
+// globals: newsletter.smtp.* (dedicated smtp), newsletter.pause.every / newsletter.pause.seconds, email credits mail.credits.* (\Core\Mailer, reserve of the transactional emails never used)
 
 $limit = max(1, (int)($params['limit'] ?? 500));
 $max_seconds = max(10, (int)($params['max_seconds'] ?? 780));
@@ -80,7 +80,7 @@ foreach($newsletters as $newsletter)
 			$variants = \Core\Newsletter::variants($newsletter);
 			$mail ??= \Core\Newsletter::mailer();
 			$patterns ??= \Core\Newsletter::blacklistPatterns();
-			$credits = \Core\Newsletter::credits()['remaining'];
+			$credits = \Core\Mailer::credits()['available'];
 
 			$subscribers = DB()->query(\Core\Newsletter::recipientsSql($id, $list_ids, false)." LIMIT ".($limit - $total_sent))->fetchAll();
 			$done = [];
@@ -189,7 +189,7 @@ foreach($newsletters as $newsletter)
 		{
 
 			$recipients = array_filter(array_map('trim', preg_split('/[;,\s]+/', (string)$newsletter['scheduler_report_email_recipients'])), fn($e) => filter_var($e, FILTER_VALIDATE_EMAIL));
-			if($recipients)\Core\Mailer::send('', implode(';', $recipients), $summary, '<p>'.htmlspecialchars($summary).'</p>');
+			if($recipients)\Core\Mailer::send('', implode(';', $recipients), $summary, '<p>'.htmlspecialchars($summary).'</p>', [], ['module' => 'newsletter', 'action' => 'report', 'record_id' => $id]);
 
 		}
 

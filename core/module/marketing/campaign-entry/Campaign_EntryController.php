@@ -61,12 +61,12 @@ class Campaign_EntryController extends \Core\CrudController
 		$origins = DB()->query("SELECT DISTINCT record_type FROM xcore_campaign_entry WHERE deleted = 'no' AND record_type != '' ORDER BY record_type")->fetchAll(\PDO::FETCH_COLUMN);
 
 		$form->addSelectSql('xcore_campaign_id', 'Campaign', 'xcore_campaign', 'name', true)->autocomplete();
-		$form->addRadio('type', 'Type', Campaign::TYPES, true)->defaultValue('expense');
+		$form->addRadio('type', 'Type', Campaign::TYPES, true)->defaultValue('expense')->protect();
 		$form->addDate('date', 'Date', true)->defaultValue(now('', false));
 		$form->addText('label', 'Label', true)->maxLength(255);
 		$form->addNumber('amount', 'Amount incl. tax', true)->set('size', 150)->set('align', 'center')->set('mask', 'thousands');
-		$form->addSelect('record_type', 'Origin', array_combine($origins, $origins))->autocomplete(true)->maxLength(64)->set('translate', false)->help('ex: donation, empty when the entry is typed by hand');
-		$form->addText('record_id', 'Record ID')->maxLength(64)->set('inline', true);
+		$form->addSelect('record_type', 'Origin', array_combine($origins, $origins))->autocomplete(true)->maxLength(64)->set('translate', false)->help('ex: donation, empty when the entry is typed by hand')->protect();
+		$form->addText('record_id', 'Record ID')->maxLength(64)->set('inline', true)->protect();
 		$form->addTextarea('note', 'Note')->maxLength(5000);
 
 	}

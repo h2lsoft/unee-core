@@ -51,7 +51,7 @@ class Mail_TemplateController extends \Core\CrudController
 		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('used by the code, ex: core.password.forgot');
 		$form->addText('description', 'Description')->maxLength(255);
-		$form->addSelectSql('xcore_layout_id', 'Layout', 'xcore_layout', 'name', false, "category = 'mail'");
+		$form->addSelectSql('xcore_layout_id', 'Layout', 'xcore_layout', 'name', false, "category = 'mail'")->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 		foreach($this->languages() as $lang => $label)
@@ -109,7 +109,8 @@ class Mail_TemplateController extends \Core\CrudController
 		if($layout)$body = str_replace('[CONTENT]', $body, $layout['content']);
 
 		$to = (string)\Core\Session::get('auth.email');
-		if(!\Core\Mailer::send(trim((string)$request->request->get("sender_{$lang}")), $to, "[test] {$subject}", $body))
+		$credit = ['module' => $this->module, 'action' => 'test', 'record_id' => (int)$record['id'], 'template' => (string)$record['name'], 'xcore_user_id' => \Model\User::getUID()];
+		if(!\Core\Mailer::send(trim((string)$request->request->get("sender_{$lang}")), $to, "[test] {$subject}", $body, [], $credit))
 			return \Core\JsonResponse::error(422, ts('mail not sent: [ERROR]', ['ERROR' => \Core\Mailer::getLastError()]));
 
 		\Core\Log::write('send_test', $to, [], (int)$record['id'], 'info', $this->module);

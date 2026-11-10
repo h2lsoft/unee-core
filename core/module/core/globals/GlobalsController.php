@@ -57,15 +57,15 @@ class GlobalsController extends \Core\CrudController
 
 		$categories = (array)DB()->query("SELECT DISTINCT category FROM xcore_globals WHERE deleted = 'no' AND category != '' ORDER BY category")->fetchAllOne();
 
-		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->width(6)->help('existing category or a new one');
-		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('ex: backend.logo');
+		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->width(6)->help('existing category or a new one')->protect();
+		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('ex: backend.logo')->protect();
 		$form->addText('description', 'Description')->maxLength(255);
-		$form->addSelect('type', 'Type', array_combine(self::TYPES, self::TYPES), true)->autocomplete()->defaultValue('text')->width(6);
+		$form->addSelect('type', 'Type', array_combine(self::TYPES, self::TYPES), true)->autocomplete()->defaultValue('text')->width(6)->protect();
 
 		if($record && self::isSecret($record['name']))
-			$form->addPassword('value', 'Value')->help('leave empty to keep the current value');
+			$form->addPassword('value', 'Value')->help('leave empty to keep the current value')->protect();
 		else
-			$form->addTextarea('value', 'Value', false, 3);
+			$form->addTextarea('value', 'Value', false, 3)->protect();
 
 	}
 

@@ -67,10 +67,10 @@ class CampaignController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$form->addText('name', 'Name', true)->maxLength(64)->unique()->help('letters, digits, - and _, ex: spring-2026');
+		$form->addText('name', 'Name', true)->maxLength(64)->unique()->help('letters, digits, - and _, ex: spring-2026')->protect();
 		$form->addText('description', 'Description')->maxLength(255);
-		$form->addDate('date_start', 'Start date', true);
-		$form->addDate('date_end', 'End date', true)->set('inline', true);
+		$form->addDate('date_start', 'Start date', true)->protect();
+		$form->addDate('date_end', 'End date', true)->set('inline', true)->protect();
 		$form->addNumber('budget', 'Budget', true)->defaultValue('0')->set('size', 150)->set('align', 'center')->set('mask', 'thousands');
 		$currency = (string)\Core\Globals::get('backend.currency.default', 'EUR', true, 'text', 'currency selected by default for the amounts (iso 4217 code: EUR, USD, GBP, CHF, CAD, JPY)');
 		$currencies = \Plugin\Core_Backend\ProjectController::CURRENCIES;

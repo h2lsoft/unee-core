@@ -12,7 +12,7 @@ import { t } from '../i18n'
 export default function Login()
 {
 
-	const {user, login, verifyTwoFactor} = useAuth()
+	const {user, login, verifyTwoFactor, resendTwoFactor} = useAuth()
 	const navigate = useNavigate()
 	const location = useLocation()
 	const config = useLoginConfig()
@@ -21,12 +21,23 @@ export default function Login()
 	const [fields, setFields] = useState<Record<string, string[]>>({})
 	const [submitting, setSubmitting] = useState(false)
 
-	// second factor (config auth/security/backend/two_factor): code to type, or app to set up first
+	// second factor (\Core\TwoFactor): code of the authenticator app (or app to set up first), of a sms or of an email
 	const [step, setStep] = useState<TwoFactorStep | null>(null)
 	const [code, setCode] = useState('')
 	const [trust, setTrust] = useState(true)
 	const [qr, setQr] = useState('')
 	const [copied, setCopied] = useState(false)
+	const [resendIn, setResendIn] = useState(0)
+	const [resent, setResent] = useState(false)
+
+	// countdown before a new code can be asked (sms, email)
+	useEffect(() => {
+
+		if(resendIn <= 0)return
+		const timer = window.setTimeout(() => setResendIn(resendIn - 1), 1000)
+		return () => window.clearTimeout(timer)
+
+	}, [resendIn])
 
 	useEffect(() => {
 
@@ -56,6 +67,8 @@ export default function Login()
 
 				setStep(next)
 				setCode('')
+				setResent(false)
+				setResendIn(next.resend_in ?? 0)
 				return
 
 			}
@@ -86,6 +99,7 @@ export default function Login()
 		if(value.length !== 6 || submitting)return
 		setSubmitting(true)
 		setError('')
+		setResent(false)
 
 		try
 		{
@@ -128,6 +142,50 @@ export default function Login()
 
 	}
 
+	// new code by sms or email: the previous one is no longer valid
+	const resendCode = async () => {
+
+		if(submitting || resendIn > 0)return
+		setSubmitting(true)
+		setError('')
+		setResent(false)
+
+		try
+		{
+
+			const next = await resendTwoFactor()
+			setStep(next)
+			setCode('')
+			setResendIn(next.resend_in)
+			setResent(true)
+
+		}
+		catch(err)
+		{
+
+			const api_error = (err instanceof ApiException) ? err.error : null
+			setError(api_error?.message ?? t('network error, please retry'))
+
+			// expired, throttled or code not sent: password again
+			if(api_error?.code === 440)
+			{
+
+				setStep(null)
+				setForm({...form, password: ''})
+
+			}
+			else if(api_error?.code === 422 && step)setStep({...step, resends_left: 0})
+
+		}
+		finally
+		{
+
+			setSubmitting(false)
+
+		}
+
+	}
+
 	const copyKey = () => {
 
 		navigator.clipboard?.writeText(step?.secret ?? '').then(() => setCopied(true)).catch(() => null)
@@ -138,10 +196,34 @@ export default function Login()
 	{
 
 		const setup = (step.two_factor === 'setup')
+		const by_code = (step.method === 'sms' || step.method === 'email')
+
+		// masked destination in bold inside the translated sentence
+		const sentTo = (text: string) => {
+
+			const [before, after] = text.split('[DESTINATION]')
+			return <>{before}<Box component="strong" sx={{color: 'text.primary', fontWeight: 600}}>{step.destination}</Box>{after}</>
+
+		}
+
+		const subtitle = (setup) ? t('It is required to access the back office. Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password...).')
+			: (step.method === 'sms') ? sentTo(t('Enter the 6-digit code sent by SMS to [DESTINATION].'))
+			: (step.method === 'email') ? sentTo(t('Enter the 6-digit code sent to [DESTINATION]. Check your spam folder.'))
+			: t('Enter the 6-digit code shown in your authenticator app.')
+
+		const countdown = `${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, '0')}`
+		const resend = (by_code && step.resends_left > 0) ? (
+			<ButtonBase onClick={resendCode} disabled={resendIn > 0 || submitting} sx={{fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: (resendIn > 0) ? 'var(--u-faint)' : 'primary.main', '&:hover': {textDecoration: (resendIn > 0) ? 'none' : 'underline'}}}>
+				{(resendIn > 0) ? t('Resend code in [TIME]', {TIME: countdown}) : t('Resend code')}
+			</ButtonBase>
+		) : null
+		const lost = (!setup && step.method !== 'email') ? <Typography sx={{fontSize: 12.5, color: 'var(--u-muted)'}}>{t('Lost your phone? Contact your administrator.')}</Typography> : null
+
 		return (
-			<AuthLayout config={config} title={setup ? t('Set up two-step verification') : t('Two-step verification')} documentTitle={t('Two-step verification')} subtitle={setup ? t('It is required to access the back office. Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password...).') : t('Enter the 6-digit code shown in your authenticator app.')}>
+			<AuthLayout config={config} title={setup ? t('Set up two-step verification') : t('Two-step verification')} documentTitle={t('Two-step verification')} subtitle={subtitle}>
 				<Box component="form" onSubmit={(e: FormEvent) => { e.preventDefault(); submitCode(code) }} noValidate sx={{display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 					{error && <Alert severity="error">{error}</Alert>}
+					{!error && resent && <Alert severity="success">{t('A new code has been sent.')}</Alert>}
 
 					{setup && (
 						<Box sx={{display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', textAlign: 'center', p: 2.25, bgcolor: 'var(--u-widget)', borderRadius: '12px'}}>
@@ -169,10 +251,11 @@ export default function Login()
 						<Button type="submit" variant="contained" fullWidth disabled={submitting || code.length !== 6}>
 							{submitting ? <CircularProgress size={20} color="inherit" /> : (setup ? t('Activate') : t('Verify'))}
 						</Button>
-						<Box sx={{display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 1}}>
-							{!setup && <Typography sx={{fontSize: 12.5, color: 'var(--u-muted)'}}>{t('Lost your phone? Contact your administrator.')}</Typography>}
+						<Box sx={{display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 1}}>
+							{(by_code) ? resend : lost}
 							<ButtonBase onClick={backToSignIn} sx={{ml: 'auto', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: 'var(--u-text3)', '&:hover': {textDecoration: 'underline'}}}>{t('Back to sign in')}</ButtonBase>
 						</Box>
+						{by_code && lost}
 					</Box>
 				</Box>
 			</AuthLayout>

@@ -48,11 +48,11 @@ class BlockController extends \Core\CrudController
 
 		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addRadio('type', 'Type', self::TYPES, true)->defaultValue('content');
+		$form->addRadio('type', 'Type', self::TYPES, true)->defaultValue('content')->protect();
 		$form->addCode('content', 'Content', false, 'html')->set('snippets', PatternController::snippets())->showIf('type', ['content']);
-		$form->addText('file_path', 'File')->maxLength(255)->placeholder('blocks/newsletter.php')->help('php file of the instance, relative to its folder')->showIf('type', ['file']);
-		$form->addDatetime('publication_date_start', 'Publication start');
-		$form->addDatetime('publication_date_end', 'Publication end');
+		$form->addText('file_path', 'File')->maxLength(255)->placeholder('blocks/newsletter.php')->help('php file of the instance, relative to its folder')->showIf('type', ['file'])->protect();
+		$form->addDatetime('publication_date_start', 'Publication start')->protect();
+		$form->addDatetime('publication_date_end', 'Publication end')->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 	}

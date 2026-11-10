@@ -8,6 +8,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * subscribers of the mailing lists (xcore_mailinglist_subscriber): one email once by list, unsubscribed = unsubscribe date set
+ * mobile: recipient of the sms campaigns of its list (international format, \Core\Sms::normalize)
  */
 #[Route('/api/mailinglist-subscriber', name: 'api.mailinglist_subscriber.')]
 class Mailinglist_SubscriberController extends \Core\CrudController
@@ -23,7 +24,7 @@ class Mailinglist_SubscriberController extends \Core\CrudController
 
 		$grid->qSelect("(SELECT l.name FROM xcore_mailinglist l WHERE l.id = xcore_mailinglist_subscriber.xcore_mailinglist_id)", 'list');
 		$grid->qSelect("IF(unsubscribe_date IS NULL, 'yes', 'no')", 'subscribed');
-		$grid->setSearch(['email', 'firstname', 'lastname'], 'Search email, name...');
+		$grid->setSearch(['email', 'mobile', 'firstname', 'lastname'], 'Search email, mobile, name...');
 		$grid->addFilter('xcore_mailinglist_id', 'List', 'select', DB()->query("SELECT id, name FROM xcore_mailinglist WHERE deleted = 'no' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR));
 		$grid->addFilter('email', 'Email');
 		$grid->addFilter('language', 'Language', 'select', \Plugin\Website\PageController::languages());
@@ -36,6 +37,7 @@ class Mailinglist_SubscriberController extends \Core\CrudController
 		$grid->addCol('id', 'ID', true)->width(72);
 		$grid->addCol('list', 'List')->width(160);
 		$grid->addCol('email', 'Email', true);
+		$grid->addCol('mobile', 'Mobile', true)->width(150);
 		$grid->addCol('firstname', 'Firstname', true)->width(140);
 		$grid->addCol('lastname', 'Lastname', true)->width(140);
 		$grid->addCol('language', 'Lang.', true)->width(70);
@@ -49,8 +51,9 @@ class Mailinglist_SubscriberController extends \Core\CrudController
 
 		$languages = \Plugin\Website\PageController::languages();
 
-		$form->addSelectSql('xcore_mailinglist_id', 'List', 'xcore_mailinglist', 'name', true);
-		$form->addEmail('email', 'Email', true)->maxLength(255);
+		$form->addSelectSql('xcore_mailinglist_id', 'List', 'xcore_mailinglist', 'name', true)->protect();
+		$form->addEmail('email', 'Email', true)->maxLength(255)->protect();
+		$form->addText('mobile', 'Mobile')->maxLength(30)->placeholder('+33 6 12 34 56 78')->help('recipient of the sms campaigns of the list')->protect();
 		$form->addText('firstname', 'Firstname')->maxLength(255);
 		$form->addText('lastname', 'Lastname')->maxLength(255);
 		$form->addSelect('language', 'Language', $languages, true)->defaultValue((string)array_key_first($languages))->set('translate', false);
@@ -68,12 +71,17 @@ class Mailinglist_SubscriberController extends \Core\CrudController
 		if($email !== '' && DB()->query("SELECT id FROM xcore_mailinglist_subscriber WHERE deleted = 'no' AND xcore_mailinglist_id = :list AND email = :email AND id != :id LIMIT 1", ['list' => $list, 'email' => $email, 'id' => (int)($record['id'] ?? 0)])->fetchOne())
 			$v->addError(ts('`[FIELD]` is already subscribed to this list'));
 
+		$mobile = trim((string)$v->inputGet('mobile', ''));
+		$v->input('mobile');
+		if($mobile !== '' && \Core\Sms::normalize($mobile) === '')$v->addError(ts('`[FIELD]` must be a mobile number, ex: +33612345678'));
+
 	}
 
 	protected function onSaveBefore(array $row, array $record):array
 	{
 
 		if(isset($row['email']))$row['email'] = mb_strtolower($row['email']);
+		if(isset($row['mobile']) && $row['mobile'] !== '')$row['mobile'] = \Core\Sms::normalize($row['mobile']);
 		return $row;
 
 	}

@@ -45,7 +45,7 @@ class Ticket_MessageController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$form->addNumber('xcore_ticket_id', 'Ticket', true, true);
+		$form->addNumber('xcore_ticket_id', 'Ticket', true, true)->protect();
 		$form->addDatetime('date', 'Date', true)->defaultValue(date('Y-m-d H:i:s'));
 		$form->addRadio('direction', 'Direction', self::DIRECTIONS, true)->defaultValue('out');
 		$form->addEmail('sender_email', 'Sender', true)->maxLength(255)->defaultValue((string)\Core\Session::get('auth.email'));

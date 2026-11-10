@@ -17,6 +17,9 @@ class CronController extends \Core\CrudController
 	public string $title = 'Cron';
 	public string $object_label = 'task';
 
+	// set by the code: never bound to a workflow
+	public array $managed_columns = ['status'];
+
 	private const array STATUSES = ['idle' => 'grey', 'running' => 'orange', 'success' => 'green', 'error' => 'red'];
 
 	protected function grid(DataGrid $grid):void
@@ -72,7 +75,7 @@ class CronController extends \Core\CrudController
 		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addText('name', 'Name', true)->maxLength(255);
 		$form->addTextarea('description', 'Description')->maxLength(2000);
-		$form->addText('script_path', 'Script', true)->maxLength(500)->placeholder('cron/purge.php')->help('php file relative to the project, receives $params and $cron, what it prints is the report');
+		$form->addText('script_path', 'Script', true)->maxLength(500)->placeholder('cron/purge.php')->help('php file relative to the project, receives $params and $cron, what it prints is the report')->protect();
 		$form->addText('script_parameters', 'Parameters')->maxLength(1000)->placeholder('days=30&limit=500')->help('query string, read as $params in the script');
 
 		$form->tab('schedule', 'Schedule');
@@ -83,10 +86,10 @@ class CronController extends \Core\CrudController
 		$form->addNumber('priority', 'Priority', true, true)->defaultValue('0')->help('lower runs first');
 
 		$form->tab('report', 'Report');
-		$form->addBoolean('email_report', 'Email report')->defaultValue('no');
+		$form->addBoolean('email_report', 'Email report')->defaultValue('no')->protect();
 		$form->addBoolean('email_report_failure', 'On failure only')->defaultValue('no')->showIf('email_report', ['yes']);
 		$form->addText('email_report_subject', 'Subject')->maxLength(255)->help('empty = Cron #id name: status')->showIf('email_report', ['yes']);
-		$form->addTextarea('email_report_recipients', 'Recipients', true)->maxLength(2000)->placeholder('admin@example.com; dev@example.com')->showIf('email_report', ['yes']);
+		$form->addTextarea('email_report_recipients', 'Recipients', true)->maxLength(2000)->placeholder('admin@example.com; dev@example.com')->showIf('email_report', ['yes'])->protect();
 		$form->tab('');
 
 		$form->addBoolean('active', 'Active')->defaultValue('yes');

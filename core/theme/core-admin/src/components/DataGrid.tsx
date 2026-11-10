@@ -10,7 +10,7 @@ import {
 	SearchOutlined, ViewColumnOutlined,
 	MailOutlined, OpenInNewOutlined, LanguageOutlined,
 } from '@mui/icons-material'
-import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter } from '../api'
+import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter, type WorkflowTransition } from '../api'
 import { getLanguage, t } from '../i18n'
 import { MenuIcon } from './icons'
 import UserAvatar, { type AvatarData } from './UserAvatar'
@@ -18,6 +18,7 @@ import { FileIcon, fileSize, ImagePreview, isImage } from './FileInput'
 import BookmarkButton from './BookmarkButton'
 import DetailDialog from './DetailDialog'
 import MassEditDialog from './MassEditDialog'
+import { StateDot, TransitionDialog, type TransitionChoice } from './Workflow'
 import { useToast } from './Toast'
 import { Flag } from './Flag'
 import { BASE } from '../base'
@@ -466,17 +467,19 @@ function FiltersPanel({anchor, filters, conditions, match, onClose, onApply, onS
 
 }
 
-function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction, onDuplicate}: {row: Row, can_edit: boolean, can_delete: boolean, actions: RowAction[], onEdit: (row: Row) => void, onDelete: (row: Row) => void, onAction: (row: Row, action: RowAction) => void, onDuplicate?: (row: Row) => void})
+function RowMenu({row, can_edit, can_delete, actions, onEdit, onDelete, onAction, onDuplicate, transitions = [], colors = {}, onTransition}: {row: Row, can_edit: boolean, can_delete: boolean, actions: RowAction[], onEdit: (row: Row) => void, onDelete: (row: Row) => void, onAction: (row: Row, action: RowAction) => void, onDuplicate?: (row: Row) => void, transitions?: WorkflowTransition[], colors?: Record<string, string>, onTransition?: (row: Row, transition: WorkflowTransition) => void})
 {
 
 	const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-	if(!can_edit && !can_delete && !actions.length && !onDuplicate)return null
+	if(!can_edit && !can_delete && !actions.length && !onDuplicate && !transitions.length)return null
 
 	return (
 		<>
 			<IconButton size="small" aria-label={t('More actions')} onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget) }} sx={{width: 34, height: 34, color: 'var(--u-text3)'}}><MoreVertOutlined sx={{fontSize: 18}} /></IconButton>
 			<Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}}>
 				{can_edit && <MenuItem onClick={() => { setAnchor(null); onEdit(row) }}><ListItemIcon><EditOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Edit')}</ListItemText></MenuItem>}
+				{transitions.map((x) => <MenuItem key={x.code} onClick={() => { setAnchor(null); onTransition?.(row, x) }}><ListItemIcon sx={{pl: 0.75}}><StateDot color={colors[x.to]} /></ListItemIcon><ListItemText>{x.label}</ListItemText></MenuItem>)}
+				{transitions.length > 0 && (can_delete || actions.length > 0 || !!onDuplicate) && <Divider />}
 				{actions.map((a) => <MenuItem key={a.name} onClick={() => { setAnchor(null); onAction(row, a) }}><ListItemIcon><MenuIcon name={a.icon} fontSize={20} /></ListItemIcon><ListItemText>{a.label}</ListItemText></MenuItem>)}
 				{onDuplicate && <MenuItem onClick={() => { setAnchor(null); onDuplicate(row) }}><ListItemIcon><ContentCopyOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('Duplicate')}</ListItemText></MenuItem>}
 				{can_delete && <MenuItem onClick={() => { setAnchor(null); onDelete(row) }} sx={{color: 'error.main'}}><ListItemIcon><DeleteOutlineOutlined fontSize="small" color="error" /></ListItemIcon><ListItemText>{t('Delete')}</ListItemText></MenuItem>}
@@ -606,7 +609,7 @@ function PageInput({page, last, onChange}: {page: number, last: number, onChange
 /**
  * grid of a module (GET /api/<module>/), state kept in the url (search, chip, conditions, sort, page)
  */
-export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle, onDuplicate}: {module: string, icon: string, version: number, onAdd: () => void, onEdit: (row: Row) => void, onTitle?: (title: string, label: string) => void, onDuplicate?: (row: Row) => void})
+export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle, onDuplicate, onForm}: {module: string, icon: string, version: number, onAdd: () => void, onEdit: (row: Row) => void, onTitle?: (title: string, label: string) => void, onDuplicate?: (row: Row) => void, onForm?: (action: GridAction) => void})
 {
 
 	const theme = useTheme()
@@ -630,6 +633,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 	const [saved, setSaved] = useState<SavedFilter[]>([])
 	const [save_draft, setSaveDraft] = useState<{conditions: Condition[], match: 'all' | 'any'} | null>(null)
 	const [saved_version, setSavedVersion] = useState(0)
+	const [transition, setTransition] = useState<{choice: TransitionChoice, ids: number[], skipped: number} | null>(null)
 	const [mass_edit, setMassEdit] = useState<number[] | null>(null)
 	const [running, setRunning] = useState('')
 	const [drag_rows, setDragRows] = useState<Row[] | null>(null)
@@ -746,7 +750,14 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 	const duplicate = (grid?.duplicate && can_add && can_edit) ? onDuplicate : undefined
 	const batch_actions = (grid?.batch?.actions ?? []).filter((a) => rights.has(a.right))
 	const can_mass_edit = can_edit && (grid?.batch?.edit.length ?? 0) > 0
-	const batch = !!grid?.batch && (can_delete || can_mass_edit || batch_actions.length > 0)
+	// workflow: transitions of the user from the state of a row (row menu) or of the selected rows (selection menu)
+	const wf = grid?.workflow ?? null
+	const wf_colors = Object.fromEntries(Object.entries(wf?.states ?? {}).map(([code, s]) => [code, s.color]))
+	const stateOf = (row: Row) => String(row[wf?.column ?? ''] ?? '')
+	const rowTransitions = (row: Row) => (wf?.transitions ?? []).filter((x) => x.from === stateOf(row))
+	const choice = (x: WorkflowTransition): TransitionChoice => ({code: x.code, label: x.label, from: x.from, to: x.to, to_label: x.to_label, comment: x.comment, needed: x.approvals})
+	const fireRow = (row: Row, x: WorkflowTransition) => setTransition({choice: choice(x), ids: [row.id], skipped: 0})
+	const batch = !!grid?.batch && (can_delete || can_mass_edit || batch_actions.length > 0 || (wf?.transitions.length ?? 0) > 0)
 	const row_actions = (grid?.row_actions ?? []).filter((a) => rights.has(a.right))
 	const grid_actions = (grid?.grid_actions ?? []).filter((a) => rights.has(a.right))
 
@@ -1099,7 +1110,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 					</Box>
 					{mobile_subtitle && <Typography component="span" noWrap sx={{fontSize: 13, color: 'var(--u-text3)'}}><Cell column={mobile_subtitle} row={row} can_edit={can_edit} onToggle={toggle} /></Typography>}
 				</Box>
-				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} />
+				<RowMenu row={row} can_edit={can_edit} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} transitions={rowTransitions(row)} colors={wf_colors} onTransition={fireRow} />
 			</Box>
 		))
 
@@ -1174,7 +1185,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 							<Box component="td" sx={{...td, pr: 1.5}}>
 								<Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 0.25}}>
 									{can_edit && <IconButton size="small" aria-label={t('Edit')} onClick={() => onEdit(row)} sx={{width: 34, height: 34, color: 'primary.main'}}><EditOutlined sx={{fontSize: 18}} /></IconButton>}
-									<RowMenu row={row} can_edit={false} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} />
+									<RowMenu row={row} can_edit={false} can_delete={can_delete} actions={row_actions} onEdit={onEdit} onDelete={(r) => setToDelete([r])} onAction={rowAction} onDuplicate={duplicate} transitions={rowTransitions(row)} colors={wf_colors} onTransition={fireRow} />
 								</Box>
 							</Box>
 						</Box>
@@ -1219,7 +1230,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 				</Box>
 				{search_group}
 				{grid_actions.map((a) => (
-					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.confirm ? setConfirmAction(a) : gridAction(a)} sx={{bgcolor: 'var(--u-paper)'}}>{a.label}</Button>
+					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.url ? navigate(`/${a.url}`) : (a.form ? onForm?.(a) : (a.confirm ? setConfirmAction(a) : gridAction(a)))} sx={{bgcolor: 'var(--u-paper)'}}>{a.label}</Button>
 				))}
 				{can_add && <Button variant="contained" startIcon={<AddCircleOutlineOutlined />} onClick={onAdd}>{is_mobile ? t('Add') : `${t('Add')} ${grid.label}`}</Button>}
 			</Box>
@@ -1298,6 +1309,19 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 						<ListItemText>{t('Delete')} ({selected.length})</ListItemText>
 					</MenuItem>
 				)}
+				{(wf?.transitions ?? []).map((x) => {
+
+					// the selected rows in the state the transition starts from, the others are left out
+					const ids = grid.rows.filter((r) => selected.includes(r.id) && stateOf(r) === x.from).map((r) => r.id)
+					if(!ids.length)return null
+					return (
+						<MenuItem key={x.code} onClick={() => { setSelectionMenu(null); setTransition({choice: choice(x), ids, skipped: selected.length - ids.length}) }}>
+							<ListItemIcon sx={{pl: 0.75}}><StateDot color={wf_colors[x.to]} /></ListItemIcon>
+							<ListItemText>{x.label} ({ids.length})</ListItemText>
+						</MenuItem>
+					)
+
+				})}
 				{batch_actions.map((a) => (
 					<MenuItem key={a.name} disabled={!selected.length || running !== ''} onClick={() => runAction(a.name)}>
 						<ListItemIcon>{running === a.name ? <CircularProgress size={18} /> : <MenuIcon name={a.icon} fontSize={20} />}</ListItemIcon>
@@ -1312,6 +1336,8 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 			</Menu>
 
 			<DetailDialog module={module} id={detail_id} onClose={() => setDetailId(null)} />
+
+			{transition && wf && <TransitionDialog module={module} ids={transition.ids} transition={transition.choice} states={wf.states} skipped={transition.skipped} onClose={() => setTransition(null)} onDone={() => { setTransition(null); setSelected([]); dataChanged(module); setReload((n) => n + 1) }} />}
 
 			<MassEditDialog module={module} title={grid.title} ids={mass_edit} onClose={() => setMassEdit(null)} onSaved={() => { setMassEdit(null); dataChanged(module); setReload((n) => n + 1) }} />
 

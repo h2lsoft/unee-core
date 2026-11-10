@@ -53,7 +53,7 @@ class TicketController extends \Core\CrudController
 		$form->addDatetime('date', 'Date', true)->defaultValue(date('Y-m-d H:i:s'));
 		$form->addEmail('email', 'Email', true)->maxLength(255);
 		$form->addText('subject', 'Subject', true)->maxLength(255);
-		$form->addNumber('order_id', 'Order', false, true)->help('number of the order concerned, if any');
+		$form->addNumber('order_id', 'Order', false, true)->help('number of the order concerned, if any')->protect();
 		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('open');
 
 	}

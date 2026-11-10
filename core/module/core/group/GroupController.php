@@ -53,9 +53,9 @@ class GroupController extends \Core\CrudController
 		$form->addText('name', 'Name', true)->maxLength(255)->unique();
 		$form->addText('description', 'Description')->maxLength(255);
 		$form->addNumber('priority', 'Priority', true, true)->defaultValue(10)->help('lowest priorities are the most important');
-		$form->addBoolean('access_backend', 'Backend access');
+		$form->addBoolean('access_backend', 'Backend access')->protect();
 		$form->addBoolean('access_frontend', 'Frontend access');
-		$form->addBoolean('active', 'Active')->defaultValue('yes');
+		$form->addBoolean('active', 'Active')->defaultValue('yes')->protect();
 
 	}
 

@@ -4,6 +4,8 @@ namespace Job\Core;
 
 /**
  * job send_email: payload {"template", "to", "vars", "locale"} (mail template) or {"from", "to", "subject", "body"} (raw html)
+ * "options" go to \Core\Mailer (credits: category, module, action, record_id, xcore_user_id), the credits are checked at the sending, not at the push
+ * an email refused for lack of credits fails the job (retried later, the credits may be raised meanwhile)
  */
 class Send_Email extends \Core\JobHandler
 {

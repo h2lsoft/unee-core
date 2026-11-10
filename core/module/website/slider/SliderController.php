@@ -66,7 +66,7 @@ class SliderController extends \Core\CrudController
 		$form->addBoolean('option_keyboard', 'Keyboard')->defaultValue('yes');
 		$form->addBoolean('option_mousewheel', 'Mouse wheel')->defaultValue('yes');
 		$form->addBoolean('option_zoom', 'Zoom')->defaultValue('yes');
-		$form->addCode('option_breakpoints', 'Breakpoints', false, 'json')->help('swiper breakpoints, ex: {"768": {"slidesPerView": 2}}');
+		$form->addCode('option_breakpoints', 'Breakpoints', false, 'json')->help('swiper breakpoints, ex: {"768": {"slidesPerView": 2}}')->protect();
 		$form->tab('');
 
 	}

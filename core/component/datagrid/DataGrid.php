@@ -554,6 +554,8 @@ class DataGrid
 
 	/**
 	 * button of the grid header: POST /api/<module>/action/<name>/ calls the controller method action<Name>()
+	 * url: link of the backend instead (ex: sms-credit/, check the right of the other module before declaring it)
+	 * form: api url of a form of its own instead, opened in a lightbox (ex: sms/settings/): read with GET, saved with PUT, its actions POST <form>action/<name>/
 	 *
 	 * @param string $name a-z, 0-9 and dashes, ex: purge calls actionPurge()
 	 * @param string $label english, translated
@@ -561,14 +563,16 @@ class DataGrid
 	 * @param string $right right needed on the module
 	 * @param string $confirm english question asked before (empty = no confirmation)
 	 * @param bool $danger red button
+	 * @param string $url
+	 * @param string $form
 	 *
 	 * @return static
 	 */
-	public function gridAction(string $name, string $label, string $icon='', string $right='edit', string $confirm='', bool $danger=false):static
+	public function gridAction(string $name, string $label, string $icon='', string $right='edit', string $confirm='', bool $danger=false, string $url='', string $form=''):static
 	{
 
 		$this->checkActionName($name);
-		$this->grid_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right, 'confirm' => $confirm, 'danger' => $danger];
+		$this->grid_actions[$name] = ['name' => $name, 'label' => $label, 'icon' => $icon, 'right' => $right, 'confirm' => $confirm, 'danger' => $danger, 'url' => $url, 'form' => $form];
 
 		return $this;
 

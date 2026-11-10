@@ -9,19 +9,21 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-// csrf, before the router (priority 32): unknown routes are refused the same way
+// csrf, after the router (priority 32) and before the auth middlewares (16): a route called by a third party with a secret token in its url declares defaults: ['_csrf' => false] (ex: delivery reports of a sms provider, one-click unsubscribe of the mail clients)
+$dispatcher->addListener(KernelEvents::REQUEST, function(RequestEvent $event){
+
+	$request = $event->getRequest();
+	if(!$event->isMainRequest() || !str_starts_with($request->getPathInfo(), '/api/') || $request->attributes->get('_csrf') === false)return;
+
+	if(!$request->isMethodSafe() && $request->headers->get('X-Requested-With') !== 'XMLHttpRequest')$event->setResponse(\Core\JsonResponse::error(403, 'missing header X-Requested-With: XMLHttpRequest'));
+
+}, 24);
+
+// json body, before the router
 $dispatcher->addListener(KernelEvents::REQUEST, function(RequestEvent $event){
 
 	$request = $event->getRequest();
 	if(!$event->isMainRequest() || !str_starts_with($request->getPathInfo(), '/api/'))return;
-
-	if(!$request->isMethodSafe() && $request->headers->get('X-Requested-With') !== 'XMLHttpRequest')
-	{
-
-		$event->setResponse(\Core\JsonResponse::error(403, 'missing header X-Requested-With: XMLHttpRequest'));
-		return;
-
-	}
 
 	// json body: available as $request->request and $_POST (read by the h2lsoft validator)
 	if(str_contains((string)$request->headers->get('Content-Type'), 'json') && $request->getContent() !== '')

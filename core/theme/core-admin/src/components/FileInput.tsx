@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Box, Button, ButtonBase, CircularProgress, Dialog, IconButton, Tooltip } from '@mui/material'
-import { CloseOutlined, DeleteOutlineOutlined, DescriptionOutlined, FolderZipOutlined, ImageOutlined, InsertDriveFileOutlined, PictureAsPdfOutlined, SlideshowOutlined, TableChartOutlined, UploadFileOutlined } from '@mui/icons-material'
+import { CloseOutlined, DeleteOutlineOutlined, DescriptionOutlined, FolderZipOutlined, ImageOutlined, InsertDriveFileOutlined, PersonOutlined, PictureAsPdfOutlined, SlideshowOutlined, TableChartOutlined, UploadFileOutlined } from '@mui/icons-material'
 import { api, ApiException, type FormField } from '../api'
 import { t } from '../i18n'
 
@@ -30,14 +30,14 @@ export const isImage = (name: string) => ['jpg', 'jpeg', 'png', 'webp', 'avif', 
  * thumbnail of an image, a click opens it in a lightbox (close cross, escape or a click on the backdrop closes it)
  * shortcut: the thumbnail loads the full image, add resized thumbnails if the lists get heavy
  */
-export function ImagePreview({url, name, size = 32}: {url: string, name: string, size?: number})
+export function ImagePreview({url, name, size = 32, round = false}: {url: string, name: string, size?: number, round?: boolean})
 {
 
 	const [open, setOpen] = useState(false)
 
 	return (
 		<>
-			<ButtonBase aria-label={t('Zoom')} title={name} onClick={(e) => { e.stopPropagation(); setOpen(true) }} sx={{width: size, height: size, flexShrink: 0, borderRadius: 1, overflow: 'hidden', border: '1px solid var(--u-border)', bgcolor: 'var(--u-head)', cursor: 'zoom-in'}}>
+			<ButtonBase aria-label={t('Zoom')} title={name} onClick={(e) => { e.stopPropagation(); setOpen(true) }} sx={{width: size, height: size, flexShrink: 0, borderRadius: round ? '50%' : 1, overflow: 'hidden', border: '1px solid var(--u-border)', bgcolor: 'var(--u-head)', cursor: 'zoom-in'}}>
 				<Box component="img" src={url} alt={name} loading="lazy" sx={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}} />
 			</ButtonBase>
 			<Dialog open={open} onClose={() => setOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth={false}
@@ -50,8 +50,8 @@ export function ImagePreview({url, name, size = 32}: {url: string, name: string,
 
 }
 
-// names of the uploads not saved yet (token => name, size), kept when the field is rendered again
-const uploads = new Map<string, {name: string, size: number}>()
+// names of the uploads not saved yet (token => name, size, local preview of an image), kept when the field is rendered again
+const uploads = new Map<string, {name: string, size: number, preview?: string}>()
 
 /**
  * file field (\Component\Form::addFile): the file is uploaded at once (field.upload_url), the value becomes its token until the form is saved
@@ -78,7 +78,8 @@ export default function FileInput({id, field, value, error, onChange}: {id: stri
 			const body = new FormData()
 			body.append('file', file)
 			const data = await api<{token: string, name: string, size: number}>(field.upload_url, {method: 'POST', body})
-			uploads.set(data.token, {name: data.name, size: data.size})
+			// image converted by the server: the local file cropped by css shows the same picture
+			uploads.set(data.token, {name: data.name, size: data.size, preview: field.convert ? URL.createObjectURL(file) : undefined})
 			onChange(data.token)
 
 		}
@@ -101,7 +102,14 @@ export default function FileInput({id, field, value, error, onChange}: {id: stri
 	const pending = uploads.get(value)
 	const name = pending?.name ?? value.split('/').pop() ?? ''
 	const accept = field.extensions?.map((e) => `.${e}`).join(',')
-	const hint = [field.extensions?.join(', '), field.max_size ? `${t('max')} ${fileSize(field.max_size)}` : ''].filter(Boolean).join(' - ')
+	const hint = [field.extensions?.join(', '), field.max_size ? `${t('max')} ${fileSize(field.max_size)}` : '', field.convert ? t('cropped to [W] x [H]', {W: field.convert.width, H: field.convert.height}) : ''].filter(Boolean).join(' - ')
+
+	// image (avatar): round preview, the local file before the save, the stored one after
+	const image = !!field.convert
+	const url = pending?.preview ?? ((value === '' || pending) ? '' : (field.public ? `${field.public_url ?? ''}${value}` : (field.file_url ?? '')))
+	const thumb = image && (url
+		? <ImagePreview url={url} name={name} size={40} round />
+		: <Box sx={{width: 40, height: 40, flexShrink: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'var(--u-head)', border: '1px solid var(--u-border)', color: 'var(--u-faint)'}}><PersonOutlined fontSize="small" /></Box>)
 
 	return (
 		<Box>
@@ -109,11 +117,12 @@ export default function FileInput({id, field, value, error, onChange}: {id: stri
 			{value === '' || busy
 				? (
 					<Box onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); if(!field.readonly)upload(e.dataTransfer.files?.[0]) }}
-						sx={{display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minHeight: 34, px: 1.25, py: 0.75, border: '1px dashed', borderColor: error ? 'error.main' : (over ? 'primary.main' : 'var(--u-border-strong)'), borderRadius: 2, bgcolor: over ? 'var(--u-accent-bg)' : 'transparent'}}>
+						sx={{display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minHeight: image ? 56 : 34, px: 1.25, py: 0.75, border: '1px dashed', borderColor: error ? 'error.main' : (over ? 'primary.main' : 'var(--u-border-strong)'), borderRadius: 2, bgcolor: over ? 'var(--u-accent-bg)' : 'transparent'}}>
 						{busy
 							? <><CircularProgress size={18} /><Box component="span" sx={{fontSize: 13.5, color: 'var(--u-text2)'}}>{t('Uploading...')}</Box></>
 							: (
 								<>
+									{thumb}
 									<Button size="small" variant="outlined" startIcon={<UploadFileOutlined />} disabled={field.readonly} onClick={() => input.current?.click()} sx={{height: 28, borderColor: 'var(--u-border-strong)', color: 'var(--u-text2)', fontWeight: 500}}>{t('Choose a file')}</Button>
 									<Box component="span" sx={{fontSize: 13, color: 'var(--u-muted)'}}>{t('or drop it here')}</Box>
 								</>
@@ -121,9 +130,11 @@ export default function FileInput({id, field, value, error, onChange}: {id: stri
 					</Box>
 				)
 				: (
-					<Box sx={{display: 'flex', alignItems: 'center', gap: 1, minHeight: 34, pl: 1.25, pr: 0.5, border: '1px solid', borderColor: error ? 'error.main' : 'var(--u-border-strong)', borderRadius: 2}}>
-						<FileIcon name={name} />
-						{(!pending && field.file_url)
+					<Box sx={{display: 'flex', alignItems: 'center', gap: image ? 1.5 : 1, minHeight: image ? 56 : 34, pl: 1.25, pr: 0.5, py: image ? 0.75 : 0, border: '1px solid', borderColor: error ? 'error.main' : 'var(--u-border-strong)', borderRadius: 2}}>
+						{thumb || <FileIcon name={name} />}
+						{(image && !pending)
+							? <Box sx={{flexGrow: 1}} />
+							: (!pending && field.file_url)
 							? <Box component="a" href={field.file_url} target="_blank" rel="noopener noreferrer" sx={{flexGrow: 1, minWidth: 0, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{name}</Box>
 							: <Box component="span" sx={{flexGrow: 1, minWidth: 0, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{name}</Box>}
 						{pending && <Box component="span" sx={{fontSize: 12, color: 'var(--u-muted)', whiteSpace: 'nowrap'}}>{fileSize(pending.size)}</Box>}

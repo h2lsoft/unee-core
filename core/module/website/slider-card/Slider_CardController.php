@@ -47,8 +47,8 @@ class Slider_CardController extends \Core\CrudController
 		$form->addText('name', 'Name', true)->maxLength(255)->help('internal');
 		$form->addText('image', 'Image', true)->maxLength(255)->placeholder('/upload/slider/image.jpg');
 		$form->addText('image_mobile', 'Mobile image')->maxLength(255)->help('empty = the image');
-		$form->addDatetime('date_start', 'Start');
-		$form->addDatetime('date_end', 'End');
+		$form->addDatetime('date_start', 'Start')->protect();
+		$form->addDatetime('date_end', 'End')->protect();
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes');
 
 		$form->tab('text', 'Text');

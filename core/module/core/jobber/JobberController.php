@@ -17,6 +17,9 @@ class JobberController extends \Core\CrudController
 	public string $table = 'xcore_job_queue';
 	public string $title = 'Jobber';
 	public string $object_label = 'job';
+
+	// set by the code: never bound to a workflow
+	public array $managed_columns = ['status'];
 	public array $ucfirst = [];
 
 	// failed is never stored: a failed job goes back to pending until dead
@@ -69,10 +72,10 @@ class JobberController extends \Core\CrudController
 	{
 
 		$form->addText('comment', 'Comment')->maxLength(255);
-		$form->addNumber('priority', 'Priority', true, true)->help('0 to 255, higher runs first');
+		$form->addNumber('priority', 'Priority', true, true)->help('0 to 255, higher runs first')->protect();
 		$form->addDatetime('scheduled_at', 'Scheduled')->help('empty = as soon as possible');
-		$form->addNumber('max_attempts', 'Max attempts', true, true);
-		$form->addCode('payload', 'Payload', true, 'json');
+		$form->addNumber('max_attempts', 'Max attempts', true, true)->protect();
+		$form->addCode('payload', 'Payload', true, 'json')->protect();
 
 	}
 

@@ -20,6 +20,18 @@ class Cron
 	private static array $current = [];
 
 	/**
+	 * task being run, [] outside a task (ex: \Core\Mailer writes the application cron)
+	 *
+	 * @return array
+	 */
+	public static function current():array
+	{
+
+		return self::$current;
+
+	}
+
+	/**
 	 * a rule matches a value, ex: match('*\/15', 30) = true, match('8-18', 7) = false
 	 *
 	 * @param string $rule
@@ -243,7 +255,7 @@ class Cron
 		$vars = ['subject' => $subject, 'name' => $cron['name'], 'status' => $status, 'start' => $started_at, 'duration' => $duration, 'error' => $error, 'output' => mb_substr($output, 0, 20000)];
 
 		foreach($recipients as $email)
-			\Core\Mailer::sendTemplate('core.cron.report', $email, $vars);
+			\Core\Mailer::sendTemplate('core.cron.report', $email, $vars, '', [], ['application' => 'cron', 'module' => 'cron', 'action' => 'report', 'record_id' => (int)$cron['id']]);
 
 	}
 

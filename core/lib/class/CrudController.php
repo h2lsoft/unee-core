@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * a module declares $table, grid() and form(), then overrides the hooks it needs:
  * rulesOnSubmit, rulesOnCreate, rulesOnUpdate, rulesOnDelete, getRecord, onSaveBefore, onSaveAfterCreate, onSaveAfterEdit, onDeleteAfter
+ * a module with a workflow (\Core\Workflow): its state column changes by the transitions only, a record locked in its state is not edited
+ * a field whose name starts with _ is virtual (filled by getRecord, read by the hooks): never written in the table
  */
 abstract class CrudController extends Controller
 {
@@ -36,6 +38,11 @@ abstract class CrudController extends Controller
 	 * fields saved with an uppercase initial (html too: first letter of the text), [] for modules of keys (ex: globals)
 	 */
 	public array $ucfirst = ['category', 'title', 'name', 'description'];
+
+	/**
+	 * columns set by the code of the module (ex: a status moved by a cron): never bound to a workflow, read only in the Studio
+	 */
+	public array $managed_columns = [];
 
 	/**
 	 * columns, filters and sql of the list
@@ -72,7 +79,13 @@ abstract class CrudController extends Controller
 		if($denied = $this->deny('list'))return $denied;
 
 		$grid = $this->buildGrid();
-		return new JsonResponse(['title' => ts($this->title), 'label' => ts($this->object_label), 'rights' => \Model\User::getRights($this->module), 'export' => $grid->export && \Model\User::hasRight($this->module, 'export')] + $grid->render($request));
+		$workflow = Workflow::get($this->module);
+
+		return new JsonResponse([
+			'title' => ts($this->title), 'label' => ts($this->object_label), 'rights' => \Model\User::getRights($this->module), 'export' => $grid->export && \Model\User::hasRight($this->module, 'export'),
+			// transitions of the user: row menu (state of the row) and selection menu
+			'workflow' => ($workflow) ? ['column' => $workflow['state_column'], 'states' => Workflow::states($workflow), 'transitions' => Workflow::transitions($workflow)] : null,
+		] + $grid->render($request));
 
 	}
 
@@ -175,6 +188,7 @@ abstract class CrudController extends Controller
 		}
 
 		$payload = ['form' => $this->definition($form, $id), 'record' => $this->getRecord($values, $record)];
+		if($workflow = Workflow::get($this->module))$payload['workflow'] = Workflow::summary($workflow, $record);
 		if($this->versioning())$payload['versions'] = (int)DB()->query("SELECT COUNT(*) FROM xcore_versioning WHERE deleted = 'no' AND `table` = :table AND record_id = :id", ['table' => $this->table, 'id' => $id])->fetchOne();
 
 		return new JsonResponse($payload);
@@ -198,7 +212,7 @@ abstract class CrudController extends Controller
 		$f = $this->buildForm([])->fields[$field] ?? null;
 		if(($f['type'] ?? '') !== 'file' || !empty($f['readonly']))return JsonResponse::error(404, 'field not found');
 
-		$result = \Core\File::uploadStore($request->files->get('file'), $f['extensions'], (int)$f['max_size']);
+		$result = \Core\File::uploadStore($request->files->get('file'), $f['extensions'], (int)$f['max_size'], (array)($f['convert'] ?? []));
 		if(is_string($result))return JsonResponse::error(422, $result);
 
 		return new JsonResponse($result, 201);
@@ -288,6 +302,7 @@ abstract class CrudController extends Controller
 		if($denied = $this->deny('edit'))return $denied;
 		if(!$this->versioning())return JsonResponse::error(404, 'versioning is not enabled');
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+		if($locked = $this->locked($record))return $locked;
 
 		// rules of the module still apply (ex: a record locked by its status)
 		$v = new Validator(App()->locale, $record);
@@ -306,7 +321,7 @@ abstract class CrudController extends Controller
 		{
 
 			// masked values (password, secret, token) are never written back
-			if(!array_key_exists($name, $data) || $field['type'] === 'password' || !empty($field['readonly']) || !empty($field['manager']) || $data[$name] === '********')continue;
+			if(!array_key_exists($name, $data) || $field['type'] === 'password' || $field['type'] === 'file' || !empty($field['readonly']) || !empty($field['manager']) || $data[$name] === '********' || $name === $this->stateColumn() || str_starts_with($name, '_'))continue;
 
 			$value = is_array($data[$name]) ? json_encode(array_values($data[$name]), JSON_UNESCAPED_UNICODE) : $data[$name];
 			if((string)($record[$name] ?? '') === (string)$value)continue;
@@ -357,6 +372,7 @@ abstract class CrudController extends Controller
 
 		if($denied = $this->deny('edit'))return $denied;
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+		if($locked = $this->locked($record))return $locked;
 
 		return $this->save($request, $record);
 
@@ -473,6 +489,8 @@ abstract class CrudController extends Controller
 		foreach($records as $record)
 		{
 
+			if($locked = $this->locked($record))return $locked;
+
 			$vr = new Validator(App()->locale, array_merge($record, $values));
 			$vr->addLocaleMessages(App()->locale, \Core\I18n::messages());
 			$vr->setInputNames($labels);
@@ -483,6 +501,8 @@ abstract class CrudController extends Controller
 		}
 
 		$row = $this->ucfirst($form->hydrate($values, true));
+		unset($row[$this->stateColumn()]);
+		if(!$row)return JsonResponse::error(422, 'choose at least one field');
 
 		DB()->beginTransaction();
 		foreach($records as $record)
@@ -561,6 +581,8 @@ abstract class CrudController extends Controller
 
 		if($denied = $this->deny('edit'))return $denied;
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		if($locked = $this->locked($record))return $locked;
 
 		$column = (string)$request->request->get('column');
 		$value = (string)$request->request->get('value');
@@ -654,6 +676,117 @@ abstract class CrudController extends Controller
 	}
 
 	/**
+	 * fires a transition on a selection (list right, groups of the transition), json body: {"ids", "comment"}
+	 * each record on its own: those in another state or refused are reported, the others move or get the approval of the user
+	 *
+	 * @param Request $request
+	 * @param string $transition code of the transition
+	 *
+	 * @return JsonResponse {"done", "approved", "errors": [{"id", "message"}]}, 4xx when the transition is refused for every record
+	 */
+	#[Route('/batch/workflow/{transition}/', name: 'batch.workflow', methods: ['POST'], requirements: ['transition' => '[a-z0-9_]+'])]
+	public function apiBatchWorkflow(Request $request, string $transition):JsonResponse
+	{
+
+		if($denied = $this->deny('list'))return $denied;
+
+		$ids = array_values(array_unique(array_filter(array_map('intval', (array)$request->request->all('ids')))));
+		if(!$ids || count($ids) > 500)return JsonResponse::error(422, 'select between 1 and 500 records');
+
+		$comment = (string)$request->request->get('comment', '');
+		try
+		{
+
+			Workflow::check($this->module, $transition, $comment);
+
+		}
+		catch(\DomainException $e)
+		{
+
+			return JsonResponse::error($e->getCode() ?: 422, $e->getMessage());
+
+		}
+
+		$labels = $this->labels($this->buildForm([]));
+		$result = ['done' => 0, 'approved' => 0, 'errors' => []];
+		foreach($ids as $id)
+		{
+
+			try
+			{
+
+				$fired = Workflow::fire($this->module, $id, $transition, $comment, false, $labels);
+				if($fired['done'])$this->versionSave($id);
+				$result[($fired['done']) ? 'done' : 'approved']++;
+
+			}
+			catch(\DomainException $e)
+			{
+
+				$result['errors'][] = ['id' => $id, 'message' => $e->getMessage()];
+
+			}
+
+		}
+
+		return new JsonResponse($result);
+
+	}
+
+	/**
+	 * workflow of a record (list right): its state, the transitions the logged user can fire, the history
+	 *
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"state", "editable", "transitions", "history"}, 404 when the module has no workflow
+	 */
+	#[Route('/{id}/workflow/', name: 'workflow', methods: ['GET'])]
+	public function apiWorkflow(int $id):JsonResponse
+	{
+
+		if($denied = $this->deny('list'))return $denied;
+		if(!$workflow = Workflow::get($this->module))return JsonResponse::error(404, 'no workflow on this module');
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		return new JsonResponse(Workflow::summary($workflow, $record) + ['history' => Workflow::history($workflow, $id)]);
+
+	}
+
+	/**
+	 * fires a transition of the workflow on a record (list right, groups of the transition), json body: {"comment"}
+	 * a transition needing several approvals counts the one of the user until the number is reached
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 * @param string $transition code of the transition
+	 *
+	 * @return JsonResponse {"done", "state", "approvals", "needed"}, 403 not allowed, 409 state changed or already approved, 422 comment or fields missing
+	 */
+	#[Route('/{id}/workflow/{transition}/', name: 'workflow.fire', methods: ['POST'], requirements: ['transition' => '[a-z0-9_]+'])]
+	public function apiWorkflowFire(Request $request, int $id, string $transition):JsonResponse
+	{
+
+		if($denied = $this->deny('list'))return $denied;
+
+		try
+		{
+
+			$result = Workflow::fire($this->module, $id, $transition, (string)$request->request->get('comment', ''), false, $this->labels($this->buildForm([])));
+
+		}
+		catch(\DomainException $e)
+		{
+
+			return JsonResponse::error($e->getCode() ?: 422, $e->getMessage());
+
+		}
+
+		if($result['done'])$this->versionSave($id);
+		return new JsonResponse($result);
+
+	}
+
+	/**
 	 * button of the grid declared with $grid->gridAction(), calls action<Action>(Request $request)
 	 *
 	 * @param Request $request
@@ -667,7 +800,7 @@ abstract class CrudController extends Controller
 
 		$declared = $this->buildGrid()->grid_actions[$action] ?? null;
 		$method = 'action'.str_replace(' ', '', ucwords(str_replace('-', ' ', $action)));
-		if(!$declared || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
+		if(!$declared || $declared['url'] !== '' || $declared['form'] !== '' || !method_exists($this, $method))return JsonResponse::error(404, 'action not found');
 
 		if($denied = $this->deny($declared['right']))return $denied;
 
@@ -716,6 +849,9 @@ abstract class CrudController extends Controller
 			'apiDetail' => ($grid->detail) ? [] : ['skip' => true],
 			'apiGridAction' => ($grid->grid_actions) ? ['path' => ['action' => ['type' => 'string', 'enum' => array_keys($grid->grid_actions)]]] : ['skip' => true],
 			'apiVersions', 'apiVersionRestore' => ($this->versioning()) ? [] : ['skip' => true],
+			'apiWorkflow' => (Workflow::get($this->module)) ? [] : ['skip' => true],
+			'apiBatchWorkflow' => ($workflow = Workflow::get($this->module)) ? ['path' => ['transition' => ['type' => 'string', 'enum' => array_keys(array_filter($workflow['transitions'], fn($t) => $t['from'] !== '' && !$t['system']))]], 'requestBody' => ['type' => 'object', 'required' => ['ids'], 'properties' => $ids['properties'] + ['comment' => ['type' => 'string']]], 'response' => ['type' => 'object', 'properties' => ['done' => ['type' => 'integer'], 'approved' => ['type' => 'integer'], 'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['id' => ['type' => 'integer'], 'message' => ['type' => 'string']]]]]]] : ['skip' => true],
+			'apiWorkflowFire' => ($workflow = Workflow::get($this->module)) ? ['path' => ['transition' => ['type' => 'string', 'enum' => array_keys(array_filter($workflow['transitions'], fn($t) => $t['from'] !== '' && !$t['system']))]], 'requestBody' => ['type' => 'object', 'properties' => ['comment' => ['type' => 'string']]], 'response' => ['type' => 'object', 'properties' => ['done' => ['type' => 'boolean'], 'state' => ['type' => 'string'], 'approvals' => ['type' => 'integer'], 'needed' => ['type' => 'integer']]]] : ['skip' => true],
 			default => [],
 		};
 
@@ -828,7 +964,8 @@ abstract class CrudController extends Controller
 
 			if($field['type'] !== 'file')continue;
 			$field['upload_url'] = "{$this->module}/upload/{$field['name']}/";
-			if($id)$field['file_url'] = "/api/{$this->module}/{$id}/file/{$field['name']}/";
+			if(!empty($field['public']))$field['public_url'] = \Core\File::url();
+			elseif($id)$field['file_url'] = "/api/{$this->module}/{$id}/file/{$field['name']}/";
 
 		}
 		unset($field);
@@ -844,7 +981,86 @@ abstract class CrudController extends Controller
 		$grid->module = $this->module;
 		$this->grid($grid);
 
+		// workflow: the state column as a badge of the states, chips by state when the grid has none
+		$workflow = Workflow::get($this->module);
+		if($workflow && $workflow['states'])
+		{
+
+			$column = $workflow['state_column'];
+			$labels = array_map(fn($s) => $s['label'], $workflow['states']);
+			$colors = array_map(fn($s) => $s['color'], $workflow['states']);
+			if(isset($grid->columns[$column]))$grid->columns[$column] = array_merge($grid->columns[$column], ['type' => 'badge', 'colors' => (object)$colors, 'labels' => $labels]);
+			else $grid->addColBadge($column, 'State', true, $colors)->labels($labels);
+			if(!$grid->chips)$grid->addFilterChips($column, $labels)->chipColors($colors);
+
+		}
+
+		$this->configurationAction($grid);
+
 		return $grid;
+
+	}
+
+	/**
+	 * global search (GET /api/backend/search/): rows of the grid matching its search box (search, where, hooks of the grid), title and subtitle of its mobile view
+	 *
+	 * @param string $q
+	 * @param int $limit rows returned (10 at most)
+	 *
+	 * @return array|null {total, rows: [{id, title, sub}]}, null when the grid has no search box
+	 */
+	public function searchRows(string $q, int $limit=3):?array
+	{
+
+		$grid = $this->buildGrid();
+		if(!$grid->search_columns)return null;
+
+		$data = $grid->render(new Request(['search' => ["q||{$q}"], 'per_page' => (string)$grid->per_page_options[0]]));
+
+		// title: column of the mobile view, else the first text column
+		$title = $grid->mobile['title'];
+		if($title === '')
+			foreach($grid->columns as $name => $column)
+				if($name !== 'id' && ($column['type'] ?? '') === 'text'){ $title = $name; break; }
+
+		$rows = [];
+		foreach(array_slice($data['rows'], 0, min($limit, 10)) as $row)
+		{
+
+			$text = fn(string $col):string => (is_scalar($row[$col] ?? null)) ? mb_substr(trim(strip_tags((string)$row[$col])), 0, 120) : '';
+			$sub = ($grid->mobile['subtitle'] !== '') ? $text($grid->mobile['subtitle']) : '';
+			$rows[] = ['id' => (int)$row['id'], 'title' => ($title !== '' && $text($title) !== '') ? $text($title) : "#{$row['id']}", 'sub' => "#{$row['id']}".(($sub !== '') ? " - {$sub}" : '')];
+
+		}
+
+		return ['total' => (int)$data['pagination']['total'], 'rows' => $rows];
+
+	}
+
+	/**
+	 * button Configuration: module Globals filtered on the categories of the plugin (empty = its route), for the users of the module Globals
+	 * never on a module with a form of settings of its own (grid action with a form, ex: sms), nor when no global exists in these categories
+	 *
+	 * @param DataGrid $grid
+	 *
+	 * @return void
+	 */
+	private function configurationAction(DataGrid $grid):void
+	{
+
+		if($this->module === 'globals' || isset($grid->grid_actions['configuration']) || array_filter($grid->grid_actions, fn($a) => $a['form'] !== '') || !\Model\User::hasRight('globals', 'list'))return;
+
+		$plugin = \Model\Plugin::findActive($this->module);
+		$categories = array_values(array_filter((array)json_decode((string)($plugin['config_categories'] ?? ''), true), fn($c) => is_string($c) && preg_match('/^[a-z0-9_-]{1,64}$/', $c))) ?: [$this->module];
+
+		$binds = [];
+		foreach($categories as $i => $category)
+			$binds["c{$i}"] = $category;
+		if(!DB()->query("SELECT 1 FROM xcore_globals WHERE deleted = 'no' AND category IN (:".implode(', :', array_keys($binds)).") LIMIT 1", $binds)->fetchOne())return;
+
+		// one category = the tab of Globals, several = equal conditions matched with any
+		$url = (count($categories) === 1) ? "globals/?search[]=category||{$categories[0]}" : 'globals/?'.implode('&', array_map(fn($c) => "search[]=category||eq||{$c}", $categories)).'&match=any';
+		$grid->gridAction('configuration', 'Configuration', 'tune', 'list', url: $url);
 
 	}
 
@@ -857,6 +1073,10 @@ abstract class CrudController extends Controller
 		// the react form capitalizes these fields while typing
 		foreach(array_intersect_key($form->fields, array_flip($this->ucfirst)) as $name => $field)
 			$form->fields[$name]['ucfirst'] = true;
+
+		// workflow: its state column is shown read only (changed by the transitions), so it leaves the mass edit too
+		$state = $this->stateColumn();
+		if($state !== '' && isset($form->fields[$state]))$form->fields[$state]['readonly'] = true;
 
 		return $form;
 
@@ -904,6 +1124,49 @@ abstract class CrudController extends Controller
 
 	}
 
+	/**
+	 * 403 when the workflow locks the record in its state for the group of the user
+	 *
+	 * @param array $record
+	 *
+	 * @return JsonResponse|null
+	 */
+	protected function locked(array $record):?JsonResponse
+	{
+
+		$workflow = Workflow::get($this->module);
+		if(!$workflow || Workflow::editable($workflow, $record))return null;
+
+		return JsonResponse::error(403, ts('this record is locked in the state [STATE]', ['STATE' => Workflow::label($workflow, Workflow::state($workflow, $record))]));
+
+	}
+
+	/**
+	 * column of the workflow state, '' without workflow
+	 *
+	 * @return string
+	 */
+	protected function stateColumn():string
+	{
+
+		return Workflow::get($this->module)['state_column'] ?? '';
+
+	}
+
+	/**
+	 * labels of the fields of a form, translated (messages)
+	 *
+	 * @param Form $form
+	 *
+	 * @return array name => label
+	 */
+	protected function labels(Form $form):array
+	{
+
+		return array_map(fn($f) => ts($f['label']), $form->fields);
+
+	}
+
 	protected function findRecord(int $id):array|false
 	{
 
@@ -942,23 +1205,44 @@ abstract class CrudController extends Controller
 
 		$row = $this->ucfirst($form->hydrate($request->request->all(), $id > 0));
 
-		// file fields: a token moves its upload, an empty value removes the file, any other value keeps the current file
-		$removed = [];
-		foreach($form->fields as $name => $f)
+		// workflow: state of a new record (creation transition: its groups and required fields), checked before the files move
+		$workflow = Workflow::get($this->module);
+		$start = null;
+		if($workflow && !$id)
 		{
 
-			if($f['type'] !== 'file' || !array_key_exists($name, $row))continue;
+			try
+			{
 
-			$current = (string)($record[$name] ?? '');
-			$value = (string)$row[$name];
-			if(str_starts_with($value, 'upload:'))$row[$name] = \Core\File::uploadMove($value, $f['dir']);
-			elseif($value !== '')$row[$name] = $current;
+				$start = Workflow::start($workflow, $row, $this->labels($form));
 
-			if($current !== '' && $row[$name] !== $current)$removed[] = $current;
+			}
+			catch(\DomainException $e)
+			{
+
+				return JsonResponse::error($e->getCode() ?: 422, $e->getMessage());
+
+			}
 
 		}
 
+		// file fields: a token moves its upload, an empty value removes the file, any other value keeps the current file
+		$removed = self::fileFieldsMove($form, $row, $record);
+
 		$row = $this->onSaveBefore($row, $record);
+
+		// virtual fields (_name) are read by the hooks only
+		foreach(array_keys($row) as $key)
+			if(str_starts_with($key, '_'))unset($row[$key]);
+
+		// the state changes by the transitions only
+		if($workflow)
+		{
+
+			unset($row[$workflow['state_column']]);
+			if($start && $start['state'] !== '')$row[$workflow['state_column']] = $start['state'];
+
+		}
 
 		if(!$id)
 		{
@@ -969,6 +1253,7 @@ abstract class CrudController extends Controller
 				$row[$position] = (int)DB()->query("SELECT COALESCE(MAX(`{$position}`), 0) + 1 FROM `{$this->table}` WHERE deleted = 'no'")->fetchOne();
 
 			$id = (int)DB($this->table)->insert($row, $this->author());
+			if($workflow)Workflow::created($workflow, $id, $start);
 			if($form->tagManager() !== '')\Core\Tag::set($form->tagManager(), $id, (array)$request->request->all('_tags'), $this->author());
 			\Core\Log::write('add', $this->object_label, $this->masked($row), $id, 'info', $this->module);
 			$this->versionSave($id);
@@ -1007,8 +1292,8 @@ abstract class CrudController extends Controller
 		}
 
 		// replaced or removed files
-		foreach($removed as $relative)
-			@unlink(\Core\File::privateDir().'/'.ltrim(str_replace('..', '', $relative), '/'));
+		foreach($removed as [$relative, $public])
+			\Core\File::remove($relative, $public);
 
 		$this->onSaveAfterEdit($id, $row, $changed);
 
@@ -1058,6 +1343,39 @@ abstract class CrudController extends Controller
 
 		$plugin = \Model\Plugin::findActive($this->module);
 		return ($plugin && ($plugin['versioning'] ?? 'no') === 'yes');
+
+	}
+
+	/**
+	 * file fields of a save (shared with the profile): a token moves its upload (private_dir, or upload_dir with ->set('public', true)),
+	 * an empty value removes the file, any other value keeps the current file
+	 *
+	 * @param Form $form
+	 * @param array $row values written, file columns replaced by their stored path
+	 * @param array $record current record, [] on create
+	 *
+	 * @return array files to remove once saved: [[relative path, public]]
+	 */
+	public static function fileFieldsMove(Form $form, array &$row, array $record):array
+	{
+
+		$removed = [];
+		foreach($form->fields as $name => $f)
+		{
+
+			if($f['type'] !== 'file' || !array_key_exists($name, $row))continue;
+
+			$public = !empty($f['public']);
+			$current = (string)($record[$name] ?? '');
+			$value = (string)$row[$name];
+			if(str_starts_with($value, 'upload:'))$row[$name] = \Core\File::uploadMove($value, $f['dir'], $public);
+			elseif($value !== '')$row[$name] = $current;
+
+			if($current !== '' && $row[$name] !== $current)$removed[] = [$current, $public];
+
+		}
+
+		return $removed;
 
 	}
 

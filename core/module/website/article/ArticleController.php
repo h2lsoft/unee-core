@@ -56,7 +56,7 @@ class ArticleController extends \Core\CrudController
 		$types = DB()->query("SELECT DISTINCT type FROM xcore_article WHERE deleted = 'no' AND type != '' ORDER BY type")->fetchAllOne() ?: ['News'];
 		$users = DB()->query("SELECT id, TRIM(CONCAT(firstname, ' ', lastname)) FROM xcore_user WHERE deleted = 'no' AND (active = 'yes' OR id = :current) AND id > 1 ORDER BY firstname, lastname", ['current' => (int)($record['xcore_user_id'] ?? 0)])->fetchAll(\PDO::FETCH_KEY_PAIR);
 
-		if(count($languages) > 1)$form->addRadio('language', 'Language', $languages, true)->defaultValue((string)array_key_first($languages))->set('translate', false);
+		if(count($languages) > 1)$form->addRadio('language', 'Language', $languages, true)->defaultValue((string)array_key_first($languages))->set('translate', false)->protect();
 		$form->addSelect('type', 'Type', array_combine($types, $types), true)->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addDate('date', 'Date', true)->defaultValue(date('Y-m-d'));
 		$form->addText('title', 'Title', true)->maxLength(255);
@@ -66,10 +66,10 @@ class ArticleController extends \Core\CrudController
 		$form->addTagManager($this->table);
 		$form->addSelect('xcore_user_id', 'Author', $users)->autocomplete()->defaultValue((string)\Model\User::getUID())->set('translate', false);
 		$form->addText('source', 'Source')->maxLength(255);
-		$form->addText('url', 'Url')->maxLength(255)->placeholder('/news/my-article/');
+		$form->addText('url', 'Url')->maxLength(255)->placeholder('/news/my-article/')->protect();
 		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('draft');
 		$form->addDatetime('publication_date', 'Publication date')->help('empty = as soon as published');
-		$form->addBoolean('archived', 'Archived');
+		$form->addBoolean('archived', 'Archived')->protect();
 		$form->addTextarea('note', 'Note', false, 3)->maxLength(5000)->help('internal, never shown on the website');
 
 	}

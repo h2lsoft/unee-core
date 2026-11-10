@@ -43,7 +43,7 @@ class Page_TemplateController extends \Core\CrudController
 		$collections = DB()->query("SELECT DISTINCT collection FROM xcore_page_template WHERE deleted = 'no' AND collection != '' ORDER BY collection")->fetchAllOne();
 
 		$form->addSelect('collection', 'Collection', array_combine($collections, $collections))->autocomplete(true)->maxLength(255)->set('translate', false);
-		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('used by the pages and the code, ex: home');
+		$form->addText('name', 'Name', true)->maxLength(255)->unique()->help('used by the pages and the code, ex: home')->protect();
 		$form->addText('description', 'Description')->maxLength(255);
 		$form->addText('image_preview', 'Preview image')->maxLength(255)->placeholder('/upload/templates/home.png');
 		$form->addCode('content', 'Content', false, 'html')->set('snippets', PatternController::snippets());

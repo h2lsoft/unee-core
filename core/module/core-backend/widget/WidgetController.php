@@ -66,11 +66,11 @@ class WidgetController extends \Core\CrudController
 	{
 
 		$form->addText('name', 'Name', true)->maxLength(255);
-		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', false, "type != 'url'")->help('the widget right on this plugin shows the widget, its title links to the plugin, empty: shown to every user');
-		$form->addText('method', 'Method', true)->maxLength(255)->placeholder('Plugin\Core\CronController::widgetCron')->help('public static method of a module returning the data of the widget');
+		$form->addSelectSql('xcore_plugin_id', 'Plugin', 'xcore_plugin', 'name', false, "type != 'url'")->help('the widget right on this plugin shows the widget, its title links to the plugin, empty: shown to every user')->protect();
+		$form->addText('method', 'Method', true)->maxLength(255)->placeholder('Plugin\Core\CronController::widgetCron')->help('public static method of a module returning the data of the widget')->protect();
 		$form->addRadio('size', 'Size', self::SIZES, true)->defaultValue('full');
-		$form->addBoolean('autorefresh', 'Auto refresh')->defaultValue('no');
-		$form->addNumber('autorefresh_seconds', 'Every (seconds)', true, true)->defaultValue('60')->showIf('autorefresh', ['yes']);
+		$form->addBoolean('autorefresh', 'Auto refresh')->defaultValue('no')->protect();
+		$form->addNumber('autorefresh_seconds', 'Every (seconds)', true, true)->defaultValue('60')->showIf('autorefresh', ['yes'])->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 	}

@@ -70,7 +70,7 @@ class FilesController extends \Core\CrudController
 		$categories = DB()->query("SELECT DISTINCT category FROM xcore_files WHERE deleted = 'no' AND category <> '' ORDER BY category")->fetchAll(\PDO::FETCH_COLUMN);
 
 		$form->addDate('date', 'Date', true)->defaultValue(date('Y-m-d'));
-		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->set('translate', false)->maxLength(255);
+		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->set('translate', false)->maxLength(255)->protect();
 		$form->addText('title', 'Title', true)->maxLength(255);
 		$sources = DB()->query("SELECT DISTINCT source FROM xcore_files WHERE deleted = 'no' AND source <> '' ORDER BY source")->fetchAll(\PDO::FETCH_COLUMN);
 		$form->addSelect('source', 'Source', array_combine($sources, $sources))->autocomplete(true)->set('translate', false)->maxLength(255)->placeholder('ex: Ministry of health');

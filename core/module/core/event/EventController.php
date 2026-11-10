@@ -38,7 +38,7 @@ class EventController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$form->addText('name', 'Name')->readonly()->help('registered by the code (debug mode), listened with \Core\EventManager::on()');
+		$form->addText('name', 'Name')->readonly()->help('registered by the code (debug mode), listened with \Core\EventManager::on()')->protect();
 		$form->addText('description', 'Description')->maxLength(2000);
 
 	}

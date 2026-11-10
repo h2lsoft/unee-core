@@ -94,10 +94,10 @@ class Url_RedirectController extends \Core\CrudController
 	protected function form(Form $form, array $record):void
 	{
 
-		$form->addText('rule', 'Rule', true)->maxLength(1000)->placeholder('^/old/(.*)$')->help('regex tested on the full url, or on the path when it starts with ^/, ex: ^https?://example\.com/blog/ or ^/blog/');
+		$form->addText('rule', 'Rule', true)->maxLength(1000)->placeholder('^/old/(.*)$')->help('regex tested on the full url, or on the path when it starts with ^/, ex: ^https?://example\.com/blog/ or ^/blog/')->protect();
 		$form->addText('description', 'Description')->maxLength(255);
 		$form->addSelect('code', 'Code', self::CODES, true)->defaultValue('301');
-		$form->addText('url', 'Url', true)->maxLength(1000)->placeholder('https://')->help('url or path of the redirection, ex: /new/')->set('open_link', true);
+		$form->addText('url', 'Url', true)->maxLength(1000)->placeholder('https://')->help('url or path of the redirection, ex: /new/')->set('open_link', true)->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 	}

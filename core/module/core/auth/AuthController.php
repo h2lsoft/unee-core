@@ -8,7 +8,8 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * api authentication for the react backend, session cookie (HttpOnly, SameSite=Lax)
  * errors: 401 invalid credentials, 422 missing fields, 429 throttled
- * two-factor (config auth/security/backend/two_factor): login answers {"two_factor": "verify"|"setup"}, then POST /api/auth/2fa/ opens the session
+ * second factor (\Core\TwoFactor: authenticator app, sms or email): login answers {"two_factor": "verify"|"setup", "method"...}, then POST /api/auth/2fa/ opens the session
+ * a code by sms or email that cannot be sent (no mobile, no credits) refuses the logon (422), POST /api/auth/2fa/resend/ sends a new code
  */
 #[Route('/api/auth', name: 'api.auth.')]
 class AuthController extends \Core\Controller
@@ -19,7 +20,7 @@ class AuthController extends \Core\Controller
 	 *
 	 * @param Request $request
 	 *
-	 * @return \Core\JsonResponse {"user": {...}} or {"two_factor": "verify", "trust_days"} or {"two_factor": "setup", "trust_days", "secret", "uri"}
+	 * @return \Core\JsonResponse {"user": {...}} or {"two_factor": "verify"|"setup", "method", "destination", "resend_in", "resends_left", "trust_days"} (+ "secret", "uri" on setup), 422 code not sent
 	 */
 	#[Route('/login/', name: 'login', methods: ['POST'])]
 	public function login(Request $request):\Core\JsonResponse
@@ -44,6 +45,9 @@ class AuthController extends \Core\Controller
 
 		if($error === 'two_factor' || $error === 'two_factor_setup')
 			return new \Core\JsonResponse($this->twoFactorStep());
+
+		if($error === 'two_factor_unavailable')
+			return \Core\JsonResponse::error(422, 'sign-in code cannot be sent, contact your administrator');
 
 		if($error !== '')
 			return \Core\JsonResponse::error(401, 'invalid credentials');
@@ -78,6 +82,28 @@ class AuthController extends \Core\Controller
 			return \Core\JsonResponse::error(401, 'invalid code');
 
 		return new \Core\JsonResponse(['user' => \Model\User::getCurrent()]);
+
+	}
+
+	/**
+	 * new code by sms or email of a pending logon, after the delay of auth.two_factor.code.resend_delay
+	 *
+	 * @return \Core\JsonResponse the state of the step (see login), 429 too early (Retry-After), 422 no more code, 440 password to type again (expired, throttled, code not sent)
+	 */
+	#[Route('/2fa/resend/', name: 'two_factor.resend', methods: ['POST'])]
+	public function twoFactorResend():\Core\JsonResponse
+	{
+
+		$error = \Model\User::twoFactorResend();
+
+		if($error === '')return new \Core\JsonResponse($this->twoFactorStep());
+		if($error === 'too_early')return \Core\JsonResponse::error(429, 'wait before asking a new code', [], ['Retry-After' => (\Model\User::twoFactorState()['resend_in'] ?? 0)]);
+		if($error === 'max_resends')return \Core\JsonResponse::error(422, 'no more codes can be sent, sign in again to get a new one');
+		if($error === 'not_allowed')return \Core\JsonResponse::error(422, 'the code is shown by your authenticator app');
+		if($error === 'expired')return \Core\JsonResponse::error(440, 'verification expired, sign in again');
+		if($error === 'throttled')return \Core\JsonResponse::error(440, 'too many failed attempts, retry later');
+
+		return \Core\JsonResponse::error(440, 'sign-in code cannot be sent, contact your administrator');
 
 	}
 
@@ -124,7 +150,7 @@ class AuthController extends \Core\Controller
 	{
 
 		$pending = \Model\User::twoFactorPending();
-		$data = ['two_factor' => ($pending['secret'] !== '') ? 'setup' : 'verify', 'trust_days' => (int)\Core\Config::get('auth/security/backend/two_factor/trust_days', 0)];
+		$data = ['two_factor' => ($pending['secret'] !== '') ? 'setup' : 'verify'] + \Model\User::twoFactorState() + ['trust_days' => \Core\TwoFactor::trustDays('backend')];
 
 		if($pending['secret'] !== '')
 		{

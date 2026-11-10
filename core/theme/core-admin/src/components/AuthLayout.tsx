@@ -87,7 +87,7 @@ export function useDocumentTitle(page: string, name?: string | null)
 /**
  * layout of the auth pages: form column (logo, title, content, maintenance message) and brand panel (hidden under 900px)
  */
-export default function AuthLayout({config, title, subtitle, documentTitle, children}: {config: LoginConfig | null, title: string, subtitle: string, documentTitle: string, children: ReactNode})
+export default function AuthLayout({config, title, subtitle, documentTitle, children}: {config: LoginConfig | null, title: string, subtitle: ReactNode, documentTitle: string, children: ReactNode})
 {
 
 	const logo = useLogo(config)

@@ -49,6 +49,98 @@ class File
 
 	}
 
+	// .htaccess of upload_dir: files served as they are, never executed nor rendered as a page
+	private const string PUBLIC_HTACCESS = <<<'HTACCESS'
+	# uploaded files are never executed
+	<IfModule mod_php.c>
+		php_flag engine off
+	</IfModule>
+	<FilesMatch "\.(?i:php\d?|phtml|phar|pht|phps|cgi|pl|py|sh|html?|xhtml|shtml|svgz?|js|mjs)$">
+		Require all denied
+	</FilesMatch>
+	<IfModule mod_headers.c>
+		Header set X-Content-Type-Options "nosniff"
+	</IfModule>
+
+	HTACCESS;
+
+	/**
+	 * folder of public files (config upload_dir, default instances/<instance>/public/upload), served by the web server without any right check
+	 * created with an .htaccess that never executes a file
+	 *
+	 * @param string $sub ex: avatar
+	 *
+	 * @return string absolute path, without final slash
+	 */
+	public static function publicDir(string $sub=''):string
+	{
+
+		$root = rtrim((string)\Core\Config::get('upload_dir'), '/');
+		if(!is_dir($root) && !@mkdir($root, 0775, true) && !is_dir($root))throw new \RuntimeException("upload_dir `{$root}` cannot be created: check the rights of its parent folder");
+		if(!file_exists("{$root}/.htaccess"))file_put_contents("{$root}/.htaccess", self::PUBLIC_HTACCESS);
+
+		$sub = trim(str_replace('..', '', $sub), '/');
+		$path = ($sub === '') ? $root : "{$root}/{$sub}";
+		if(!is_dir($path) && !@mkdir($path, 0775, true) && !is_dir($path))throw new \RuntimeException("`{$path}` cannot be created: check the rights of upload_dir");
+
+		return $path;
+
+	}
+
+	/**
+	 * absolute path of a stored file
+	 *
+	 * @param string $relative path relative to private_dir or upload_dir, as kept by the column
+	 * @param bool $public upload_dir instead of private_dir
+	 *
+	 * @return string '' when the path is empty
+	 */
+	public static function path(string $relative, bool $public=false):string
+	{
+
+		$relative = ltrim(str_replace('..', '', $relative), '/');
+		if($relative === '')return '';
+
+		return (($public) ? self::publicDir() : self::privateDir())."/{$relative}";
+
+	}
+
+	/**
+	 * url of a public file, from the folder of upload_dir under the project root
+	 *
+	 * @param string $relative path relative to upload_dir, '' = url of upload_dir with a final slash
+	 *
+	 * @return string ex: /instances/_default/public/upload/avatar/<uuid>.webp, '' when upload_dir is out of the project
+	 */
+	public static function url(string $relative=''):string
+	{
+
+		$relative = ltrim(str_replace('..', '', $relative), '/');
+
+		$root = str_replace('\\', '/', rtrim(APP_PATH, '/\\'));
+		$dir = str_replace('\\', '/', rtrim((string)\Core\Config::get('upload_dir'), '/\\'));
+		if(!str_starts_with($dir, "{$root}/"))return '';
+
+		return substr($dir, strlen($root))."/{$relative}";
+
+	}
+
+	/**
+	 * deletes a stored file (replaced or emptied field)
+	 *
+	 * @param string $relative path relative to private_dir or upload_dir
+	 * @param bool $public upload_dir instead of private_dir
+	 *
+	 * @return void
+	 */
+	public static function remove(string $relative, bool $public=false):void
+	{
+
+		$path = self::path($relative, $public);
+		if($path !== '' && is_file($path))@unlink($path);
+
+	}
+
 	public static function get($file_path, $content_type='')
 	{
 		if(!file_exists($file_path))
@@ -73,24 +165,59 @@ class File
 	// a token of upload lives one day
 	private const int UPLOAD_TTL = 86400;
 
+	// real types (fileinfo) accepted for an extension, an extension missing here is checked on its name only
+	public const array MIMES = [
+		'pdf' => ['application/pdf'],
+		'doc' => ['application/msword', 'application/cdfv2', 'application/x-ole-storage'],
+		'xls' => ['application/vnd.ms-excel', 'application/cdfv2', 'application/x-ole-storage'],
+		'ppt' => ['application/vnd.ms-powerpoint', 'application/cdfv2', 'application/x-ole-storage'],
+		'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+		'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
+		'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+		'odt' => ['application/vnd.oasis.opendocument.text', 'application/zip'],
+		'ods' => ['application/vnd.oasis.opendocument.spreadsheet', 'application/zip'],
+		'odp' => ['application/vnd.oasis.opendocument.presentation', 'application/zip'],
+		'txt' => ['text/plain'],
+		'csv' => ['text/csv', 'text/plain', 'application/csv'],
+		'zip' => ['application/zip', 'application/x-zip-compressed'],
+		'jpg' => ['image/jpeg'],
+		'jpeg' => ['image/jpeg'],
+		'png' => ['image/png'],
+		'gif' => ['image/gif'],
+		'webp' => ['image/webp'],
+		'avif' => ['image/avif'],
+	];
+
+	// images written by the conversion of an upload
+	private const array IMAGE_TYPES = ['webp' => IMAGETYPE_WEBP, 'jpg' => IMAGETYPE_JPEG, 'jpeg' => IMAGETYPE_JPEG, 'png' => IMAGETYPE_PNG, 'gif' => IMAGETYPE_GIF];
+
 	/**
 	 * stores an uploaded file in private_dir/tmp/upload until the form is saved (\Core\CrudController)
 	 *
 	 * @param \Symfony\Component\HttpFoundation\File\UploadedFile|null $file
 	 * @param array $extensions allowed extensions, lower case
 	 * @param int $max_size bytes, 0 = no limit
+	 * @param array $convert image cropped from its center to ['width', 'height'] and written as ['extension'] (webp, jpg, png, gif), [] = kept as sent
 	 *
 	 * @return array|string ['token', 'name', 'size'] or the error message (translated)
 	 */
-	public static function uploadStore(?\Symfony\Component\HttpFoundation\File\UploadedFile $file, array $extensions, int $max_size):array|string
+	public static function uploadStore(?\Symfony\Component\HttpFoundation\File\UploadedFile $file, array $extensions, int $max_size, array $convert=[]):array|string
 	{
 
 		if(!$file || !$file->isValid())return ts('the upload failed');
-		if($max_size > 0 && $file->getSize() > $max_size)return ts('the file is larger than [SIZE] MB', ['SIZE' => round($max_size / 1048576, 1)]);
 
 		$extension = strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
 		$allowed = array_values(array_diff($extensions, self::FORBIDDEN_EXTENSIONS));
-		if(!in_array($extension, $allowed, true))return ts('file type not allowed: [TYPES]', ['TYPES' => implode(', ', $allowed)]);
+
+		// validator on the multipart input `file` ($_FILES), its values hold the name: the file rules skip empty values
+		$locale = App()?->locale ?? 'en';
+		$v = new \Core\Validator($locale, ['file' => $file->getClientOriginalName()]);
+		$v->addLocaleMessages($locale, \Core\I18n::messages());
+		$v->input('file', ts('File'))->fileUploaded('the upload failed');
+		if($max_size > 0 && $file->getSize() > $max_size)$v->addError('the file is larger than [SIZE] MB', ['SIZE' => round($max_size / 1048576, 1)]);
+		$v->fileExtension($allowed, 'file type not allowed: [EXTENSIONS]');
+		if(!$v->fails() && isset(self::MIMES[$extension]))$v->fileMime(self::MIMES[$extension], 'the content of the file does not match its extension');
+		if($v->fails())return (string)$v->result()['error_stack'][0];
 
 		$dir = self::privateDir('tmp/upload');
 
@@ -111,6 +238,24 @@ class File
 		$token = bin2hex(random_bytes(16));
 		$name = mb_substr(preg_replace('/[\x00-\x1f"\\\\\/]/u', '_', $file->getClientOriginalName()), 0, 200);
 		$file->move($dir, $token);
+
+		if($convert)
+		{
+
+			$extension = self::imageConvert("{$dir}/{$token}", $convert);
+			if($extension === '')
+			{
+
+				@unlink("{$dir}/{$token}");
+				return ts('the file is not a valid image');
+
+			}
+
+			$name = pathinfo($name, PATHINFO_FILENAME).".{$extension}";
+
+		}
+
+		clearstatcache(true, "{$dir}/{$token}");
 		$size = (int)filesize("{$dir}/{$token}");
 		file_put_contents("{$dir}/{$token}.json", json_encode(['name' => $name, 'size' => $size, 'uid' => \Model\User::getUID()]));
 
@@ -140,29 +285,113 @@ class File
 
 	/**
 	 * moves an upload to private_dir/<dir> under the slug of its name (-2, -3... when taken)
+	 * or to upload_dir/<dir> under a random uuid (a public url is never guessed)
 	 *
 	 * @param string $value upload:<token>
 	 * @param string $dir ex: files
+	 * @param bool $public upload_dir instead of private_dir
 	 *
-	 * @return string path relative to private_dir, '' when the token is not valid
+	 * @return string path relative to private_dir or upload_dir, '' when the token is not valid
 	 */
-	public static function uploadMove(string $value, string $dir):string
+	public static function uploadMove(string $value, string $dir, bool $public=false):string
 	{
 
 		if(!$upload = self::uploadGet($value))return '';
 
 		$dir = trim(str_replace('..', '', $dir), '/');
-		$target = self::privateDir($dir);
+		$target = ($public) ? self::publicDir($dir) : self::privateDir($dir);
 		$extension = strtolower(pathinfo($upload['name'], PATHINFO_EXTENSION));
-		$base = slugify(pathinfo($upload['name'], PATHINFO_FILENAME), 'file');
-		$name = "{$base}.{$extension}";
-		for($i = 2; file_exists("{$target}/{$name}"); $i++)
-			$name = "{$base}-{$i}.{$extension}";
+
+		if($public)
+		{
+
+			do
+			{
+
+				$name = uuid().".{$extension}";
+
+			}
+			while(file_exists("{$target}/{$name}"));
+
+		}
+		else
+		{
+
+			$base = slugify(pathinfo($upload['name'], PATHINFO_FILENAME), 'file');
+			$name = "{$base}.{$extension}";
+			for($i = 2; file_exists("{$target}/{$name}"); $i++)
+				$name = "{$base}-{$i}.{$extension}";
+
+		}
 
 		rename($upload['path'], "{$target}/{$name}");
 		@unlink("{$upload['path']}.json");
 
 		return "{$dir}/{$name}";
+
+	}
+
+	/**
+	 * crops an image from its center to the size asked and writes it in place in the format asked (gd, exif orientation applied)
+	 *
+	 * @param string $path image, replaced
+	 * @param array $convert ['width', 'height', 'extension', 'background'], extension webp, jpg, png or gif (default webp), background #rrggbb drawn under the transparent pixels (empty = transparency kept)
+	 *
+	 * @return string extension written, '' when the file is not a readable image
+	 */
+	public static function imageConvert(string $path, array $convert):string
+	{
+
+		$extension = strtolower((string)($convert['extension'] ?? 'webp'));
+		if(!isset(self::IMAGE_TYPES[$extension]))$extension = 'webp';
+		if($extension === 'jpeg')$extension = 'jpg';
+
+		$width = max(1, (int)($convert['width'] ?? 150));
+		$height = max(1, (int)($convert['height'] ?? 150));
+
+		// a server problem, not a bad file: logged as an error
+		$writer = ['webp' => 'imagewebp', 'jpg' => 'imagejpeg', 'png' => 'imagepng', 'gif' => 'imagegif'][$extension];
+		if(!function_exists($writer))throw new \RuntimeException("php gd cannot write {$extension} images (function {$writer} missing)");
+
+		try
+		{
+
+			$image = new \Gumlet\ImageResize($path);
+			$image->crop($width, $height, true);
+
+			// transparent png / gif / webp: flattened on the background color
+			if(preg_match('/^#([0-9a-f]{6})$/i', (string)($convert['background'] ?? ''), $m))
+			{
+
+				$rgb = array_map('hexdec', str_split($m[1], 2));
+				$image->addFilter(function(\GdImage $dest) use ($rgb):void
+				{
+
+					$w = imagesx($dest);
+					$h = imagesy($dest);
+					$canvas = imagecreatetruecolor($w, $h);
+					imagefill($canvas, 0, 0, imagecolorallocate($canvas, $rgb[0], $rgb[1], $rgb[2]));
+					imagecopy($canvas, $dest, 0, 0, 0, 0, $w, $h);
+
+					imagealphablending($dest, false);
+					imagecopy($dest, $canvas, 0, 0, 0, 0, $w, $h);
+					imagecolortransparent($dest, -1);
+
+				});
+
+			}
+
+			$image->save($path, self::IMAGE_TYPES[$extension]);
+
+		}
+		catch(\Throwable)
+		{
+
+			return '';
+
+		}
+
+		return $extension;
 
 	}
 

@@ -17,6 +17,9 @@ class User_TaskController extends \Core\CrudController
 	public string $title = 'My tasks';
 	public string $object_label = 'task';
 
+	// set by the code: never bound to a workflow
+	public array $managed_columns = ['status', 'progress'];
+
 	private const array PRIORITIES = ['low' => 'low', 'medium' => 'medium', 'high' => 'high'];
 	private const array STATUSES = ['pending' => 'pending', 'in progress' => 'in progress', 'done' => 'done'];
 
@@ -67,11 +70,11 @@ class User_TaskController extends \Core\CrudController
 		$form->addText('title', 'Title', true)->maxLength(255);
 		$form->addHtml('description', 'Description');
 		$form->addRadio('priority', 'Priority', self::PRIORITIES, true)->defaultValue('medium');
-		$form->addSelectUser('responsible_id', 'Responsible', true, (int)($record['responsible_id'] ?? 0))->defaultValue((string)\Model\User::getUID());
+		$form->addSelectUser('responsible_id', 'Responsible', true, (int)($record['responsible_id'] ?? 0))->defaultValue((string)\Model\User::getUID())->protect();
 		$form->addDate('due_date', 'Due date');
 		$form->addTagManager($this->table);
-		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('pending');
-		$form->addNumber('progress', 'Progress', false, true)->defaultValue('0')->help('percent, 100 when the status is done');
+		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('pending')->protect();
+		$form->addNumber('progress', 'Progress', false, true)->defaultValue('0')->help('percent, 100 when the status is done')->protect();
 
 	}
 

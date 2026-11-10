@@ -13,6 +13,73 @@ class BackendController extends \Core\Controller
 {
 
 	/**
+	 * global search of the header (Ctrl+/): modules, records of the modules with a search box (3 by module, Globals = configuration), add actions
+	 * the modules of the user (right list), in the order of the menu, a module in error is skipped
+	 *
+	 * @param Request $request query string: q (2 characters at least), module (route_prefix_name, empty = every module)
+	 *
+	 * @return \Core\JsonResponse {"modules": [{route, name, icon, menu}], "groups": [{route, title, icon, total, rows: [{id, title, sub}]}], "actions": [{route, label (of a record, the backend writes Add before), icon}]}
+	 */
+	#[Route('/search/', name: 'search', methods: ['GET'])]
+	public function search(Request $request):\Core\JsonResponse
+	{
+
+		$q = trim(mb_substr((string)$request->query->get('q', ''), 0, 100));
+		$scope = (string)$request->query->get('module', '');
+		$result = ['modules' => [], 'groups' => [], 'actions' => []];
+		if(mb_strlen($q) < 2)return new \Core\JsonResponse($result);
+
+		$needle = mb_strtolower($q);
+		$match = fn(string $text):bool => str_contains(mb_strtolower($text), $needle);
+
+		// crud controller of each module (folder)
+		$classes = [];
+		foreach(\Core\Controller::getAll() as $path)
+		{
+
+			$class = \Core\Controller::getInfo($path)['class_path'];
+			if(class_exists($class) && is_subclass_of($class, \Core\CrudController::class))$classes[basename(dirname($path))] = $class;
+
+		}
+
+		$recs = DB()->query("SELECT p.route_prefix_name, p.name, p.icon, p.global_search, m.name AS menu_name
+							 FROM xcore_plugin p
+							 INNER JOIN xcore_menu m ON m.id = p.xcore_menu_id AND m.deleted = 'no'
+							 WHERE p.deleted = 'no' AND p.active = 'yes' AND p.type != 'url' AND COALESCE(p.xcore_plugin_id, 0) = 0
+							 ORDER BY m.position, p.position, p.name")->fetchAll();
+		foreach($recs as $rec)
+		{
+
+			$route = (string)$rec['route_prefix_name'];
+			if(($scope !== '' && $route !== $scope) || !\Model\User::hasRight($route, 'list'))continue;
+
+			$name = ts($rec['name']);
+			if($scope === '' && $match($name))$result['modules'][] = ['route' => $route, 'name' => $name, 'icon' => $rec['icon'], 'menu' => ts($rec['menu_name'])];
+			if(!isset($classes[$route]))continue;
+
+			$controller = new $classes[$route]();
+			$label = ts($controller->object_label);
+			if(\Model\User::hasRight($route, 'add') && ($match($name) || $match($label)))$result['actions'][] = ['route' => $route, 'label' => $label, 'icon' => $rec['icon']];
+			if($rec['global_search'] !== 'yes')continue;
+
+			try
+			{
+				$found = $controller->searchRows($q);
+			}
+			catch(\Throwable $e)
+			{
+				continue;
+			}
+
+			if($found && $found['total'] > 0)$result['groups'][] = ['route' => $route, 'title' => $name, 'icon' => $rec['icon'], 'total' => $found['total'], 'rows' => $found['rows']];
+
+		}
+
+		return new \Core\JsonResponse($result);
+
+	}
+
+	/**
 	 * menu of the logged user, filtered by his rights
 	 *
 	 * @return \Core\JsonResponse {"menu": [{"name", "icon", "items": [{"name", "icon", "route", "url", "rights"}]}]}

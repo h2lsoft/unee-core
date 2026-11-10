@@ -231,24 +231,12 @@ return [
 				'regex_error_message_added' => [],
 			],
 
-			// 32 bytes in base64, encrypts the 2fa secrets: set it in the config of the instance, never change it once used
-			// php -r "echo base64_encode(random_bytes(32));"
-			'encryption_key' => 'nlZhzqppHPjTKTovQJ/5eFYcxNV5tw3FDYpsFl7uwlw=',
+			// 32 bytes in base64, encrypts the secrets (authenticator app, sms providers): one key per instance, never in the core
+			// php vendor/bin/unee key:generate --instance=<name> writes it, --rotate re-encrypts the secrets with a new key
+			'encryption_key' => '',
 
-			// two-factor authentication (totp app): when enabled, every user of the application must use it
-			'backend' => [
-				'two_factor' => [
-					'enabled' => true,
-					'trust_days' => 30, # "trust this device" checkbox, 0 = disabled
-				],
-			],
-
-			'frontend' => [
-				'two_factor' => [
-					'enabled' => false,
-					'trust_days' => 30, # "trust this device" checkbox, 0 = disabled
-				],
-			],
+			// second factor of the sign in: globals auth.<application>.two_factor.method (authenticator, sms, email, none) and .trust_days,
+			// globals auth.two_factor.code.* (code by sms or email), a user can have his own method (users module, right two_factor_reset)
 		],
 
 		'backend' => [
@@ -261,7 +249,7 @@ return [
 
 		// api (react backend) ************************************************************************************
 		'api' => [
-			'public_routes' => ['api.auth.login', 'api.auth.two_factor', 'api.auth.config', 'api.auth.password.forgot', 'api.auth.password.reset'], # route names reachable without logon
+			'public_routes' => ['api.auth.login', 'api.auth.two_factor', 'api.auth.two_factor.resend', 'api.auth.config', 'api.auth.password.forgot', 'api.auth.password.reset'], # route names reachable without logon
 			'idle_timeout_seconds' => 60*60*2, # logout after 2 hours without request, 0 = disabled
 		],
 	],
@@ -290,6 +278,8 @@ return [
 	'commands' => [
 		'migrate' => \Command\Core\Migrate::class,
 		'user:create' => \Command\Core\UserCreate::class,
+		'user:otp' => \Command\Core\UserOtp::class,
+		'key:generate' => \Command\Core\KeyGenerate::class,
 		'cron' => \Command\Core\Cron::class,
 		'jobber' => \Command\Core\Jobber::class,
 	],

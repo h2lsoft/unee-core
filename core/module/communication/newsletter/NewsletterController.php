@@ -20,6 +20,9 @@ class NewsletterController extends \Core\CrudController
 	public string $table = 'xcore_newsletter';
 	public string $title = 'Newsletters';
 	public string $object_label = 'newsletter';
+
+	// set by the code: never bound to a workflow
+	public array $managed_columns = ['status'];
 	public array $ucfirst = ['category', 'campaign', 'subject', 'subject2', 'subject3'];
 
 	public const array STATUSES = ['draft' => 'draft', 'scheduled' => 'scheduled', 'sending' => 'sending', 'paused' => 'paused', 'sent' => 'sent', 'cancelled' => 'cancelled', 'error' => 'error'];
@@ -80,18 +83,19 @@ class NewsletterController extends \Core\CrudController
 	{
 
 		$categories = DB()->query("SELECT DISTINCT category FROM xcore_newsletter WHERE deleted = 'no' AND category != '' ORDER BY category")->fetchAllOne();
-		$credits = \Core\Newsletter::credits();
+		$credits = \Core\Mailer::credits();
 		$credits_text = ($credits['monthly'] === 0) ? ts('Credits: unlimited') : ts('Credits: [REMAINING] / [MONTHLY] left ([PERCENT]%), reset on [RESET]', ['REMAINING' => number_format($credits['remaining'], 0, ',', ' '), 'MONTHLY' => number_format($credits['monthly'], 0, ',', ' '), 'PERCENT' => $credits['percent'], 'RESET' => $credits['reset']]);
+		if($credits['reserve'] > 0)$credits_text .= ', '.ts('[RESERVE] kept for the transactional emails', ['RESERVE' => number_format($credits['reserve'], 0, ',', ' ')]);
 
 		$form->addDatetime('date', 'Date', true)->defaultValue(date('Y-m-d H:i:s'));
 		$form->addSelect('category', 'Category', array_combine($categories, $categories))->autocomplete(true)->maxLength(255)->set('translate', false);
 		$form->addText('campaign', 'Campaign')->maxLength(255)->help('utm_campaign of the links');
 		$form->addText('subject', 'Subject', true)->maxLength(255)->help(ts('Variables: [VARIABLES]', ['VARIABLES' => '[[firstname]], [[lastname]], [[email]]']));
 		$form->addText('preheader', 'Preheader')->maxLength(255)->help('text shown after the subject by the mail clients');
-		$form->addTags('_lists', 'Mailing lists', false, array_values(self::lists()), '/^.{1,255}$/u')->help('names of the mailing lists');
+		$form->addSelectMultiple('mailinglist_ids', 'Mailing lists', self::lists())->set('translate', false)->protect();
 		$form->addText('_estimate', 'Estimated recipients')->readonly()->help('duplicates, unsubscribed and blacklisted emails removed, the patterns of the blacklist (*@domain) and invalid emails may reduce it further');
-		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('draft')->help($credits_text);
-		$form->addText('error_message', 'Error')->readonly()->showIf('status', ['error']);
+		$form->addRadio('status', 'Status', self::STATUSES, true)->defaultValue('draft')->help($credits_text)->protect();
+		$form->addText('error_message', 'Error')->readonly()->showIf('status', ['error'])->protect();
 		$form->addDatetime('programming_date', 'Programmed on')->help('empty = sent at the next run of the cron task Newsletter sender (every 15 minutes)');
 
 		$form->tab('content', 'Content');
@@ -134,13 +138,11 @@ class NewsletterController extends \Core\CrudController
 
 	}
 
-	// mailing lists: "[1][3]" in the table, names in the form, estimate and stats
+	// estimate and stats (virtual fields)
 	protected function getRecord(array $values, array $record):array
 	{
 
-		$lists = self::lists();
 		$ids = \Core\Newsletter::listIds($record);
-		$values['_lists'] = array_values(array_filter(array_map(fn($id) => $lists[$id] ?? null, $ids)));
 		$values['_estimate'] = number_format(\Core\Newsletter::remainingRecipients(in_array($record['status'] ?? '', ['sending', 'paused', 'sent'], true) ? (int)$record['id'] : 0, $ids), 0, ',', ' ');
 
 		if($record)
@@ -164,10 +166,6 @@ class NewsletterController extends \Core\CrudController
 
 	protected function rulesOnSubmit(\Core\Validator $v, array $record):void
 	{
-
-		$v->input('_lists');
-		$unknown = array_diff((array)$v->inputGet('_lists', []), self::lists());
-		if($unknown)$v->addError(ts('unknown mailing lists: [LISTS]', ['LISTS' => implode(', ', $unknown)]));
 
 		foreach(['template_url', 'template_url2', 'template_url3'] as $col)
 		{
@@ -236,17 +234,6 @@ class NewsletterController extends \Core\CrudController
 	protected function onSaveBefore(array $row, array $record):array
 	{
 
-		if(isset($row['_lists']))
-		{
-
-			$ids = array_keys(array_intersect(self::lists(), (array)json_decode($row['_lists'], true)));
-			$row['mailinglist_ids'] = implode('', array_map(fn($id) => "[{$id}]", $ids));
-
-		}
-
-		foreach(array_keys($row) as $key)
-			if(str_starts_with($key, '_'))unset($row[$key]);
-
 		// rescheduled: the previous error and frozen html are dropped
 		if(($row['status'] ?? '') === 'scheduled' && ($record['status'] ?? '') !== 'scheduled')
 		{
@@ -261,7 +248,7 @@ class NewsletterController extends \Core\CrudController
 	}
 
 	/**
-	 * values of the form sent to the validator (body), _lists as mailinglist_ids
+	 * values of the form sent to the validator (body), mailinglist_ids as stored (json)
 	 *
 	 * @param \Core\Validator $v
 	 *
@@ -274,8 +261,7 @@ class NewsletterController extends \Core\CrudController
 		foreach(['subject', 'subject2', 'subject3', 'preheader', 'campaign', 'link_add_parameters', 'content_type', 'content_html', 'template_url', 'template_url2', 'template_url3', 'expeditor_email', 'expeditor_email_label', 'reply_to', 'return_path'] as $col)
 			if(($value = $v->inputGet($col, null)) !== null)$values[$col] = (string)$value;
 
-		$names = (array)$v->inputGet('_lists', []);
-		$values['mailinglist_ids'] = implode('', array_map(fn($id) => "[{$id}]", array_keys(array_intersect(self::lists(), $names))));
+		$values['mailinglist_ids'] = json_encode(array_values(array_map('strval', (array)$v->inputGet('mailinglist_ids', []))));
 
 		return $values;
 
@@ -284,7 +270,7 @@ class NewsletterController extends \Core\CrudController
 	// actions **********************************************************************************************************
 
 	/**
-	 * test of every variant (a/b/c) with the values of the form, to test_emails or the logged user, subject prefixed [TEST], no credit used
+	 * test of every variant (a/b/c) with the values of the form, to test_emails or the logged user, subject prefixed [TEST], 1 email credit (marketing) each
 	 *
 	 * @param array $record
 	 * @param Request $request
@@ -309,11 +295,14 @@ class NewsletterController extends \Core\CrudController
 			return \Core\JsonResponse::error(422, $e->getMessage());
 		}
 
-		$errors = array_filter(\Core\Newsletter::checks(array_merge($newsletter, ['mailinglist_ids' => '[0]']), $variants));
+		$errors = array_filter(\Core\Newsletter::checks(array_merge($newsletter, ['mailinglist_ids' => '["0"]']), $variants));
 		if($errors)return \Core\JsonResponse::error(422, implode(' / ', $errors));
+
+		if(!\Core\Mailer::canSend('marketing', count($emails) * count($variants)))return \Core\JsonResponse::error(422, ts('mail not sent: [ERROR]', ['ERROR' => ts('no email credits')]));
 
 		$mail = \Core\Newsletter::mailer();
 		$subscriber = ['id' => 0, 'email' => '', 'firstname' => (string)\Core\Session::get('auth.firstname'), 'lastname' => (string)\Core\Session::get('auth.lastname')];
+		$credit = ['category' => 'marketing', 'module' => $this->module, 'action' => 'test', 'record_id' => (int)$record['id'], 'xcore_user_id' => \Model\User::getUID()];
 		foreach($emails as $email)
 		{
 
@@ -323,8 +312,9 @@ class NewsletterController extends \Core\CrudController
 				$letter = (count($variants) > 1) ? ' '.chr(65 + $i) : '';
 				$rendered = \Core\Newsletter::render($variant, (int)$record['id'], array_merge($subscriber, ['email' => $email]), false);
 				$rendered['subject'] = "[TEST{$letter}] {$rendered['subject']}";
-				if($error = \Core\Newsletter::send($mail, $newsletter, $email, $rendered))
-					return \Core\JsonResponse::error(422, ts('mail not sent: [ERROR]', ['ERROR' => $error]));
+				$error = \Core\Newsletter::send($mail, $newsletter, $email, $rendered);
+				\Core\Mailer::record(($error === '') ? 'sent' : 'failed', $rendered['subject'], $credit);
+				if($error !== '')return \Core\JsonResponse::error(422, ts('mail not sent: [ERROR]', ['ERROR' => $error]));
 
 			}
 
@@ -348,12 +338,12 @@ class NewsletterController extends \Core\CrudController
 	protected function rowEstimate(array $record, Request $request):\Core\JsonResponse
 	{
 
-		$ids = array_keys(array_intersect(self::lists(), (array)$request->request->all('_lists')));
+		$ids = array_values(array_intersect(array_map('intval', (array)$request->request->all('mailinglist_ids')), array_keys(self::lists())));
 		$count = \Core\Newsletter::remainingRecipients(0, $ids);
-		$credits = \Core\Newsletter::credits();
+		$credits = \Core\Mailer::credits();
 
 		$message = ts('[COUNT] recipients estimated (duplicates and blacklist removed)', ['COUNT' => number_format($count, 0, ',', ' ')]);
-		if($credits['monthly'] > 0)$message .= ' - '.ts('[REMAINING] credits left', ['REMAINING' => number_format($credits['remaining'], 0, ',', ' ')]);
+		if($credits['monthly'] > 0)$message .= ' - '.ts('[REMAINING] credits left', ['REMAINING' => number_format($credits['available'], 0, ',', ' ')]);
 
 		return new \Core\JsonResponse(['message' => $message]);
 
@@ -394,15 +384,17 @@ class NewsletterController extends \Core\CrudController
 	}
 
 	/**
-	 * widget of the dashboard: credits of the month
+	 * widget of the dashboard: email credits of the period (every email of the application, newsletters included)
 	 *
 	 * @return array see \Core\Widget
 	 */
 	public static function widgetCredits():array
 	{
 
-		$c = \Core\Newsletter::credits();
-		if($c['monthly'] === 0)return ['type' => 'counters', 'status' => ['label' => ts('Credits'), 'badge' => ['text' => ts('unlimited'), 'color' => 'green']], 'tiles' => [['value' => $c['used'], 'label' => ts('Sent this month'), 'color' => 'blue']]];
+		$c = \Core\Mailer::credits();
+		$split = ['value' => $c['transactional'], 'label' => ts('Transactional'), 'color' => 'blue'];
+		$marketing = ['value' => $c['marketing'], 'label' => ts('Marketing'), 'color' => 'yellow'];
+		if($c['monthly'] === 0)return ['type' => 'counters', 'status' => ['label' => ts('Credits'), 'badge' => ['text' => ts('unlimited'), 'color' => 'green']], 'tiles' => [['value' => $c['used'], 'label' => ts('Sent this month'), 'color' => 'blue'], $split, $marketing]];
 
 		$color = ($c['percent'] <= 10) ? 'red' : (($c['percent'] <= 25) ? 'orange' : 'green');
 		return [
@@ -411,7 +403,8 @@ class NewsletterController extends \Core\CrudController
 			'note' => ['text' => ts('reset on [DATE]', ['DATE' => $c['reset']])],
 			'tiles' => [
 				['value' => $c['remaining'], 'label' => ts('Left'), 'color' => $color],
-				['value' => $c['used'], 'label' => ts('Used'), 'color' => 'blue'],
+				$split,
+				$marketing,
 				['value' => $c['monthly'], 'label' => ts('Monthly'), 'color' => 'grey'],
 			],
 		];
@@ -452,7 +445,7 @@ class NewsletterController extends \Core\CrudController
 	 *
 	 * @return Response
 	 */
-	#[Route('/u/{token}/', name: 'public.unsubscribe', methods: ['GET', 'POST'], defaults: ['_public' => true], requirements: ['token' => '\d+\.\d+\.[a-f0-9]{16}'], priority: 10)]
+	#[Route('/u/{token}/', name: 'public.unsubscribe', methods: ['GET', 'POST'], defaults: ['_public' => true, '_csrf' => false], requirements: ['token' => '\d+\.\d+\.[a-f0-9]{16}'], priority: 10)]
 	public function publicUnsubscribe(Request $request, string $token):Response
 	{
 

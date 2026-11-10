@@ -138,8 +138,9 @@ class Widget
 		$initials = mb_strtoupper(mb_substr((string)($user['firstname'] ?? ''), 0, 1).mb_substr((string)($user['lastname'] ?? ''), 0, 1));
 		if($initials === '')$initials = mb_strtoupper(mb_substr((string)($user['login'] ?? '?'), 0, 2));
 
-		// picture: an url or a path only (shown in an img src)
+		// picture: a file of upload_dir (avatar field), or an url / absolute path (shown in an img src)
 		$url = trim((string)($user['avatar'] ?? ''));
+		if($url !== '' && preg_match('#^[a-z0-9_-]+(/[a-z0-9_.-]+)+$#i', $url) && !str_contains($url, '..'))$url = \Core\File::url($url);
 		if(!preg_match('#^(https?://|/)[^\s"\'<>]+$#i', $url))$url = '';
 
 		return ['avatar' => ['initials' => $initials, 'color' => $colors[(int)($user['id'] ?? 0) % count($colors)], 'url' => $url], 'title' => $name];

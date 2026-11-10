@@ -43,6 +43,7 @@ class ApiController extends \Core\Controller
 
 		$title = htmlspecialchars(\Core\Config::get('name').' API', ENT_QUOTES);
 		$backend = htmlspecialchars(\Core\Backend::dirname(), ENT_QUOTES);
+		$icons = $this->tagIcons($backend);
 
 		// swagger-ui-dist pinned version from the npm cdn (the page is for the superadmin only)
 		$html = <<<HTML
@@ -61,6 +62,7 @@ body{margin:0}
 .swagger-ui .filter-container .operation-filter-input{width:100%;max-width:none;margin:0;padding:9px 12px;border:1px solid #d6d9e0;border-radius:6px;font-size:14px}
 .swagger-ui .opblock .opblock-summary-path-description-wrapper{flex-direction:column;align-items:flex-start;gap:2px 0;padding:4px 10px}
 .swagger-ui .opblock .opblock-summary-description{font-size:12px;color:#5b6272}
+{$icons}
 </style>
 </head>
 <body>
@@ -85,8 +87,8 @@ SwaggerUIBundle({
 	dom_id: '#swagger-ui',
 	deepLinking: true,
 	persistAuthorization: false,
-	// routes folded, the tags stay open
-	docExpansion: 'list',
+	// tags folded at the opening, a click opens one
+	docExpansion: 'none',
 	filter: true,
 	plugins: [RouteSearch],
 	// the search box is drawn after the spec: its placeholder is replaced once it exists
@@ -108,6 +110,28 @@ SwaggerUIBundle({
 HTML;
 
 		return new \Symfony\Component\HttpFoundation\Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
+
+	}
+
+	/**
+	 * css of the icon of the module before each tag (tag = route name of the module, dashes as underscores, api for the routes without module), font Material Symbols of the backend build
+	 *
+	 * @param string $backend dirname of the backend
+	 *
+	 * @return string
+	 */
+	private function tagIcons(string $backend):string
+	{
+
+		$font = glob(dirname(__DIR__, 3).'/theme/core-admin/dist/assets/material-symbols-outlined-*.woff2')[0] ?? '';
+		if($font === '')return '';
+
+		$css = "@font-face{font-family:'Material Symbols Outlined';font-style:normal;font-weight:400;font-display:block;src:url(/{$backend}/assets/".basename($font).") format('woff2')}";
+		$css .= ".swagger-ui .opblock-tag::before{content:\"api\";font-family:'Material Symbols Outlined';font-size:22px;font-weight:400;line-height:1;margin-right:10px;color:#5b6272;font-feature-settings:'liga'}";
+		foreach(DB()->query("SELECT route_prefix_name, icon FROM xcore_plugin WHERE deleted = 'no' AND route_prefix_name != '' AND icon != ''")->fetchAll(\PDO::FETCH_KEY_PAIR) as $route => $icon)
+			if(preg_match('/^[a-z0-9-]+$/', (string)$route) && preg_match('/^[a-z0-9_]+$/', (string)$icon))$css .= '.swagger-ui .opblock-tag[data-tag="'.str_replace('-', '_', $route).'"]::before{content:"'.$icon.'"}';
+
+		return $css;
 
 	}
 

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useColorScheme } from '@mui/material/styles'
 import { Avatar, Box, Button, ButtonBase, Dialog, DialogActions, DialogTitle, Divider, Drawer, IconButton, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Popper, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, CheckOutlined, CloseOutlined, DarkModeOutlined, LightModeOutlined, SettingsBrightnessOutlined, DeleteOutlineOutlined, PersonOutlined, TaskAltOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
+import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, SearchOutlined, CheckOutlined, CloseOutlined, DarkModeOutlined, LightModeOutlined, SettingsBrightnessOutlined, DeleteOutlineOutlined, PersonOutlined, TaskAltOutlined, KeyboardArrowDownOutlined, LanguageOutlined, LogoutOutlined, MenuOpenOutlined, MenuOutlined } from '@mui/icons-material'
 import { api, DATA_CHANGED_EVENT, type Bookmark, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
@@ -11,6 +11,7 @@ import { MenuIcon } from './icons'
 import FormDialog from './FormDialog'
 import NotificationBell from './NotificationBell'
 import AnnounceBox from './AnnounceBox'
+import SearchDialog from './SearchDialog'
 
 const COLLAPSED_KEY = 'unee.menu.collapsed'
 const BORDER = 'var(--u-border)'
@@ -311,7 +312,7 @@ function UserMenu({compact}: {compact: boolean})
 	return (
 		<>
 			<ButtonBase aria-label={t('User menu')} onClick={(e) => setAnchor(e.currentTarget)} sx={{display: 'flex', alignItems: 'center', gap: 1.25, p: compact ? 0.5 : '4px 8px 4px 4px', borderRadius: 2, textAlign: 'left'}}>
-				<Avatar sx={{width: compact ? 32 : 34, height: compact ? 32 : 34, bgcolor: 'primary.main', fontSize: 13, fontWeight: 600}}>{initials(user.firstname, user.lastname)}</Avatar>
+				<Avatar src={user.avatar || undefined} alt="" sx={{width: compact ? 32 : 34, height: compact ? 32 : 34, bgcolor: 'primary.main', fontSize: 13, fontWeight: 600}}>{initials(user.firstname, user.lastname)}</Avatar>
 				{!compact && (
 					<>
 						<Box sx={{display: 'flex', flexDirection: 'column', lineHeight: 1.25}}>
@@ -389,6 +390,20 @@ export default function BackendLayout()
 	const [collapsed, setCollapsed] = useState(readCollapsed)
 	const [drawer, setDrawer] = useState(false)
 	const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+	const [search, setSearch] = useState(false)
+
+	// global search: Ctrl+/ (azerty: Ctrl+Shift+: or the / of the keypad)
+	useEffect(() => {
+
+		const onKey = (e: KeyboardEvent) => {
+
+			if((e.ctrlKey || e.metaKey) && (e.key === '/' || e.code === 'NumpadDivide')){ e.preventDefault(); setSearch(true) }
+
+		}
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
+
+	}, [])
 
 	const loadBookmarks = () => api<{bookmarks: Bookmark[]}>('backend/bookmarks/').then((data) => setBookmarks(data.bookmarks)).catch(() => setBookmarks([]))
 
@@ -467,6 +482,7 @@ export default function BackendLayout()
 							<Box sx={{flexGrow: 1}} />
 							{/* calendar: module calendar (hidden from the menus), shown with its list right */}
 							<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
+								<Tooltip title={`${t('Search')} (Ctrl+/)`}><IconButton aria-label={t('Search')} onClick={() => setSearch(true)} sx={{width: 40, height: 40, borderRadius: 2, color: search ? 'primary.main' : 'var(--u-text3)'}}><SearchOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>
 								{menu?.some((c) => c.items.some((i) => i.route === 'calendar')) && <Tooltip title={t('Calendar')}><IconButton component={NavLink} to="/calendar/" aria-label={t('Calendar')} sx={{width: 40, height: 40, borderRadius: 2, color: 'var(--u-text3)', '&.active': {color: 'primary.main', bgcolor: 'var(--u-accent-bg)'}}}><CalendarMonthOutlined sx={{fontSize: 24}} /></IconButton></Tooltip>}
 								<NotificationBell />
 								<BookmarksMenu bookmarks={bookmarks} onRemove={toggleBookmark} />
@@ -475,6 +491,8 @@ export default function BackendLayout()
 							<UserMenu compact={is_mobile} />
 						</Box>
 					</Box>
+
+					<SearchDialog open={search} onClose={() => setSearch(false)} menu={menu} />
 
 					{is_mobile && (
 						<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5, display: 'flex', flexDirection: 'column'}}}}>

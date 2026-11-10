@@ -2,14 +2,17 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { api, UNAUTHORIZED_EVENT, type User } from './api'
 import { setLanguage } from './i18n'
 
-// logon waiting for its second factor (config auth/security/backend/two_factor): code to type, or app to set up with its secret
-export type TwoFactorStep = {two_factor: 'verify' | 'setup', trust_days: number, secret?: string, uri?: string}
+// logon waiting for its second factor (\Core\TwoFactor): code of the authenticator app (or app to set up with its secret), of a sms or of an email
+// destination: masked mobile or email, resend_in: seconds before a new code can be asked, resends_left: new codes left
+export type TwoFactorMethod = 'authenticator' | 'sms' | 'email'
+export type TwoFactorStep = {two_factor: 'verify' | 'setup', method: TwoFactorMethod, destination: string, resend_in: number, resends_left: number, trust_days: number, secret?: string, uri?: string}
 
 type Auth = {
 	user: User | null
 	loading: boolean
 	login: (login: string, password: string) => Promise<TwoFactorStep | null>
 	verifyTwoFactor: (code: string, trust: boolean) => Promise<void>
+	resendTwoFactor: () => Promise<TwoFactorStep>
 	logout: () => Promise<void>
 	changeLanguage: (language: string) => Promise<void>
 	reload: () => Promise<void>
@@ -66,6 +69,9 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	}
 
+	// new code by sms or email of the pending logon
+	const resendTwoFactor = () => api<TwoFactorStep>('auth/2fa/resend/', {method: 'POST'})
+
 	const logout = async () => {
 
 		await api('auth/logout/', {method: 'POST'}).catch(() => null)
@@ -88,7 +94,7 @@ export function AuthProvider({children}: {children: ReactNode})
 
 	}
 
-	return <AuthContext.Provider value={{user, loading, login, verifyTwoFactor, logout, changeLanguage, reload}}>{children}</AuthContext.Provider>
+	return <AuthContext.Provider value={{user, loading, login, verifyTwoFactor, resendTwoFactor, logout, changeLanguage, reload}}>{children}</AuthContext.Provider>
 
 }
 

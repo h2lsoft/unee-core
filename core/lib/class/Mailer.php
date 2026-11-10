@@ -7,10 +7,21 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
-
+/**
+ * emails of the application: mail templates (xcore_mail_template) or raw html, smtp of the globals mailer.smtp.*
+ *
+ * credits: every email that goes out uses 1 credit of mail.credits.monthly (0 = unlimited), from mail.credits.reset_day
+ * - used = rows sent of xcore_mail_sent (written by send()) + the newsletters sent (xcore_newsletter_data, never counted twice)
+ * - transactional emails (default) are sent while a credit is left, marketing ones keep mail.credits.reserve percent for them
+ * - refused (no credit) and failed (smtp error) emails are written too, they use no credit
+ * - options of send() and sendTemplate(): category (transactional, marketing), module, action, record_id, xcore_user_id, application, credit (false = checked, not written)
+ * - never put a secret (code, link) in a subject: subjects are kept in xcore_mail_sent
+ */
 class Mailer
 {
 	public static string $last_error = "";
+
+	public const array CATEGORIES = ['transactional', 'marketing'];
 
 	public static function getLastError():string {return self::$last_error;}
 
@@ -23,7 +34,7 @@ class Mailer
 	 * @param array      $vars
 	 * @param string     $locale
 	 * @param array      $attachments
-	 * @param array      $options
+	 * @param array      $options see send()
 	 *
 	 * @return bool
 	 */
@@ -79,8 +90,7 @@ class Mailer
 			}
 		}
 
-
-
+		$options += ['template' => (string)$template['name']];
 
 		return \Core\Mailer::send($from, $to, $subject, $body, $attachments, $options);
 
@@ -127,10 +137,10 @@ class Mailer
 	 * @param string       $subject
 	 * @param string       $body
 	 * @param array        $attachments array name and path
-	 * @param array        $options (like charset : utf-8 by default or html : true by default or reply-to, bcc, cc)
+	 * @param array        $options (like charset : utf-8 by default or html : true by default or reply-to, bcc, cc), credits: category, module, action, record_id, xcore_user_id, application, template, credit
 	 * @param array        $data append value for data in body
 	 *
-	 * @return bool
+	 * @return bool false when not sent (getLastError(): "no email credits" when refused by the credits)
 	 */
 	public static function send(string|array $from, string $to, string $subject, string $body, array $attachments=[], array $options=[], array $data=[], array $headers=[], $return_path=''):bool
 	{
@@ -235,16 +245,6 @@ class Mailer
 
 		$mail->Subject = $subject;
 
-		// add envelop
-		// $data['IP'] = $request->getClientIp();
-		// $data['contents'] = $body;
-		// $data['vars'] = $cfg['template']['vars'];
-
-		/*if($wrap_email)
-		{
-			$body = View($cfg['template']['path'], $data, false);
-		}*/
-
 		$uri = \Core\Config::get('url');
 		// @backend: folder of the backend (config backend.dirname), ex: <img src="/@backend/logo-mail.png">
 		$body = str_replace('/@backend/', '/'.\Core\Backend::dirname().'/', $body);
@@ -256,13 +256,311 @@ class Mailer
 		if(!empty($return_path))
 			$mail->Sender = $return_path;
 
+		// credits: one email, whatever the number of recipients (an email of the application has one recipient)
+		$category = (($options['category'] ?? '') === 'marketing') ? 'marketing' : 'transactional';
+		$credit = (($options['credit'] ?? true) !== false);
+		if(!self::canSend($category))
+		{
+
+			self::$last_error = 'no email credits';
+			if($credit)self::record('refused', $subject, $options);
+			if($category === 'transactional')self::alert('refused');
+			return false;
+
+		}
+
 		try {
 			$mail->send();
+			if($credit)self::record('sent', $subject, $options);
+			self::alert('low');
 			return true;
 		} catch (Exception $e) {
 			self::$last_error = "Mailer Error: {$mail->ErrorInfo}";
+			if($credit)self::record('failed', $subject, $options);
 			return false;
 		}
+
+	}
+
+	// credits **********************************************************************************************************
+
+	/**
+	 * registers the globals of the credits (shown in the module Globals)
+	 *
+	 * @return void
+	 */
+	public static function register():void
+	{
+
+		self::monthly();
+		self::resetDay();
+		self::reserve();
+		self::alertBelow();
+		self::alertKeys();
+
+	}
+
+	/**
+	 * emails a month, 0 = unlimited
+	 *
+	 * @return int
+	 */
+	public static function monthly():int
+	{
+
+		return max(0, (int)Globals::get('mail.credits.monthly', '100000', true, 'int', 'emails sent a month (every email: newsletters, sign-in codes, notifications...), 0 = unlimited'));
+
+	}
+
+	/**
+	 * day of the month the credits are reset (1-28)
+	 *
+	 * @return int
+	 */
+	public static function resetDay():int
+	{
+
+		return max(1, min(28, (int)Globals::get('mail.credits.reset_day', '1', true, 'int', 'day of the month the email credits are reset (1-28)')));
+
+	}
+
+	/**
+	 * percent of the monthly credits kept for the transactional emails (0-50)
+	 *
+	 * @return int
+	 */
+	public static function reserve():int
+	{
+
+		return max(0, min(50, (int)Globals::get('mail.credits.reserve', '2', true, 'int', 'percent of the monthly credits kept for the transactional emails (sign-in codes, passwords...), never used by the newsletters')));
+
+	}
+
+	/**
+	 * credits left under which the super admins are notified, 0 = never
+	 *
+	 * @return int
+	 */
+	public static function alertBelow():int
+	{
+
+		return max(0, (int)Globals::get('mail.alert.below', '1000', true, 'int', 'the super admins are notified once a period when the email credits left go below, 0 = never'));
+
+	}
+
+	/**
+	 * start of the current credit period (reset day of this month, or of the previous one)
+	 *
+	 * @param int|null $time
+	 *
+	 * @return string Y-m-d H:i:s
+	 */
+	public static function periodStart(?int $time=null):string
+	{
+
+		$time ??= time();
+		$day = self::resetDay();
+		$start = mktime(0, 0, 0, (int)date('n', $time), $day, (int)date('Y', $time));
+		if($start > $time)$start = mktime(0, 0, 0, (int)date('n', $time) - 1, $day, (int)date('Y', $time));
+
+		return date('Y-m-d H:i:s', $start);
+
+	}
+
+	/**
+	 * credits of the period
+	 * remaining: PHP_INT_MAX when unlimited, reserve: credits kept for the transactional emails, available: what the marketing can use (remaining - reserve)
+	 *
+	 * @return array{monthly: int, used: int, transactional: int, marketing: int, remaining: int, reserve: int, available: int, percent: int, reset: string}
+	 */
+	public static function credits():array
+	{
+
+		$monthly = self::monthly();
+		$start = self::periodStart();
+
+		$used = ['transactional' => 0, 'marketing' => 0];
+		foreach(DB()->query("SELECT category, COUNT(*) AS total FROM xcore_mail_sent WHERE deleted = 'no' AND status = 'sent' AND date >= :start GROUP BY category", ['start' => $start])->fetchAll() as $row)
+			$used[($row['category'] === 'marketing') ? 'marketing' : 'transactional'] += (int)$row['total'];
+
+		$used['marketing'] += (int)DB()->query("SELECT COUNT(*) FROM xcore_newsletter_data WHERE deleted = 'no' AND action = 'sent' AND date >= :start", ['start' => $start])->fetchOne();
+
+		$total = $used['transactional'] + $used['marketing'];
+		$unlimited = ($monthly === 0);
+		$remaining = ($unlimited) ? PHP_INT_MAX : max(0, $monthly - $total);
+		$reserve = ($unlimited) ? 0 : (int)ceil($monthly * self::reserve() / 100);
+
+		return [
+			'monthly' => $monthly,
+			'used' => $total,
+			'transactional' => $used['transactional'],
+			'marketing' => $used['marketing'],
+			'remaining' => $remaining,
+			'reserve' => $reserve,
+			'available' => ($unlimited) ? PHP_INT_MAX : max(0, $remaining - $reserve),
+			'percent' => ($unlimited) ? 100 : (int)floor($remaining * 100 / $monthly),
+			'reset' => date('Y-m-d', strtotime($start.' +1 month')),
+		];
+
+	}
+
+	/**
+	 * enough credits for emails of a category: transactional while a credit is left, marketing above the reserve
+	 * credits unreadable (migration not run yet): allowed
+	 *
+	 * @param string $category transactional or marketing
+	 * @param int $count emails to send
+	 *
+	 * @return bool
+	 */
+	public static function canSend(string $category='transactional', int $count=1):bool
+	{
+
+		try
+		{
+
+			$c = self::credits();
+
+		}
+		catch(\Throwable $e)
+		{
+
+			return true;
+
+		}
+
+		if($c['monthly'] === 0)return true;
+		return ((($category === 'marketing') ? $c['available'] : $c['remaining']) >= $count);
+
+	}
+
+	/**
+	 * writes an email in xcore_mail_sent, sent = 1 credit used
+	 *
+	 * @param string $status sent, failed or refused
+	 * @param string $subject final subject
+	 * @param array $options category, module, action, record_id, xcore_user_id, application, template
+	 *
+	 * @return void
+	 */
+	public static function record(string $status, string $subject, array $options=[]):void
+	{
+
+		try
+		{
+
+			DB('xcore_mail_sent')->insert([
+				'date' => now(),
+				'application' => mb_substr((string)($options['application'] ?? self::application()), 0, 20),
+				'module' => mb_substr((string)($options['module'] ?? self::module()), 0, 255),
+				'action' => mb_substr((string)($options['action'] ?? ''), 0, 255),
+				'record_id' => max(0, (int)($options['record_id'] ?? 0)),
+				'category' => (($options['category'] ?? '') === 'marketing') ? 'marketing' : 'transactional',
+				'template' => mb_substr((string)($options['template'] ?? ''), 0, 255),
+				'subject' => mb_substr(str_replace(["\r", "\n"], ' ', $subject), 0, 255),
+				'xcore_user_id' => max(0, (int)($options['xcore_user_id'] ?? 0)),
+				'status' => $status,
+			], (string)(\Core\Session::get('auth.login') ?: 'mailer'));
+
+		}
+		catch(\Throwable $e)
+		{
+
+			// table not created yet (migration not run): the email is not blocked
+
+		}
+
+	}
+
+	/**
+	 * notifications of the super admins, once a period each: low (credits below mail.alert.below), refused (a transactional email refused)
+	 *
+	 * @param string $type low or refused
+	 *
+	 * @return void
+	 */
+	public static function alert(string $type):void
+	{
+
+		try
+		{
+
+			if($type === 'low' && self::alertBelow() <= 0)return;
+
+			$c = self::credits();
+			if($c['monthly'] === 0 || ($type === 'low' && $c['remaining'] >= self::alertBelow()))return;
+
+			$keys = self::alertKeys();
+			if(($keys[$type] ?? '') === $c['reset'])return;
+
+			$keys[$type] = $c['reset'];
+			$value = json_encode($keys);
+			Globals::set('mail.alert.key', $value, 'text', 'set by the code: period of the last alerts of the email credits');
+			App()->globals['mail.alert.key'] = $value;
+
+			$link = 'globals/?search[]='.rawurlencode('q||mail.credits');
+			if($type === 'low')
+				Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Email credits are running low'), ts('[COUNT] credits left', ['COUNT' => number_format($c['remaining'], 0, ',', ' ')]), $link, 'warning', 'Email');
+			else
+				Notification::sendGroup(\Model\User::GROUP_SUPERADMIN, ts('Email credits exhausted'), ts('transactional emails (sign-in codes, passwords...) are refused until the reset on [DATE]', ['DATE' => $c['reset']]), $link, 'error', 'Email');
+
+		}
+		catch(\Throwable $e)
+		{
+
+			// an alert never blocks the email
+
+		}
+
+	}
+
+	/**
+	 * periods of the last alerts: {"low": "Y-m-d", "refused": "Y-m-d"}
+	 *
+	 * @return array
+	 */
+	private static function alertKeys():array
+	{
+
+		$keys = json_decode((string)Globals::get('mail.alert.key', '', true, 'text', 'set by the code: period of the last alerts of the email credits'), true);
+		return (is_array($keys)) ? $keys : [];
+
+	}
+
+	/**
+	 * application of the request: cron or cli (console), backend (api called by the react backend), api (other clients), frontend
+	 *
+	 * @return string
+	 */
+	private static function application():string
+	{
+
+		global $request;
+
+		if(PHP_SAPI === 'cli')return (Cron::current()) ? 'cron' : 'cli';
+		if(!$request instanceof \Symfony\Component\HttpFoundation\Request)return 'frontend';
+
+		if(str_starts_with($request->getPathInfo(), '/api/'))
+			return ($request->headers->get('X-Requested-With') === 'XMLHttpRequest') ? 'backend' : 'api';
+
+		return (str_starts_with($request->getPathInfo(), '/'.Backend::dirname().'/')) ? 'backend' : 'frontend';
+
+	}
+
+	/**
+	 * module of the current route (api.<module>.<action>), '' otherwise
+	 *
+	 * @return string
+	 */
+	private static function module():string
+	{
+
+		global $request;
+
+		if(!$request instanceof \Symfony\Component\HttpFoundation\Request)return '';
+
+		$parts = explode('.', (string)$request->attributes->get('_route', ''));
+		return ($parts[0] === 'api' && isset($parts[1])) ? str_replace('_', '-', $parts[1]) : '';
 
 	}
 }

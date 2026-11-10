@@ -10,7 +10,7 @@ use PHPMailer\PHPMailer\PHPMailer;
  * - variables of the subject and the message: [[email]], [[firstname]], [[lastname]], [[online_url]], [[unsubscribe_url]] (required)
  * - links signed with the globals newsletter.secret (hmac of newsletter id and subscriber id): nothing stored by recipient
  * - public routes of NewsletterController: /api/newsletter/v|u|o|c/<token>/ = online view, unsubscribe, open pixel, click
- * - credits: newsletter.credits.monthly emails "sent" a month from newsletter.credits.reset_day, a newsletter is never started without enough credits
+ * - credits: the email credits of \Core\Mailer (mail.credits.*, the reserve of the transactional emails left out), a newsletter is never started without enough credits
  * - every recipient processed gets a row in xcore_newsletter_data: sent, sent-error, blacklisted (pattern), refused (invalid email)
  */
 class Newsletter
@@ -39,28 +39,13 @@ class Newsletter
 		Globals::get('newsletter.smtp.password', '', true, 'text', 'smtp password of the newsletters');
 		Globals::get('newsletter.pause.every', '0', true, 'int', 'pause after this number of emails, 0 = no pause');
 		Globals::get('newsletter.pause.seconds', '10', true, 'int', 'duration of the pause in seconds');
-		self::monthly();
-		self::resetDay();
+		Mailer::register();
 		self::unsubscribeScope();
 		self::secret();
 
 	}
 
 	// settings *********************************************************************************************************
-
-	public static function monthly():int
-	{
-
-		return max(0, (int)Globals::get('newsletter.credits.monthly', '100000', true, 'int', 'emails sent a month, 0 = unlimited'));
-
-	}
-
-	public static function resetDay():int
-	{
-
-		return max(1, min(28, (int)Globals::get('newsletter.credits.reset_day', '1', true, 'int', 'day of the month the credits are reset (1-28)')));
-
-	}
 
 	/**
 	 * unsubscribe scope: lists (the lists of the newsletter), all (every list of the email), blacklist (every list + blacklist)
@@ -410,45 +395,7 @@ class Newsletter
 	// credits **********************************************************************************************************
 
 	/**
-	 * start of the current credit period (reset day of this month, or of the previous one)
-	 *
-	 * @param int|null $time
-	 *
-	 * @return string Y-m-d H:i:s
-	 */
-	public static function periodStart(?int $time=null):string
-	{
-
-		$time ??= time();
-		$day = self::resetDay();
-		$start = mktime(0, 0, 0, (int)date('n', $time), $day, (int)date('Y', $time));
-		if($start > $time)$start = mktime(0, 0, 0, (int)date('n', $time) - 1, $day, (int)date('Y', $time));
-
-		return date('Y-m-d H:i:s', $start);
-
-	}
-
-	/**
-	 * credits of the period: monthly (0 = unlimited), used, remaining, percent left, next reset
-	 *
-	 * @return array{monthly: int, used: int, remaining: int, percent: int, reset: string}
-	 */
-	public static function credits():array
-	{
-
-		$monthly = self::monthly();
-		$start = self::periodStart();
-		$used = (int)DB()->query("SELECT COUNT(*) FROM xcore_newsletter_data WHERE deleted = 'no' AND action = 'sent' AND date >= :start", ['start' => $start])->fetchOne();
-		$remaining = ($monthly === 0) ? PHP_INT_MAX : max(0, $monthly - $used);
-		$percent = ($monthly === 0) ? 100 : (int)floor($remaining * 100 / $monthly);
-		$reset = date('Y-m-d', strtotime($start.' +1 month'));
-
-		return ['monthly' => $monthly, 'used' => $used, 'remaining' => $remaining, 'percent' => $percent, 'reset' => $reset];
-
-	}
-
-	/**
-	 * credits left for a newsletter: remaining credits minus the emails left of the other newsletters being sent
+	 * credits left for a newsletter: email credits the marketing can use (reserve of the transactional emails left out) minus the emails left of the other newsletters being sent
 	 *
 	 * @param int $newsletter_id
 	 *
@@ -457,14 +404,14 @@ class Newsletter
 	public static function availableCredits(int $newsletter_id):int
 	{
 
-		$credits = self::credits();
+		$credits = Mailer::credits();
 		if($credits['monthly'] === 0)return PHP_INT_MAX;
 
 		$reserved = 0;
 		foreach(DB()->query("SELECT id, mailinglist_ids FROM xcore_newsletter WHERE deleted = 'no' AND status IN ('sending', 'paused') AND id != :id", ['id' => $newsletter_id])->fetchAll() as $other)
 			$reserved += self::remainingRecipients((int)$other['id'], self::listIds($other));
 
-		return max(0, $credits['remaining'] - $reserved);
+		return max(0, $credits['available'] - $reserved);
 
 	}
 

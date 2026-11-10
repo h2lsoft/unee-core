@@ -128,6 +128,39 @@ function generateToken(int $length=16):string
 }
 
 /**
+ * random uuid v4 (rfc 9562), ex: 3f2b8c1e-9a4d-4f6e-b1c2-7d8e9f0a1b2c
+ *
+ * @return string
+ */
+function uuid():string
+{
+
+	$bytes = random_bytes(16);
+	$bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+	$bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+
+	return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+
+}
+
+/**
+ * size written like php.ini in bytes: 1M, 512K, 2G, 1048576
+ *
+ * @param string $size
+ *
+ * @return int 0 when not valid
+ */
+function size_to_bytes(string $size):int
+{
+
+	if(!preg_match('/^\s*(\d+(?:\.\d+)?)\s*([kmg]?)b?\s*$/i', $size, $m))return 0;
+
+	$units = ['' => 0, 'k' => 1, 'm' => 2, 'g' => 3];
+	return (int)round((float)$m[1] * (1024 ** $units[strtolower($m[2])]));
+
+}
+
+/**
  * Generate a alphanumeric password
  *
  * @param int $length

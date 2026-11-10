@@ -35,6 +35,14 @@ class System_InfoController extends \Core\Controller
 		$env = getenv();
 		ksort($env);
 
+		// encryption key of the secrets (auth/security/encryption_key): its state only, never its value
+		$key = match(\Core\TwoFactor::keyStatus())
+		{
+			'ok' => ts('set'),
+			'legacy' => ts('public key of the old core config: run php vendor/bin/unee key:generate --rotate'),
+			default => ts('missing: run php vendor/bin/unee key:generate --rotate'),
+		};
+
 		return new \Core\JsonResponse([
 			'title' => ts('System info'),
 			'php' => [
@@ -45,6 +53,7 @@ class System_InfoController extends \Core\Controller
 					['label' => ts('Max execution time'), 'value' => ini_get('max_execution_time').' s', 'icon' => 'timer'],
 					['label' => ts('Upload max filesize'), 'value' => (string)ini_get('upload_max_filesize'), 'icon' => 'upload_file'],
 					['label' => ts('Extensions'), 'value' => (string)count($extensions), 'icon' => 'extension'],
+					['label' => ts('Encryption key'), 'value' => $key, 'icon' => 'key'],
 				],
 				'ini' => $this->pairs(array_map(fn($v) => (string)$v, ini_get_all(null, false))),
 				'extensions' => array_values($extensions),

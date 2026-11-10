@@ -18,9 +18,7 @@ class User extends \Core\Entity
 	public const int GROUP_SUPERADMIN = 1;
 	public const int GROUP_SYSTEM = 2;
 
-	// pending logon waiting for its second factor: lifetime in seconds, wrong codes before the password is asked again
-	public const int TWO_FACTOR_TTL = 300;
-	public const int TWO_FACTOR_MAX_ATTEMPTS = 5;
+	// pending logon waiting for its second factor: lifetime, wrong codes, delay between codes and new codes come from \Core\TwoFactor::setting()
 
 	/**
 	 * is a user logged in the current session
@@ -107,7 +105,7 @@ class User extends \Core\Entity
 	 * @param string $login email or login, depending on auth/backend/key
 	 * @param string $password
 	 *
-	 * @return string '' on success, 'throttled', 'invalid', 'two_factor' (code to type) or 'two_factor_setup' (app to set up), see twoFactorCheck()
+	 * @return string '' on success, 'throttled', 'invalid', 'two_factor' (code to type), 'two_factor_setup' (app to set up) or 'two_factor_unavailable' (code not sent: no mobile, no credits), see twoFactorCheck()
 	 */
 	public static function logon(string $login, string $password):string
 	{
@@ -161,15 +159,31 @@ class User extends \Core\Entity
 
 		}
 
-		// second factor: the session opens once the code is checked, except on a trusted device
-		if(\Core\TwoFactor::enabled('backend') && !\Core\TwoFactor::isTrustedDevice((int)$user['id']))
+		// second factor (\Core\TwoFactor::method): the session opens once the code is checked, except on a trusted device
+		$method = \Core\TwoFactor::method($user, 'backend');
+		if($method !== 'none' && !\Core\TwoFactor::isTrustedDevice((int)$user['id']))
 		{
 
-			$setup = empty($user['two_factor_secret']);
 			session_regenerate_id(true);
-			\Core\Session::set('two_factor', ['user_id' => (int)$user['id'], 'expires' => time() + self::TWO_FACTOR_TTL, 'attempts' => 0, 'secret' => $setup ? \Core\TwoFactor::generateSecret() : '']);
+			$pending = ['user_id' => (int)$user['id'], 'method' => $method, 'expires' => time() + \Core\TwoFactor::setting('ttl'), 'attempts' => 0, 'secret' => '', 'code_hash' => '', 'code_salt' => '', 'sent_at' => 0, 'resends' => 0];
 
-			return $setup ? 'two_factor_setup' : 'two_factor';
+			if($method === 'authenticator')
+			{
+
+				$setup = empty($user['two_factor_secret']);
+				if($setup)$pending['secret'] = \Core\TwoFactor::generateSecret();
+				\Core\Session::set('two_factor', $pending);
+
+				return $setup ? 'two_factor_setup' : 'two_factor';
+
+			}
+
+			// code by sms or email: sent now, the logon is refused when it cannot be sent (no mobile, no credits)
+			$error = self::twoFactorSend($user, $pending);
+			if($error === 'throttled')return 'throttled';
+			if($error !== '')return 'two_factor_unavailable';
+
+			return 'two_factor';
 
 		}
 
@@ -179,9 +193,9 @@ class User extends \Core\Entity
 	}
 
 	/**
-	 * pending logon waiting for its second factor (password checked less than TWO_FACTOR_TTL seconds ago)
+	 * pending logon waiting for its second factor (password checked less than auth.two_factor.code.ttl seconds ago)
 	 *
-	 * @return array {"user": row of xcore_user, "secret": base32 secret to set up, '' when the user has one}, [] when none
+	 * @return array {"user": row of xcore_user, "method", "secret": base32 secret to set up ('' when the user has one), "sent_at", "resends"}, [] when none
 	 */
 	public static function twoFactorPending():array
 	{
@@ -197,16 +211,16 @@ class User extends \Core\Entity
 
 		if(!$user || $user['active'] !== 'yes' || $user['access_backend'] !== 'yes')return [];
 
-		return ['user' => $user, 'secret' => (string)$pending['secret']];
+		return ['user' => $user, 'method' => (string)($pending['method'] ?? 'authenticator'), 'secret' => (string)$pending['secret'], 'sent_at' => (int)($pending['sent_at'] ?? 0), 'resends' => (int)($pending['resends'] ?? 0)];
 
 	}
 
 	/**
 	 * checks the code of a pending logon (twoFactorPending) and opens the session, the secret is saved on setup
-	 * each wrong code counts as a failed logon (auth/logon_throttle), after TWO_FACTOR_MAX_ATTEMPTS the password is asked again
+	 * each wrong code counts as a failed logon (auth/logon_throttle), after auth.two_factor.code.max_attempts the password is asked again
 	 *
-	 * @param string $code 6 digits of the app
-	 * @param bool $trust_device remember the device (auth/security/backend/two_factor/trust_days)
+	 * @param string $code 6 digits of the app, of the sms or of the email
+	 * @param bool $trust_device remember the device (auth.backend.two_factor.trust_days)
 	 *
 	 * @return string '' on success, 'expired' (password to type again) or 'invalid'
 	 */
@@ -223,18 +237,33 @@ class User extends \Core\Entity
 		}
 
 		$user = $pending['user'];
-		$setup = ($pending['secret'] !== '');
-		$secret = $setup ? $pending['secret'] : \Core\TwoFactor::decrypt((string)$user['two_factor_secret']);
-		$step = ($secret === '') ? 0 : \Core\TwoFactor::verify($secret, $code, $setup ? 0 : (int)$user['two_factor_last_step']);
+		$session = (array)\Core\Session::get('two_factor', []);
+		$step = 0;
 
-		if(!$step)
+		if($pending['method'] === 'authenticator')
 		{
 
-			\Core\Log::write('logon_failed', 'two-factor code invalid', [], (int)$user['id'], 'warning', 'auth', (string)$user['login']);
+			$setup = ($pending['secret'] !== '');
+			$secret = $setup ? $pending['secret'] : \Core\TwoFactor::decrypt((string)$user['two_factor_secret']);
+			$step = ($secret === '') ? 0 : \Core\TwoFactor::verify($secret, $code, $setup ? 0 : (int)$user['two_factor_last_step']);
+			$valid = ($step > 0);
 
-			$session = (array)\Core\Session::get('two_factor', []);
+		}
+		else
+		{
+
+			$hash = (string)($session['code_hash'] ?? '');
+			$valid = ($hash !== '' && hash_equals($hash, \Core\TwoFactor::codeHash($code, (string)($session['code_salt'] ?? ''))));
+
+		}
+
+		if(!$valid)
+		{
+
+			\Core\Log::write('logon_failed', 'two-factor code invalid', ['method' => $pending['method']], (int)$user['id'], 'warning', 'auth', (string)$user['login']);
+
 			$attempts = (int)($session['attempts'] ?? 0) + 1;
-			if($attempts >= self::TWO_FACTOR_MAX_ATTEMPTS)
+			if($attempts >= \Core\TwoFactor::setting('max_attempts'))
 			{
 
 				\Core\Session::destroy('two_factor');
@@ -247,13 +276,123 @@ class User extends \Core\Entity
 
 		}
 
-		$row = ['two_factor_last_step' => $step];
-		if($setup)$row += ['two_factor_secret' => \Core\TwoFactor::encrypt($secret), 'two_factor_enabled_at' => now()];
-		DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+		if($pending['method'] === 'authenticator')
+		{
+
+			$row = ['two_factor_last_step' => $step];
+			if($setup)$row += ['two_factor_secret' => \Core\TwoFactor::encrypt($secret), 'two_factor_enabled_at' => now()];
+			DB(self::$table)->update($row, (int)$user['id'], 1, $user['login']);
+
+		}
 
 		\Core\Session::destroy('two_factor');
 		self::completeLogon($user);
 		if($trust_device)\Core\TwoFactor::trustDevice((int)$user['id']);
+
+		return '';
+
+	}
+
+	/**
+	 * new code by sms or email for the pending logon, after auth.two_factor.code.resend_delay, at most auth.two_factor.code.max_resends times
+	 * the code sent before is no longer valid, the pending logon lasts auth.two_factor.code.ttl again
+	 *
+	 * @return string '' when sent, 'expired' (password to type again), 'not_allowed' (authenticator app), 'too_early', 'max_resends', 'throttled' or the error of \Core\TwoFactor::sendCode()
+	 */
+	public static function twoFactorResend():string
+	{
+
+		$pending = self::twoFactorPending();
+		if(!$pending)
+		{
+
+			\Core\Session::destroy('two_factor');
+			return 'expired';
+
+		}
+
+		if(!in_array($pending['method'], ['sms', 'email'], true))return 'not_allowed';
+		if($pending['resends'] >= \Core\TwoFactor::setting('max_resends'))return 'max_resends';
+		if(time() - $pending['sent_at'] < \Core\TwoFactor::setting('resend_delay'))return 'too_early';
+
+		$session = (array)\Core\Session::get('two_factor', []);
+		$session['resends'] = $pending['resends'] + 1;
+		$session['expires'] = time() + \Core\TwoFactor::setting('ttl');
+
+		$error = self::twoFactorSend($pending['user'], $session);
+		if($error === 'throttled' || $error === '')return $error;
+
+		// not sent: the pending logon ends, the password is asked again
+		\Core\Session::destroy('two_factor');
+		return $error;
+
+	}
+
+	/**
+	 * timing of the pending logon for the sign in page: method, masked destination, seconds before a new code, new codes left
+	 *
+	 * @return array {"method", "destination", "resend_in", "resends_left"}, [] when none
+	 */
+	public static function twoFactorState():array
+	{
+
+		$pending = self::twoFactorPending();
+		if(!$pending)return [];
+
+		$method = $pending['method'];
+		$state = ['method' => $method, 'destination' => '', 'resend_in' => 0, 'resends_left' => 0];
+		if($method === 'sms' || $method === 'email')
+		{
+
+			$state['destination'] = \Core\TwoFactor::mask((string)$pending['user'][($method === 'sms') ? 'mobile' : 'email'], $method);
+			$state['resend_in'] = max(0, \Core\TwoFactor::setting('resend_delay') - (time() - $pending['sent_at']));
+			$state['resends_left'] = max(0, \Core\TwoFactor::setting('max_resends') - $pending['resends']);
+
+		}
+
+		return $state;
+
+	}
+
+	/**
+	 * sends a new code of the pending logon (sms or email) and keeps its hash in the session
+	 * sending throttled by account: (1 + max_resends) * 2 codes in the window of auth/logon_throttle (a shared office ip is never blocked)
+	 *
+	 * @param array $user row of xcore_user
+	 * @param array $session pending logon to save
+	 *
+	 * @return string '' when sent, 'throttled' or the error of \Core\TwoFactor::sendCode() (logged two_factor_unavailable)
+	 */
+	private static function twoFactorSend(array $user, array $session):string
+	{
+
+		$throttle = \Core\Config::get('auth/logon_throttle');
+		$since = date('Y-m-d H:i:s', time() - (int)$throttle['window_seconds']);
+		$sent = (int)DB()->query("SELECT COUNT(*) FROM xcore_log WHERE action = 'two_factor_code_sent' AND deleted = 'no' AND date >= :since AND record_id = :id", ['since' => $since, 'id' => (int)$user['id']])->fetchOne();
+		if($sent >= (1 + \Core\TwoFactor::setting('max_resends')) * 2)
+		{
+
+			\Core\Session::destroy('two_factor');
+			return 'throttled';
+
+		}
+
+		$code = \Core\TwoFactor::newCode();
+		$error = \Core\TwoFactor::sendCode($user, $session['method'], $code);
+		if($error !== '')
+		{
+
+			\Core\Session::destroy('two_factor');
+			\Core\Log::write('two_factor_unavailable', "sign-in code not sent: {$error}", ['method' => $session['method'], 'reason' => $error], (int)$user['id'], 'error', 'auth', (string)$user['login']);
+			return $error;
+
+		}
+
+		$session['code_salt'] = bin2hex(random_bytes(16));
+		$session['code_hash'] = \Core\TwoFactor::codeHash($code, $session['code_salt']);
+		$session['sent_at'] = time();
+		\Core\Session::set('two_factor', $session);
+		\Core\Log::write('two_factor_code_sent', "sign-in code sent by {$session['method']}", ['method' => $session['method'], 'resend' => (int)$session['resends']], (int)$user['id'], 'info', 'auth', (string)$user['login']);
 
 		return '';
 
@@ -278,7 +417,7 @@ class User extends \Core\Entity
 		if((int)$history['total'] > 0 && !(int)$history['known'])
 		{
 
-			$sent = \Core\Mailer::sendTemplate('core.logon.new_ip', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => $ip, 'browser' => mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)], (string)$user['language']);
+			$sent = \Core\Mailer::sendTemplate('core.logon.new_ip', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => $ip, 'browser' => mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)], (string)$user['language'], [], ['module' => 'auth', 'action' => 'logon_new_ip', 'record_id' => (int)$user['id'], 'xcore_user_id' => (int)$user['id']]);
 			if(!$sent)\Core\Log::write('logon_new_ip', 'new ip mail not sent: '.\Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
 
 		}
@@ -378,7 +517,7 @@ class User extends \Core\Entity
 		DB(self::$table)->update($row, (int)$user['id'], 1, 'system');
 
 		$link = rtrim(\Core\Config::get('url'), '/').'/'.\Core\Config::get('backend.dirname').'/password/reset/?token='.$token;
-		$sent = \Core\Mailer::sendTemplate('core.password.forgot', $user['email'], ['firstname' => $user['firstname'], 'link' => $link, 'hours' => $hours], (string)$user['language']);
+		$sent = \Core\Mailer::sendTemplate('core.password.forgot', $user['email'], ['firstname' => $user['firstname'], 'link' => $link, 'hours' => $hours], (string)$user['language'], [], ['module' => 'auth', 'action' => 'password_forgot', 'record_id' => (int)$user['id'], 'xcore_user_id' => (int)$user['id']]);
 
 		if(!$sent)
 			\Core\Log::write('password_forgot_mail', \Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
@@ -416,7 +555,7 @@ class User extends \Core\Entity
 		\Core\Log::write('password_reset', 'password reset', [], (int)$user['id'], 'info', 'auth', $user['login']);
 
 		// confirmation to the owner of the account: an unexpected change is noticed at once
-		$sent = \Core\Mailer::sendTemplate('core.password.changed', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => getVisitorIp()], (string)$user['language']);
+		$sent = \Core\Mailer::sendTemplate('core.password.changed', $user['email'], ['firstname' => $user['firstname'], 'date' => date('Y-m-d H:i'), 'ip' => getVisitorIp()], (string)$user['language'], [], ['module' => 'auth', 'action' => 'password_changed', 'record_id' => (int)$user['id'], 'xcore_user_id' => (int)$user['id']]);
 		if(!$sent)
 			\Core\Log::write('password_changed_mail', \Core\Mailer::getLastError(), [], (int)$user['id'], 'error', 'auth', $user['login']);
 
@@ -459,6 +598,10 @@ class User extends \Core\Entity
 
 		// connect as: login of the account to go back to, null otherwise
 		$user['impersonator'] = \Core\Session::get('auth.impersonator')['login'] ?? null;
+
+		// picture of the header, read from the table: a change in the users module shows at the next load
+		$avatar = (string)DB()->query("SELECT avatar FROM xcore_user WHERE id = :id", ['id' => (int)$user['id']])->fetchOne();
+		$user['avatar'] = \Core\Widget::avatar(['id' => $user['id'], 'avatar' => $avatar])['avatar']['url'];
 
 		return $user;
 

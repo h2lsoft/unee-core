@@ -5,6 +5,7 @@ namespace Model;
 /**
  * backend modules: route_prefix_name = folder of the module, actions = json array of the rights (ex: ["list","add","edit","delete"])
  * type: normal (rights by group), core (every backend user), url (external link of the menu)
+ * custom: coded by a developer (own page, meta module), never opened in the Studio (studio type: url, custom or crud)
  */
 class Plugin extends \Core\Entity
 {

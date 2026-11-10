@@ -35,6 +35,7 @@ class PluginController extends \Core\CrudController
 		$grid->addFilter('name', 'Name');
 		$grid->addFilter('type', 'Type', 'select', self::TYPES);
 		$grid->addFilter('route_prefix_name', 'Route');
+		$grid->addFilter('custom', 'Custom', 'boolean');
 		$grid->addFilter('visible', 'Visible', 'boolean');
 		$grid->addFilter('active', 'Active', 'boolean');
 		$grid->addFilter('id', 'ID', 'number');
@@ -46,6 +47,7 @@ class PluginController extends \Core\CrudController
 		$grid->addColIcon('icon', 'Icon')->width(70);
 		$grid->addCol('name', 'Name', true)->subText('target', 'target');
 		$grid->addColBadge('type', 'Type', true, ['normal' => 'grey', 'url' => 'blue'])->width(90);
+		$grid->addColBoolean('custom', 'Custom', false, false, true)->width(90);
 		$grid->addColBoolean('versioning', 'Versioning', false, false, true)->width(110);
 		$grid->addColBoolean('visible', 'Visible', false, true)->width(90);
 		$grid->addColBoolean('active', 'Active', false, true)->width(90);
@@ -69,7 +71,10 @@ class PluginController extends \Core\CrudController
 		$form->addSelect('type', 'Type', self::TYPES, true)->defaultValue('normal');
 		$form->addText('route_prefix_name', 'Route', true)->maxLength(255)->showIf('type', 'normal')->help('folder of the module, ex: mail-template');
 		$form->addTags('actions', 'Actions', true, ['list', 'add', 'edit', 'delete', 'export', 'widget'])->showIf('type', 'normal')->defaultValue(['list', 'add', 'edit', 'delete'])->help('rights of the module, given to the groups in the module right');
+		$form->addTags('config_categories', 'Configuration categories', false, (array)DB()->query("SELECT DISTINCT category FROM xcore_globals WHERE deleted = 'no' AND category != '' ORDER BY category")->fetchAllOne())->showIf('type', 'normal')->help('categories of the globals opened by the button Configuration of the module, empty = the route (ex: sms = sms.*)');
+		$form->addBoolean('global_search', 'Global search')->defaultValue('yes')->showIf('type', 'normal')->help('its records are found by the search of the header (Ctrl+/), with its search box');
 		$form->addText('url', 'Url', true)->maxLength(255)->showIf('type', 'url')->placeholder('https://');
+		$form->addBoolean('custom', 'Custom')->showIf('type', 'normal')->help('coded by a developer (own page): never opened in the Studio');
 		$form->addBoolean('versioning', 'Versioning')->help('keeps a copy of each version of the records');
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes')->help('shown in the menu');
 		$form->addBoolean('active', 'Active')->defaultValue('yes');

@@ -10,6 +10,8 @@ export type User = {
 	group_id: number
 	group_name: string
 	impersonator: string | null
+	// url of the picture, '' = initials
+	avatar: string
 }
 
 export type ApiError = {
@@ -147,9 +149,9 @@ export type GridColumn = {
 	flag_column?: string
 }
 
-// action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header
+// action in the menu of a row (url = link of the backend, {id} replaced) or button of the grid header (url = link, form = api url of a form of its own)
 export type RowAction = {name: string, label: string, icon: string, right: string, url: string}
-export type GridAction = {name: string, label: string, icon: string, right: string, confirm: string, danger: boolean}
+export type GridAction = {name: string, label: string, icon: string, right: string, confirm: string, danger: boolean, url: string, form: string}
 
 export type GridFilter = {
 	name: string
@@ -184,6 +186,8 @@ export type Grid = {
 	grid_actions: GridAction[]
 	mobile: {title: string, subtitle: string}
 	position: string | null
+	// transitions of the user (\Core\Workflow): row menu by the state of the row, selection menu
+	workflow: {column: string, states: Record<string, WorkflowState>, transitions: WorkflowTransition[]} | null
 }
 
 // saved filter of a grid (GET /api/backend/filters/?module=), personal or shared with the group
@@ -233,6 +237,15 @@ export type FormField = {
 	max_size?: number
 	upload_url?: string
 	file_url?: string
+	// file of upload_dir (->set('public', true)): url = public_url + value
+	public?: boolean
+	public_url?: string
+	// image cropped at the upload (->set('convert', ...)): round preview, ex: avatar
+	convert?: {width: number, height: number, extension: string}
+	// password: no Generate button (secret of a provider)
+	generate?: boolean
+	// counter under a textarea: sms = characters and parts (\Core\Sms::measure), extra characters when the field `field` is yes (STOP mention)
+	counter?: {type: 'sms', field?: string, extra?: number}
 }
 
 // tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)
@@ -243,7 +256,22 @@ export type FormPayload = {
 	form: {fields: FormField[], tabs: FormTab[], actions: FormAction[]}
 	record: Record<string, string | string[]>
 	versions?: number
+	workflow?: WorkflowSummary
 }
+
+// workflow of a module (\Core\Workflow): state colors, transitions of the user, summary of a record, history
+export type WorkflowState = {label: string, color: string}
+export type WorkflowTransition = {code: string, label: string, from: string, from_label: string, to: string, to_label: string, comment: boolean, fields: string[], approvals: number}
+export type WorkflowSummary = {
+	state: {code: string, label: string, color: string, final: boolean} | null
+	since: string | null
+	editable: boolean
+	editable_by: string[]
+	transitions: {code: string, label: string, to: string, to_label: string, comment: boolean, fields: string[], approvals: {needed: number, given: number, mine: boolean, users: string[]}}[]
+	states: Record<string, WorkflowState>
+	history_count: number
+}
+export type WorkflowHistory = {date: string, user: string, avatar: {initials: string, color: string, url?: string} | null, transition: string, from: string, from_state: string, to: string, to_state: string, comment: string}
 
 // history of a record (plugin with versioning): GET /api/<module>/<id>/versions/
 export type Version = {id: number, date: string, author: string, created: boolean, changes: {field: string, label: string, before: string, after: string}[]}

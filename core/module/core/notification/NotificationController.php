@@ -72,14 +72,15 @@ class NotificationController extends \Core\CrudController
 
 		$categories = DB()->query("SELECT DISTINCT category FROM xcore_notification WHERE deleted = 'no' AND category <> '' ORDER BY category")->fetchAllOne();
 
-		$form->addRadio('recipient_type', 'Send to', ['group' => 'Groups', 'user' => 'Users'], true)->defaultValue('group');
-		$form->addSelectMultiple('recipient_groups', 'Groups', $groups)->set('translate', false)->showIf('recipient_type', ['group']);
-		$form->addSelectMultipleUser('recipient_users', 'Users')->showIf('recipient_type', ['user']);
+		// virtual fields (_): written as target_type and target_ids
+		$form->addRadio('_recipient_type', 'Send to', ['group' => 'Groups', 'user' => 'Users'], true)->defaultValue('group')->protect();
+		$form->addSelectMultiple('_recipient_groups', 'Groups', $groups)->set('translate', false)->showIf('_recipient_type', ['group'])->protect();
+		$form->addSelectMultipleUser('_recipient_users', 'Users')->showIf('_recipient_type', ['user'])->protect();
 		$form->addSelect('category', 'Category', array_combine($categories, $categories))->autocomplete(true)->maxLength(100)->set('translate', false);
 		$form->addRadio('level', 'Level', array_combine(array_keys(self::LEVELS), array_keys(self::LEVELS)), true)->defaultValue('info');
 		$form->addText('title', 'Title', true)->maxLength(255);
 		$form->addTextarea('message', 'Message');
-		$form->addText('link', 'Link')->maxLength(255)->help('page of the backend opened on click, ex: cron/')->set('open_link', 'backend');
+		$form->addText('link', 'Link')->maxLength(255)->help('page of the backend opened on click, ex: cron/')->set('open_link', 'backend')->protect();
 		$form->addTagManager($this->table);
 
 	}
@@ -87,8 +88,8 @@ class NotificationController extends \Core\CrudController
 	protected function rulesOnCreate(\Core\Validator $v):void
 	{
 
-		$type = ($v->inputGet('recipient_type') === 'user') ? 'user' : 'group';
-		$field = "recipient_{$type}s";
+		$type = ($v->inputGet('_recipient_type') === 'user') ? 'user' : 'group';
+		$field = "_recipient_{$type}s";
 		$this->recipients = \Core\Notification::recipients($type, $this->ids($v->inputGet($field)));
 		if(!$this->recipients)$v->input($field)->addError(($type === 'user') ? ts('choose at least one user') : ts('these groups have no active user'));
 
@@ -97,11 +98,10 @@ class NotificationController extends \Core\CrudController
 	protected function onSaveBefore(array $row, array $record):array
 	{
 
-		$type = (($row['recipient_type'] ?? '') === 'user') ? 'user' : 'group';
+		$type = (($row['_recipient_type'] ?? '') === 'user') ? 'user' : 'group';
 		$row['target_type'] = $type;
-		$row['target_ids'] = json_encode($this->ids($row["recipient_{$type}s"] ?? ''));
+		$row['target_ids'] = json_encode($this->ids($row["_recipient_{$type}s"] ?? ''));
 		$row['link'] = ltrim((string)($row['link'] ?? ''), '/');
-		unset($row['recipient_type'], $row['recipient_groups'], $row['recipient_users']);
 
 		return $row;
 

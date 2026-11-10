@@ -63,7 +63,7 @@ class User_FilterController extends \Core\CrudController
 		$form->addSelect('plugin', 'Plugin', self::plugins(), true)->autocomplete()->set('translate', false);
 		$form->addText('name', 'Name', true)->maxLength(255);
 		$form->addSelectMultiple('xcore_group_ids', 'Shared with', DB()->query("SELECT id, name FROM xcore_group WHERE deleted = 'no' ORDER BY name")->fetchAll(\PDO::FETCH_KEY_PAIR))->set('translate', false)->help('empty = private to its owner');
-		$form->addCode('conditions', 'Conditions', true, 'json')->help('{"match": "all|any", "conditions": [{"f": "field", "o": "operator", "v": "value"}]}');
+		$form->addCode('conditions', 'Conditions', true, 'json')->help('{"match": "all|any", "conditions": [{"f": "field", "o": "operator", "v": "value"}]}')->protect();
 
 	}
 

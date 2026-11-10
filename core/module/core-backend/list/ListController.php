@@ -73,12 +73,12 @@ class ListController extends \Core\CrudController
 
 		$categories = DB()->query("SELECT DISTINCT category FROM xcore_list WHERE deleted = 'no' AND category != '' ORDER BY category")->fetchAllOne();
 
-		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->set('translate', false);
-		$form->addText('name', 'Name', true)->maxLength(255)->help('value stored in the records');
+		$form->addSelect('category', 'Category', array_combine($categories, $categories), true)->autocomplete(true)->maxLength(255)->set('translate', false)->protect();
+		$form->addText('name', 'Name', true)->maxLength(255)->help('value stored in the records')->protect();
 		$form->addText('label', 'Label', true)->maxLength(255)->help('text shown, translated');
 		$form->addIcon('icon', 'Icon');
 		$form->addSelect('class', 'Class', self::classes(), true)->defaultValue('default filled')->set('translate', false)->help('color and variant of the mui chip');
-		$form->addText('style', 'Style')->maxLength(255)->placeholder('background:#1f2335;color:#ffffff')->help('css added to the chip');
+		$form->addText('style', 'Style')->maxLength(255)->placeholder('background:#1f2335;color:#ffffff')->help('css added to the chip')->protect();
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 
 	}
