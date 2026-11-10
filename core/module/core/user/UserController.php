@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * users of the backend (xcore_user), login and password rules from config auth/security
  * right connect_as: open the session of another user (logged)
  * right two_factor_reset (Reset OTP): removes the second factor of a user (lost phone), he sets it up again at his next logon, and changes his OTP method
- * OTP method (two_factor_method): default = the method of the application (globals auth.backend.two_factor.method), never changed on the own account except by a super admin
+ * OTP method (two_factor_method): default = the method of the application (config auth/security/backend/two_factor/method), among the allowed methods, never changed on the own account except by a super admin
  */
 #[Route('/api/user', name: 'api.user.')]
 class UserController extends \Core\CrudController
@@ -49,8 +49,9 @@ class UserController extends \Core\CrudController
 		$grid->rowAction('connections', 'Connections', 'history', 'list', 'log/?search[]=action||begins||logon&search[]=record_id||{id}');
 		if(\Core\TwoFactor::enabled('backend'))$grid->rowAction('two-factor-reset', 'Reset OTP', 'phonelink_lock', 'two_factor_reset');
 
-		// effective second factor: the method of the user, otherwise the one of the application (value of a fixed list)
-		$otp_sql = "IF(xcore_user.two_factor_method = '', '".\Core\TwoFactor::globalMethod('backend')."', xcore_user.two_factor_method)";
+		// effective second factor: the method of the user when allowed, otherwise the one of the application (values of a fixed list)
+		$otp_allowed = "'".implode("', '", \Core\TwoFactor::allowedMethods('backend'))."'";
+		$otp_sql = "IF(xcore_user.two_factor_method IN ({$otp_allowed}), xcore_user.two_factor_method, '".\Core\TwoFactor::globalMethod('backend')."')";
 		$grid->qSelect($otp_sql, 'otp');
 		$grid->addFilter('otp', 'OTP', 'select', \Core\TwoFactor::LABELS, $otp_sql);
 
@@ -148,13 +149,14 @@ class UserController extends \Core\CrudController
 	{
 
 		$labels = \Core\TwoFactor::labels();
-		$options = ['default' => ts('Default ([METHOD])', ['METHOD' => $labels[\Core\TwoFactor::globalMethod('backend')]])] + $labels;
+		$allowed = array_intersect_key($labels, array_flip(\Core\TwoFactor::allowedMethods('backend')));
+		$options = ['default' => ts('Default ([METHOD])', ['METHOD' => $labels[\Core\TwoFactor::globalMethod('backend')]])] + $allowed;
 
 		$form->addSelect('two_factor_method', 'OTP method', $options, true)
 			 ->defaultValue('default')
 			 ->set('translate', false)
 			 ->readonly(!self::canChangeTwoFactor($record))
-			 ->help('second factor asked at the sign in, Default = method of the application (Configuration), a change resets the OTP of the user')
+			 ->help('second factor asked at the sign in, Default = method of the application (config of the instance), a change resets the OTP of the user')
 			 ->protect();
 
 	}
@@ -218,6 +220,9 @@ class UserController extends \Core\CrudController
 
 		if($method !== $current && !self::canChangeTwoFactor($record))
 			$v->input('two_factor_method')->addError(ts('you cannot change the OTP method of this account'));
+
+		if($method !== '' && $method !== $current && !in_array($method, \Core\TwoFactor::allowedMethods('backend'), true))
+			$v->input('two_factor_method')->addError(ts('this OTP method is not allowed'));
 
 		$mobile = (string)$v->inputGet('mobile', $record['mobile'] ?? '');
 		if($method === 'sms' && ($method !== $current || $mobile !== (string)($record['mobile'] ?? '')) && \Core\Sms::normalize($mobile) === '')

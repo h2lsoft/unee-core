@@ -5,10 +5,11 @@ namespace Core;
 /**
  * second factor of the sign in: authenticator app (totp rfc 6238, 6 digits, 30 s, sha1), code by sms, code by email, or none
  *
- * - method of the application: globals auth.<application>.two_factor.method, a user can have his own (xcore_user.two_factor_method, '' = the application)
- * - code by sms or email: 6 digits, only its hash kept in the pending logon (session), globals auth.two_factor.code.* (ttl, max_attempts, resend_delay, max_resends)
+ * - method of the application: config auth/security/<application>/two_factor/method, a user can have his own (xcore_user.two_factor_method, '' = the application)
+ *   among the methods allowed by config auth/security/<application>/two_factor/allowed_methods (method => true / false)
+ * - code by sms or email: 6 digits, only its hash kept in the pending logon (session), config auth/security/two_factor/code/* (ttl, max_attempts, resend_delay, max_resends)
  *   sms: a mobile and sms credits (\Core\Sms) needed, email: email credits (\Core\Mailer) needed, never one instead of the other
- * - trusted devices: globals auth.<application>.two_factor.trust_days, cookie unee_trusted_device, its sha256 in xcore_user_trusted_device
+ * - trusted devices: config auth/security/<application>/two_factor/trust_days, cookie unee_trusted_device, its sha256 in xcore_user_trusted_device
  * - secrets encrypted with config auth/security/encryption_key (32 bytes base64, per instance: php vendor/bin/unee key:generate)
  */
 class TwoFactor
@@ -21,12 +22,12 @@ class TwoFactor
 	// english labels of the methods (translated by the grids, labels() for the forms)
 	public const array LABELS = ['authenticator' => 'Authenticator app', 'sms' => 'SMS', 'email' => 'Email', 'none' => 'None'];
 
-	// code by sms or email, globals auth.two_factor.code.<name>: [default, min, max, description], values kept in their bounds
+	// code by sms or email, config auth/security/two_factor/code/<name>: [default, min, max], values kept in their bounds
 	public const array CODE_SETTINGS = [
-		'ttl' => [300, 60, 900, 'seconds a pending sign in stays valid, the code by sms or email too (60-900)'],
-		'max_attempts' => [5, 3, 10, 'wrong codes before the password is asked again (3-10)'],
-		'resend_delay' => [60, 30, 300, 'seconds before a new code can be sent by sms or email (30-300)'],
-		'max_resends' => [3, 0, 5, 'new codes a pending sign in can ask by sms or email (0-5)'],
+		'ttl' => [300, 60, 900],
+		'max_attempts' => [5, 3, 10],
+		'resend_delay' => [60, 30, 300],
+		'max_resends' => [3, 0, 5],
 	];
 
 	// key of the core default config before the keys by instance: public, only read to re-encrypt (key:generate --rotate)
@@ -38,29 +39,35 @@ class TwoFactor
 	// settings *********************************************************************************************************
 
 	/**
-	 * registers the globals (shown in the module Globals)
+	 * methods a user can get in the application: config auth/security/<application>/two_factor/allowed_methods (method => true / false)
+	 * a map, not a list: the config of an instance overrides one method without replacing the others (array_replace_recursive)
 	 *
-	 * @return void
+	 * @param string $application backend or frontend
+	 *
+	 * @return array methods in the order of METHODS
 	 */
-	public static function register():void
+	public static function allowedMethods(string $application='backend'):array
 	{
 
-		foreach(['backend', 'frontend'] as $application)
+		$allowed = Config::get("auth/security/{$application}/two_factor/allowed_methods", []);
+		if(!is_array($allowed) || !$allowed)return self::METHODS;
+
+		$methods = [];
+		foreach(self::METHODS as $method)
 		{
 
-			self::globalMethod($application);
-			self::trustDays($application);
+			if(!empty($allowed[$method]))$methods[] = $method;
 
 		}
 
-		foreach(array_keys(self::CODE_SETTINGS) as $name)
-			self::setting($name);
+		return $methods;
 
 	}
 
 	/**
-	 * method of the application, a value out of the list is read as authenticator (never none)
-	 * first read: from the old config auth/security/<application>/two_factor/enabled (true = authenticator, false = none)
+	 * method of the application: config auth/security/<application>/two_factor/method
+	 * a value out of the list or not allowed is read as authenticator (never none)
+	 * old key before the methods: auth/security/<application>/two_factor/enabled (true = authenticator, false = none)
 	 *
 	 * @param string $application backend or frontend
 	 *
@@ -69,15 +76,25 @@ class TwoFactor
 	public static function globalMethod(string $application='backend'):string
 	{
 
-		$default = (Config::get("auth/security/{$application}/two_factor/enabled", $application === 'backend')) ? 'authenticator' : 'none';
-		$method = trim((string)Globals::get("auth.{$application}.two_factor.method", $default, true, 'text', "second factor of the {$application} for every user: authenticator, sms, email or none (a user can have his own method)"));
+		$method = Config::get("auth/security/{$application}/two_factor/method", '');
+		if($method === '' || $method === false || $method === null)
+		{
 
-		return (in_array($method, self::METHODS, true)) ? $method : 'authenticator';
+			$enabled = Config::get("auth/security/{$application}/two_factor/enabled", 'missing');
+			if($enabled === 'missing')$enabled = ($application === 'backend');
+			$method = ($enabled) ? 'authenticator' : 'none';
+
+		}
+
+		$method = trim((string)$method);
+		if(!in_array($method, self::METHODS, true) || !in_array($method, self::allowedMethods($application), true))return 'authenticator';
+
+		return $method;
 
 	}
 
 	/**
-	 * method of a user: his own, otherwise the one of the application
+	 * method of a user: his own when allowed in the application, otherwise the one of the application
 	 *
 	 * @param array $user row of xcore_user
 	 * @param string $application backend or frontend
@@ -88,12 +105,14 @@ class TwoFactor
 	{
 
 		$method = (string)($user['two_factor_method'] ?? '');
-		return (in_array($method, self::METHODS, true)) ? $method : self::globalMethod($application);
+		if(in_array($method, self::METHODS, true) && in_array($method, self::allowedMethods($application), true))return $method;
+
+		return self::globalMethod($application);
 
 	}
 
 	/**
-	 * a second factor can be asked in the application: method of the application, or a user with his own method
+	 * a second factor can be asked in the application: method of the application, or a user with his own allowed method
 	 *
 	 * @param string $application backend or frontend
 	 *
@@ -103,7 +122,13 @@ class TwoFactor
 	{
 
 		if(self::globalMethod($application) !== 'none')return true;
-		return (bool)DB()->query("SELECT COUNT(*) FROM xcore_user WHERE deleted = 'no' AND two_factor_method IN ('authenticator', 'sms', 'email')")->fetchOne();
+
+		$methods = array_values(array_diff(self::allowedMethods($application), ['none']));
+		if(!$methods)return false;
+
+		// values of the fixed list METHODS
+		$in = "'".implode("', '", $methods)."'";
+		return (bool)DB()->query("SELECT COUNT(*) FROM xcore_user WHERE deleted = 'no' AND two_factor_method IN ({$in})")->fetchOne();
 
 	}
 
@@ -120,7 +145,7 @@ class TwoFactor
 	}
 
 	/**
-	 * days a device stays trusted ("trust this device"), 0 = never
+	 * days a device stays trusted ("trust this device"), 0 = never: config auth/security/<application>/two_factor/trust_days (0-365)
 	 *
 	 * @param string $application backend or frontend
 	 *
@@ -129,13 +154,12 @@ class TwoFactor
 	public static function trustDays(string $application='backend'):int
 	{
 
-		$default = (int)Config::get("auth/security/{$application}/two_factor/trust_days", 30);
-		return max(0, min(365, (int)Globals::get("auth.{$application}.two_factor.trust_days", (string)$default, true, 'int', "days a device stays trusted in the {$application} (checkbox at the sign in), 0 = never (0-365)")));
+		return max(0, min(365, (int)Config::get("auth/security/{$application}/two_factor/trust_days", 30)));
 
 	}
 
 	/**
-	 * setting of the codes, kept in its bounds (a typo never weakens the sign in)
+	 * setting of the codes: config auth/security/two_factor/code/<name>, kept in its bounds (a typo never weakens the sign in)
 	 *
 	 * @param string $name ttl, max_attempts, resend_delay or max_resends
 	 *
@@ -144,8 +168,8 @@ class TwoFactor
 	public static function setting(string $name):int
 	{
 
-		[$default, $min, $max, $description] = self::CODE_SETTINGS[$name];
-		return max($min, min($max, (int)Globals::get("auth.two_factor.code.{$name}", (string)$default, true, 'int', $description)));
+		[$default, $min, $max] = self::CODE_SETTINGS[$name];
+		return max($min, min($max, (int)Config::get("auth/security/two_factor/code/{$name}", $default)));
 
 	}
 

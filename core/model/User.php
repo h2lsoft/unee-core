@@ -193,7 +193,7 @@ class User extends \Core\Entity
 	}
 
 	/**
-	 * pending logon waiting for its second factor (password checked less than auth.two_factor.code.ttl seconds ago)
+	 * pending logon waiting for its second factor (password checked less than config auth/security/two_factor/code/ttl seconds ago)
 	 *
 	 * @return array {"user": row of xcore_user, "method", "secret": base32 secret to set up ('' when the user has one), "sent_at", "resends"}, [] when none
 	 */
@@ -217,10 +217,10 @@ class User extends \Core\Entity
 
 	/**
 	 * checks the code of a pending logon (twoFactorPending) and opens the session, the secret is saved on setup
-	 * each wrong code counts as a failed logon (auth/logon_throttle), after auth.two_factor.code.max_attempts the password is asked again
+	 * each wrong code counts as a failed logon (auth/logon_throttle), after config auth/security/two_factor/code/max_attempts the password is asked again
 	 *
 	 * @param string $code 6 digits of the app, of the sms or of the email
-	 * @param bool $trust_device remember the device (auth.backend.two_factor.trust_days)
+	 * @param bool $trust_device remember the device (config auth/security/backend/two_factor/trust_days)
 	 *
 	 * @return string '' on success, 'expired' (password to type again) or 'invalid'
 	 */
@@ -294,8 +294,8 @@ class User extends \Core\Entity
 	}
 
 	/**
-	 * new code by sms or email for the pending logon, after auth.two_factor.code.resend_delay, at most auth.two_factor.code.max_resends times
-	 * the code sent before is no longer valid, the pending logon lasts auth.two_factor.code.ttl again
+	 * new code by sms or email for the pending logon, after config auth/security/two_factor/code/resend_delay, at most config auth/security/two_factor/code/max_resends times
+	 * the code sent before is no longer valid, the pending logon lasts config auth/security/two_factor/code/ttl again
 	 *
 	 * @return string '' when sent, 'expired' (password to type again), 'not_allowed' (authenticator app), 'too_early', 'max_resends', 'throttled' or the error of \Core\TwoFactor::sendCode()
 	 */

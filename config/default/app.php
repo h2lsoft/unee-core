@@ -235,8 +235,35 @@ return [
 			// php vendor/bin/unee key:generate --instance=<name> writes it, --rotate re-encrypts the secrets with a new key
 			'encryption_key' => '',
 
-			// second factor of the sign in: globals auth.<application>.two_factor.method (authenticator, sms, email, none) and .trust_days,
-			// globals auth.two_factor.code.* (code by sms or email), a user can have his own method (users module, right two_factor_reset)
+			// second factor of the sign in, per application (security settings: config of the instance, never globals)
+			// method: authenticator, sms, email or none, a user can have his own (users module, right two_factor_reset)
+			// allowed_methods: methods a user can get, a map method => true / false (an instance overrides one method only)
+			// trust_days: days a device stays trusted, 0 = never (0-365)
+			'backend' => [
+				'two_factor' => [
+					'method' => 'authenticator',
+					'allowed_methods' => ['authenticator' => true, 'sms' => true, 'email' => true, 'none' => true],
+					'trust_days' => 30,
+				],
+			],
+
+			'frontend' => [
+				'two_factor' => [
+					'method' => 'none',
+					'allowed_methods' => ['authenticator' => true, 'sms' => true, 'email' => true, 'none' => true],
+					'trust_days' => 30,
+				],
+			],
+
+			// codes by sms or email, kept in their bounds: ttl 60-900 s (the pending sign in too), max_attempts 3-10, resend_delay 30-300 s, max_resends 0-5
+			'two_factor' => [
+				'code' => [
+					'ttl' => 300,
+					'max_attempts' => 5,
+					'resend_delay' => 60,
+					'max_resends' => 3,
+				],
+			],
 		],
 
 		'backend' => [

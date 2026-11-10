@@ -86,7 +86,7 @@ class AuthController extends \Core\Controller
 	}
 
 	/**
-	 * new code by sms or email of a pending logon, after the delay of auth.two_factor.code.resend_delay
+	 * new code by sms or email of a pending logon, after the delay of config auth/security/two_factor/code/resend_delay
 	 *
 	 * @return \Core\JsonResponse the state of the step (see login), 429 too early (Retry-After), 422 no more code, 440 password to type again (expired, throttled, code not sent)
 	 */

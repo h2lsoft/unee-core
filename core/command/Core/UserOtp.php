@@ -14,9 +14,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * second factor of a user from the console, the way out when nobody can sign in anymore (lost phone, no sms or email credits)
  * php vendor/bin/unee user:otp <login> --instance=x                       state of the user
  * php vendor/bin/unee user:otp <login> --method=none|authenticator|sms|email|default [--reset]
- * php vendor/bin/unee user:otp --global=none|authenticator|sms|email      method of the backend (globals auth.backend.two_factor.method)
+ * method of the backend: config auth/security/backend/two_factor/method of the instance (edit the config file to unlock an instance)
  */
-#[AsCommand(name: 'user:otp', description: 'Show or change the second factor (OTP) of a user or of the backend')]
+#[AsCommand(name: 'user:otp', description: 'Show or change the second factor (OTP) of a user')]
 class UserOtp extends Command
 {
 
@@ -26,7 +26,6 @@ class UserOtp extends Command
 		$this->addArgument('login', InputArgument::OPTIONAL, 'email or login of the user (config auth/backend/key)');
 		$this->addOption('method', null, InputOption::VALUE_REQUIRED, 'default, authenticator, sms, email or none (a change resets the OTP)');
 		$this->addOption('reset', null, InputOption::VALUE_NONE, 'remove the secret of the authenticator app and the trusted devices');
-		$this->addOption('global', null, InputOption::VALUE_REQUIRED, 'method of the backend for every user: authenticator, sms, email or none');
 
 	}
 
@@ -46,32 +45,11 @@ class UserOtp extends Command
 
 		\Core\Kernel::boot();
 
-		$global = $input->getOption('global');
-		if($global !== null)
-		{
-
-			if(!in_array($global, \Core\TwoFactor::METHODS, true))
-			{
-
-				$io->error("--global: authenticator, sms, email or none");
-				return Command::FAILURE;
-
-			}
-
-			$before = \Core\TwoFactor::globalMethod('backend');
-			\Core\Globals::set('auth.backend.two_factor.method', $global, 'text', 'second factor of the backend for every user: authenticator, sms, email or none (a user can have his own method)');
-			\Core\Log::write('two_factor_cli', "OTP method of the backend: {$before} -> {$global}", [], 0, 'warning', 'user', 'unee-cli', 'cli');
-			$io->success("OTP method of the backend: {$before} -> {$global}");
-
-			if((string)$input->getArgument('login') === '')return Command::SUCCESS;
-
-		}
-
 		$login = (string)$input->getArgument('login');
 		if($login === '')
 		{
 
-			$io->error("give the login of a user, or --global");
+			$io->error("give the login of a user");
 			return Command::FAILURE;
 
 		}
@@ -100,6 +78,14 @@ class UserOtp extends Command
 			}
 
 			$value = ($method === 'default') ? '' : $method;
+			if($value !== '' && !in_array($value, \Core\TwoFactor::allowedMethods('backend'), true))
+			{
+
+				$io->error("--method {$value} is not allowed by config auth/security/backend/two_factor/allowed_methods");
+				return Command::FAILURE;
+
+			}
+
 			if($value === 'sms' && \Core\Sms::normalize((string)$user['mobile']) === '')
 			{
 
