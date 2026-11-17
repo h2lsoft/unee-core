@@ -741,7 +741,7 @@ class Sms
 			$color = ($c['percent'] <= 10) ? 'red' : (($c['percent'] <= 25) ? 'orange' : 'green');
 			$tiles = [['value' => $c['remaining'], 'label' => ts('Left'), 'color' => $color], ['value' => $c['used'], 'label' => ts('Used'), 'color' => 'blue'], ['value' => $c['monthly'], 'label' => ts('Monthly'), 'color' => 'grey']];
 
-			return ['type' => 'counters', 'status' => ['label' => ts('Credits left'), 'badge' => ['text' => "{$c['percent']}%", 'color' => $color]], 'note' => ['text' => ts('reset on [DATE]', ['DATE' => $c['reset']])], 'tiles' => $tiles];
+			return ['type' => 'counters', 'status' => ['label' => ts('Credits left'), 'badge' => ['text' => "{$c['percent']}%", 'color' => $color]], 'note' => ['day' => $c['reset'], 'prefix' => ts('next reset:')], 'tiles' => $tiles];
 
 		}
 

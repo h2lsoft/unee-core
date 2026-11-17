@@ -201,12 +201,12 @@ class CronController extends \Core\CrudController
 				['text' => $rec['name'], 'grow' => true, 'strong' => true],
 				['text' => "{$rec['repetition_minutes']} {$rec['repetition_hours']} {$rec['repetition_days']} {$rec['repetition_months']}", 'mono' => true, 'muted' => true],
 				['badge' => self::STATUSES[$status] ?? 'grey', 'text' => ts($status), 'width' => 80],
-				($rec['last_execution_date_start']) ? ['date' => $rec['last_execution_date_start'], 'align' => 'right', 'width' => 110] : ['text' => '-', 'muted' => true, 'align' => 'right', 'width' => 110],
+				($rec['last_execution_date_start']) ? ['date' => $rec['last_execution_date_start'], 'small' => true, 'align' => 'right', 'width' => 110] : ['text' => '-', 'muted' => true, 'small' => true, 'align' => 'right', 'width' => 110],
 			];
 
 		}
 
-		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No active task')];
+		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No active task'), 'max_rows' => 4];
 
 	}
 

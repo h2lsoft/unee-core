@@ -53,6 +53,9 @@ class DataGrid
 	public bool $duplicate = true;
 	public array $mobile = ['title' => '', 'subtitle' => ''];
 
+	// map view ($grid->map()): columns of the position, title, color and popup
+	public array $map = [];
+
 	// folder of the module (\Core\CrudController), urls of the file columns
 	public string $module = '';
 
@@ -586,6 +589,29 @@ class DataGrid
 	}
 
 	/**
+	 * map view of the records next to the grid (leaflet, tiles of config map/tiles), positions from two columns
+	 * ex: $grid->map('head_office_lat', 'head_office_lng', 'name', 'status', ['head_office_city' => 'City', 'phone' => 'Phone']);
+	 *
+	 * @param string $lat column of the latitude (ex: the lat column of an address field)
+	 * @param string $lng column of the longitude
+	 * @param string $title column of the marker title
+	 * @param string $color column whose value gives the marker color: badge colors of the column, or the states of the workflow
+	 * @param array $popup columns shown in the popup, column => label
+	 *
+	 * @return static
+	 */
+	public function map(string $lat, string $lng, string $title, string $color='', array $popup=[]):static
+	{
+
+		foreach(array_merge([$lat, $lng, $title, $color], array_keys($popup)) as $column)
+			if($column !== '' && !preg_match('/^[a-z0-9_]+$/i', $column))throw new \InvalidArgumentException("map: invalid column {$column}");
+
+		$this->map = ['lat' => $lat, 'lng' => $lng, 'title' => $title, 'color' => $color, 'popup' => $popup];
+		return $this;
+
+	}
+
+	/**
 	 * a click on a row opens its read only view (GET /api/<module>/<id>/detail/, controller method detail()), ex: logs
 	 */
 	public function setDetail(bool $detail=true):static
@@ -774,7 +800,7 @@ class DataGrid
 	 *
 	 * @return array
 	 */
-	public function render(Request $request, int $limit=0):array
+	public function render(Request $request, int $limit=0, bool $map=false):array
 	{
 
 		$binds = $this->binds;
@@ -879,6 +905,9 @@ class DataGrid
 
 		$where = implode(' AND ', $wheres);
 
+		// map view: the positioned records of the search, the filters and the chip
+		if($map)return $this->mapRows($where, $binds);
+
 		// sort
 		$sort = (string)$request->query->get('sort', $this->order_by);
 		$sortable = array_keys(array_filter($this->columns, fn($c) => $c['sortable']));
@@ -959,7 +988,67 @@ class DataGrid
 			'grid_actions' => array_values(array_map(fn($a) => ['label' => ts($a['label']), 'confirm' => ($a['confirm'] !== '') ? ts($a['confirm']) : ''] + $a, $this->grid_actions)),
 			'mobile' => $this->mobile,
 			'position' => ($this->position !== '') ? $this->position : null,
+			'map' => ($this->map) ? true : false,
 		];
+
+	}
+
+	/**
+	 * markers of the map view, config map/max_markers at most (the most recent first)
+	 *
+	 * @param string $where
+	 * @param array $binds
+	 *
+	 * @return array {"markers": [{"id", "lat", "lng", "title", "color", "popup": [{"label", "value"}]}], "total", "truncated"}
+	 */
+	private function mapRows(string $where, array $binds):array
+	{
+
+		$m = $this->map;
+		$lat = $this->quote($m['lat']);
+		$lng = $this->quote($m['lng']);
+		$where .= " AND {$lat} IS NOT NULL AND {$lng} IS NOT NULL AND NOT ({$lat} = 0 AND {$lng} = 0)";
+		$max = max(1, (int)\Core\Config::get('map/max_markers', 5000));
+
+		$fields = '*';
+		foreach($this->selects as $alias => $raw)
+			$fields .= ", {$raw} AS {$this->quote($alias)}";
+
+		$total = (int)DB()->query("SELECT COUNT(*) FROM {$this->quote($this->table)} WHERE {$where}", $binds)->fetchOne();
+		$recs = DB()->query("SELECT {$fields} FROM {$this->quote($this->table)} WHERE {$where} ORDER BY id DESC LIMIT {$max}", $binds)->fetchAll();
+
+		// labels of the values (->labels()) shown in the popup
+		$label = function(string $column, mixed $value):string
+		{
+
+			$value = (string)$value;
+			$labels = (array)($this->columns[$column]['labels'] ?? []);
+			return (isset($labels[$value])) ? ts((string)$labels[$value]) : $value;
+
+		};
+
+		$markers = [];
+		foreach($recs as $rec)
+		{
+
+			if($this->hook)$rec = call_user_func($this->hook, $rec);
+
+			$popup = [];
+			foreach($m['popup'] as $column => $text)
+				if(!preg_match('/password|pwd|secret|token/i', $column))$popup[] = ['label' => ts($text), 'value' => $label($column, $rec[$column] ?? '')];
+
+			$markers[] = [
+				'id' => (int)$rec['id'],
+				'lat' => (float)$rec[$m['lat']],
+				'lng' => (float)$rec[$m['lng']],
+				'title' => $label($m['title'], $rec[$m['title']] ?? ''),
+				'color' => ($m['color'] !== '') ? (string)($rec[$m['color']] ?? '') : '',
+				'popup' => $popup,
+			];
+
+		}
+
+		return ['markers' => $markers, 'total' => $total, 'truncated' => $total > $max];
 
 	}
 

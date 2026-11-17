@@ -400,7 +400,7 @@ class NewsletterController extends \Core\CrudController
 		return [
 			'type' => 'counters',
 			'status' => ['label' => ts('Credits left'), 'badge' => ['text' => "{$c['percent']}%", 'color' => $color]],
-			'note' => ['text' => ts('reset on [DATE]', ['DATE' => $c['reset']])],
+			'note' => ['day' => $c['reset'], 'prefix' => ts('next reset:')],
 			'tiles' => [
 				['value' => $c['remaining'], 'label' => ts('Left'), 'color' => $color],
 				$split,

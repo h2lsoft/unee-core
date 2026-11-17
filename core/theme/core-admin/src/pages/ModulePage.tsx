@@ -12,6 +12,7 @@ import RightsPage from './RightsPage'
 import SystemInfoPage from './SystemInfoPage'
 import CalendarPage from './CalendarPage'
 import ProjectBoard from '../components/ProjectBoard'
+import WorkflowEditor from '../components/WorkflowEditor'
 
 /**
  * generic page of a crud module (\Core\CrudController): /backend/<module>/
@@ -43,6 +44,18 @@ export default function ModulePage()
 
 	}, [params, setParams])
 
+	// ?edit=<id> (link of a notification, ex: chatter): the form of the record opens, the parameter leaves the url
+	useEffect(() => {
+
+		const edit = Number(params.get('edit') ?? 0)
+		if(!edit)return
+		setForm({open: true, id: edit})
+		const next = new URLSearchParams(params)
+		next.delete('edit')
+		setParams(next, {replace: true})
+
+	}, [params, setParams])
+
 	// a new record takes the equal filters of the url, ex: gallery-card/?search[]=xcore_gallery_id||3
 	const defaults = Object.fromEntries(params.getAll('search[]').map((raw) => raw.split('||')).filter((p) => p.length === 2 && p[0] !== 'q' && p[1] !== ''))
 
@@ -53,6 +66,7 @@ export default function ModulePage()
 	if(module === 'right')return <RightsPage icon={item.icon} />
 	if(module === 'system-info')return <SystemInfoPage icon={item.icon} />
 	if(module === 'calendar')return <CalendarPage icon={item.icon} />
+	if(module === 'workflow' && Number(params.get('editor')) > 0)return <WorkflowEditor id={Number(params.get('editor'))} />
 	if(module === 'project' && (params.get('board') || params.get('gantt')))return <ProjectBoard id={Number(params.get('board') || params.get('gantt'))} view={params.get('gantt') ? 'gantt' : 'board'} />
 
 	return (

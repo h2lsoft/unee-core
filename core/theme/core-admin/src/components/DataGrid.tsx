@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router'
 import {
 	Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, InputBase,
@@ -7,7 +7,7 @@ import {
 import {
 	AddCircleOutlineOutlined, ArrowDropDownOutlined, ArrowDropUpOutlined, ChevronLeftOutlined, ChevronRightOutlined,
 	CheckBoxOutlined, CloseOutlined, FileDownloadOutlined, ContentCopyOutlined, DragIndicatorOutlined, DeleteOutlineOutlined, EditOutlined, FilterAltOutlined, GroupOutlined, KeyboardArrowDownOutlined, MoreVertOutlined, SaveOutlined,
-	SearchOutlined, ViewColumnOutlined,
+	SearchOutlined, ViewColumnOutlined, MapOutlined, TableRowsOutlined,
 	MailOutlined, OpenInNewOutlined, LanguageOutlined,
 } from '@mui/icons-material'
 import { api, ApiException, dataChanged, type Grid, type GridAction, type GridColumn, type GridFilter, type Row, type RowAction, type SavedFilter, type WorkflowTransition } from '../api'
@@ -22,6 +22,9 @@ import { StateDot, TransitionDialog, type TransitionChoice } from './Workflow'
 import { useToast } from './Toast'
 import { Flag } from './Flag'
 import { BASE } from '../base'
+
+// map view of the grid ($grid->map()), leaflet loaded on demand
+const MapView = lazy(() => import('./MapView'))
 
 const BORDER = 'var(--u-border)'
 const ROW_BORDER = 'var(--u-border-soft)'
@@ -1060,6 +1063,19 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 	const filters_on = grid.conditions.length > 0
 
 	// search with the grid menu and the advanced filters
+	// view of the module: grid, or map when the grid declares one (?view=map)
+	const view = (grid.map && params.get('view') === 'map') ? 'map' : 'grid'
+	const view_switch = grid.map && (
+		<Box role="group" aria-label={t('View')} sx={{height: 40, display: 'flex', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', overflow: 'hidden', order: {xs: 2, md: 0}}}>
+			{([['grid', t('Grid'), <TableRowsOutlined key="g" sx={{fontSize: 18}} />], ['map', t('Map'), <MapOutlined key="m" sx={{fontSize: 18}} />]] as const).map(([key, label, icon], i) => (
+				<Tooltip key={key} title={label}>
+					<ButtonBase aria-label={label} aria-pressed={view === key} onClick={() => update({view: key === 'map' ? 'map' : ''})}
+						sx={{width: 40, borderLeft: i ? '1px solid var(--u-border)' : 0, bgcolor: view === key ? 'var(--u-accent-bg)' : 'transparent', color: view === key ? 'var(--u-accent-text)' : 'var(--u-text3)'}}>{icon}</ButtonBase>
+				</Tooltip>
+			))}
+		</Box>
+	)
+
 	const search_group = (
 		<Box sx={{height: 40, display: 'flex', alignItems: 'stretch', border: '1px solid var(--u-border-strong)', borderRadius: 2, bgcolor: 'var(--u-paper)', width: {xs: '100%', md: 'auto'}, order: {xs: 3, md: 0}}}>
 			<Box component="label" sx={{width: {xs: 'auto', md: 300}, flexGrow: {xs: 1, md: 0}, display: 'flex', alignItems: 'center', gap: 1, px: 1.5, color: 'var(--u-muted)'}}>
@@ -1228,6 +1244,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 					</Typography>
 					<BookmarkButton module={module} />
 				</Box>
+				{view_switch}
 				{search_group}
 				{grid_actions.map((a) => (
 					<Button key={a.name} variant="outlined" color={a.danger ? 'error' : 'primary'} disabled={running !== ''} startIcon={running === a.name ? <CircularProgress size={16} color="inherit" /> : <MenuIcon name={a.icon} fontSize={18} />} onClick={() => a.url ? navigate(`/${a.url}`) : (a.form ? onForm?.(a) : (a.confirm ? setConfirmAction(a) : gridAction(a)))} sx={{bgcolor: 'var(--u-paper)'}}>{a.label}</Button>
@@ -1255,7 +1272,15 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 				</Box>
 			</Box>
 
-			<Box sx={{bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
+			{view === 'map' && (
+				<Box sx={{bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
+					<Suspense fallback={<Box sx={{display: 'flex', justifyContent: 'center', py: 8}}><CircularProgress /></Box>}>
+						<MapView module={module} query={query} version={version + reload} onOpen={(id) => onEdit({id} as Row)} />
+					</Suspense>
+				</Box>
+			)}
+
+			{view === 'grid' && <Box sx={{bgcolor: 'var(--u-paper)', border: `1px solid ${BORDER}`, borderRadius: '6px', overflow: 'hidden'}}>
 				{/* mobile: no table header, the selection control is on top of the cards */}
 				{is_mobile && batch && grid.rows.length > 0 && (
 					<Box sx={{display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 1, bgcolor: HEAD_BG, borderBottom: `1px solid ${BORDER}`, fontSize: 13, color: 'var(--u-text3)'}}>
@@ -1265,7 +1290,7 @@ export default function DataGrid({module, icon, version, onAdd, onEdit, onTitle,
 				)}
 				<Box sx={{overflowX: 'auto', opacity: loading ? 0.6 : 1, transition: 'opacity .15s'}}>{body}</Box>
 				{p.total > 0 && footer}
-			</Box>
+			</Box>}
 
 			<Menu anchorEl={grid_menu} open={!!grid_menu} onClose={() => setGridMenu(null)} anchorOrigin={{vertical: 'bottom', horizontal: 'right'}} transformOrigin={{vertical: 'top', horizontal: 'right'}} slotProps={menu_paper}>
 				<Typography component="li" sx={{listStyle: 'none', px: 2, pt: 0.75, pb: 0.5, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--u-muted)'}}>{t('Saved filters')}</Typography>

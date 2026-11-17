@@ -435,7 +435,7 @@ class UserController extends \Core\CrudController
 
 		}
 
-		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No connection'), 'filter' => ['column' => 2, 'options' => array_values($labels)], 'scroll' => 165];
+		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No connection'), 'filter' => ['column' => 2, 'options' => array_values($labels)], 'max_rows' => 4];
 
 	}
 

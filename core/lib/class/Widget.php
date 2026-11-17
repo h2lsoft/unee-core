@@ -8,9 +8,9 @@ namespace Core;
  * the method NOTES is the personal notes of the user, drawn by the react dashboard itself (type notes, no data call)
  *
  * data types:
- * - rows: {"type": "rows", "rows": [[cell, ...]], "empty": "text", "filter" (optional): {"column", "options": [text, ...]} toggleable chips on the text of a column, "scroll" (optional): height in px of the rows, the others scrolled}
+ * - rows: {"type": "rows", "rows": [[cell, ...]], "empty": "text", "filter" (optional): {"column", "options": [text, ...]} toggleable chips on the text of a column, "scroll" (optional): height in px of the rows, the others scrolled, "max_rows" (optional): rows shown, the others scrolled (scroll wins)}
  * - progress: {"type": "progress", "items": [{"name", "link" (page of the backend, optional), "color", "percent", "badge": {"text", "color"}}]}
- * - counters: {"type": "counters", "status": {"label", "badge": {"text", "color"}}, "note", "tiles": [{"value", "label", "color"}]}
+ * - counters: {"type": "counters", "status": {"label", "badge": {"text", "color"}}, "note": {"text"} or {"prefix", "date": datetime shown relative} or {"prefix", "day": Y-m-d shown as a date}, "tiles": [{"value", "label", "color"}]}
  * a cell: a string or {"text", "strong", "badge" (color), "muted", "mono", "grow" (the column takes the free space, table at 100%), "align", "color" (error), "date" (Y-m-d H:i:s, shown relative), "day" (Y-m-d, shown relative), "avatar": {"initials", "color", "url"}, "title", "width", "link" (page of the backend), "small"}
  * colors: grey, blue, green, orange, red, purple, yellow
  */

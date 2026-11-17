@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Autocomplete, Box, Button, ButtonBase, Chip, CircularProgress, FormControlLabel, Radio, RadioGroup, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, IconButton, InputAdornment, InputLabel, MenuItem, OutlinedInput, Select, Switch, TextField, useMediaQuery, useTheme } from '@mui/material'
 import { CloseOutlined, DeleteOutlineOutlined, ErrorOutlineOutlined, HistoryOutlined, OpenInNewOutlined, PasswordOutlined, VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material'
 import HistoryDialog from './HistoryDialog'
@@ -12,6 +12,8 @@ import { t } from '../i18n'
 import { MenuIcon } from './icons'
 import TimeInput from './TimeInput'
 import FileInput from './FileInput'
+import AddressInput from './AddressInput'
+import { useChatterTarget } from './ChatterDock'
 import UserAvatar from './UserAvatar'
 import { useToast } from './Toast'
 import { BASE } from '../base'
@@ -21,6 +23,7 @@ export function toInput(field: FormField, value: unknown): string
 {
 
 	if(field.type === 'tags' || field.type === 'multiselect')return JSON.stringify(Array.isArray(value) ? value : [])
+	if(field.type === 'address')return JSON.stringify((value && typeof value === 'object') ? value : {})
 	const text = String(value ?? '')
 	if(field.mask === 'thousands')return applyMask(text, 'thousands')
 	// foreign key 0 = none: empty select
@@ -64,6 +67,23 @@ export function toApi(field: FormField, value: string): unknown
 {
 
 	if(field.type === 'tags' || field.type === 'multiselect')return words(value)
+	if(field.type === 'address')
+	{
+
+		try
+		{
+
+			return JSON.parse(value || '{}')
+
+		}
+		catch
+		{
+
+			return {}
+
+		}
+
+	}
 	if(field.mask === 'thousands')return value.replace(/ /g, '')
 	return (field.type === 'datetime' && value) ? `${value.replace('T', ' ')}:00`.slice(0, 19) : value
 
@@ -220,6 +240,8 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 		)
 
 	}
+
+	if(field.type === 'address')return <AddressInput id={id} field={field} value={value} error={error} onChange={onChange} />
 
 	if(field.type === 'file')return <FileInput id={id} field={field} value={value} error={error} onChange={onChange} />
 
@@ -466,6 +488,11 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const [initial, setInitial] = useState<Record<string, string>>({})
 	const [transition, setTransition] = useState<TransitionChoice | null>(null)
 	const [wf_history, setWfHistory] = useState(false)
+	// warning of the last save (ex: address not found), shown instead of Saved
+	const warning = useRef('')
+	// chatter of the record (option chatter of the plugin): floating buttons on the right of the screen, the buttons and the panel go over the form
+	const chatter = open && !!data?.chatter && id > 0 && !url
+	useChatterTarget(module, id, `${label.charAt(0).toUpperCase()}${label.slice(1)} #${id}`, chatter)
 
 	useEffect(() => {
 
@@ -509,7 +536,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 		try
 		{
 
-			await api(url ?? (id ? `${module}/${id}/` : `${module}/`), {method: (id || url) ? 'PUT' : 'POST', body: body()})
+			const result = await api<{warning?: string} | undefined>(url ?? (id ? `${module}/${id}/` : `${module}/`), {method: (id || url) ? 'PUT' : 'POST', body: body()})
+			warning.current = result?.warning ?? ''
 			return true
 
 		}
@@ -542,7 +570,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 		e.preventDefault()
 		if(!await save())return
-		toast((id || url) ? t('Saved') : t('Created'))
+		toast(warning.current || ((id || url) ? t('Saved') : t('Created')), warning.current ? 'warning' : 'success')
 		onSaved()
 
 	}
@@ -580,7 +608,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 
 	}
 
-	const fields = (data?.form.fields ?? []).map((f) => locked ? {...f, readonly: true} : f).filter((f) => isVisible(f, values))
+	// hidden fields (ex: the state column of a workflow) keep their value for the conditions of the others
+	const fields = (data?.form.fields ?? []).map((f) => locked ? {...f, readonly: true} : f).filter((f) => !f.hidden && isVisible(f, values))
 	const tabs = data?.form.tabs ?? []
 	const first_tab = fields.findIndex((f) => f.tab)
 	// a field declared inline joins the row of the field before it
@@ -589,7 +618,8 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 	const wide = fields.some((f) => f.type === 'code' || f.type === 'html')
 
 	return (
-		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1040 : 800}}} as object}}>
+		<Dialog open={open} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} fullScreen={full_screen} maxWidth="lg" fullWidth disableEnforceFocus={chatter}
+			slotProps={{paper: {component: 'form', onSubmit: submit, noValidate: true, sx: {maxWidth: {md: wide ? 1040 : 800}}} as object}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
 				<Box component="span" sx={{flexGrow: 1}}>{title ?? `${id ? t('Edit') : t('Add')} ${label}`}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
@@ -629,6 +659,7 @@ export default function FormDialog({module, id, label, open, onClose, onSaved, u
 						)}
 					</Box>
 				)}
+				{/* chatter of the record (plugin with the option chatter) */}
 			</DialogContent>
 
 			<DialogActions sx={{px: 3, pt: 1, pb: 2.5, gap: 1}}>

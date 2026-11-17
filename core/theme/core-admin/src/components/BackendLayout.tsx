@@ -12,6 +12,7 @@ import FormDialog from './FormDialog'
 import NotificationBell from './NotificationBell'
 import AnnounceBox from './AnnounceBox'
 import SearchDialog from './SearchDialog'
+import ChatterDock from './ChatterDock'
 
 const COLLAPSED_KEY = 'unee.menu.collapsed'
 const BORDER = 'var(--u-border)'
@@ -512,6 +513,9 @@ export default function BackendLayout()
 
 			{/* announcements not read yet, once the backend is loaded */}
 			<AnnounceBox />
+
+			{/* chatter of the record shown by a screen (useChatterTarget) */}
+			<ChatterDock />
 		</MenuContext.Provider>
 	)
 

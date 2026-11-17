@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router'
 import { Box, ButtonBase, CircularProgress, Typography } from '@mui/material'
 import { ChevronRightOutlined } from '@mui/icons-material'
@@ -13,11 +13,11 @@ import UserAvatar, { type AvatarData } from './UserAvatar'
 export type WidgetInfo = {id: number, type: 'notes' | 'data', name: string, icon: string, route: string, size: 'full' | 'half', position: number, refresh: number}
 
 type Cell = string | {text?: string, strong?: boolean, badge?: string, muted?: boolean, mono?: boolean, grow?: boolean, align?: 'left' | 'right', color?: string, date?: string, day?: string, avatar?: AvatarData, title?: string, width?: number, link?: string, small?: boolean}
-type Rows = {rows: Cell[][], empty?: string, filter?: {column: number, options: string[]}, scroll?: number}
+type Rows = {rows: Cell[][], empty?: string, filter?: {column: number, options: string[]}, scroll?: number, max_rows?: number}
 type WidgetData =
 	| ({type: 'rows'} & Rows)
 	| {type: 'progress', items: {name: string, link?: string, color: string, percent: number, badge?: {text: string, color: string}}[], empty?: string}
-	| {type: 'counters', status?: {label: string, badge: {text: string, color: string}}, note?: {date?: string, prefix?: string, text?: string}, tiles: {value: number, label: string, color: string}[]}
+	| {type: 'counters', status?: {label: string, badge: {text: string, color: string}}, note?: {date?: string, day?: string, prefix?: string, text?: string}, tiles: {value: number, label: string, color: string}[]}
 	| {type: 'error', message: string}
 
 export const LABEL_SX = {fontSize: 12, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--u-muted)'}
@@ -64,11 +64,23 @@ function FilterChips({rows, filter, off, setOff}: Required<Pick<Rows, 'filter'>>
 
 }
 
-function RowsView({rows, empty, filter, scroll}: Rows)
+function RowsView({rows, empty, filter, scroll, max_rows}: Rows)
 {
 
 	// options of the filter switched off by the user
 	const [off, setOff] = useState<string[]>([])
+	const list = useRef<HTMLDivElement>(null)
+	const [fit, setFit] = useState(0)
+	const count = filter ? rows.filter((r) => !off.includes(optionOf(r, filter.column))).length : rows.length
+
+	// max_rows: height of the first rows measured, the others scrolled (scroll in px wins)
+	useLayoutEffect(() => {
+
+		const el = list.current
+		const last = (!scroll && max_rows && count > max_rows) ? el?.children[max_rows - 1] as HTMLElement | undefined : undefined
+		setFit(last ? last.offsetTop + last.offsetHeight : 0)
+
+	}, [scroll, max_rows, count])
 
 	if(!rows.length)return <Typography sx={{py: 2, fontSize: 13, color: 'var(--u-muted)', textAlign: 'center'}}>{empty || t('Nothing to show')}</Typography>
 
@@ -81,12 +93,12 @@ function RowsView({rows, empty, filter, scroll}: Rows)
 	return (
 		<>
 			{filter && <FilterChips rows={rows} filter={filter} off={off} setOff={setOff} />}
-			{/* columns aligned by a subgrid, each row keeps its own hover; with scroll (height in px), the rows beyond are scrolled */}
+			{/* columns aligned by a subgrid, each row keeps its own hover; with scroll (height in px) or max_rows, the rows beyond are scrolled */}
 			{/* rows on the inner background of the widget */}
 			<Box sx={{bgcolor: 'var(--u-widget-inner)', borderRadius: '10px', p: 0.5}}>
-				<Box sx={{display: 'grid', gridTemplateColumns: grow.map((g) => g ? 'minmax(0, 1fr)' : 'auto').join(' '), columnGap: 1.5, width: full ? '100%' : 'fit-content', maxWidth: '100%', ...(scroll ? {height: scroll, alignContent: 'start', overflowY: 'auto', overflowX: 'hidden', scrollbarGutter: 'stable'} : {})}}>
+				<Box ref={list} sx={{position: 'relative', display: 'grid', gridTemplateColumns: grow.map((g) => g ? 'minmax(0, 1fr)' : 'auto').join(' '), columnGap: 1.5, width: full ? '100%' : 'fit-content', maxWidth: '100%', ...((scroll || fit) ? {height: scroll || fit, alignContent: 'start', overflowY: 'auto', overflowX: 'hidden', scrollbarGutter: 'stable'} : {})}}>
 					{shown.map((row, i) => (
-						<Box key={i} sx={{display: 'grid', gridColumn: '1 / -1', gridTemplateColumns: 'subgrid', alignItems: 'center', minHeight: 40, py: 0.5, px: 1, borderRadius: '4px', borderBottom: i < shown.length - 1 ? '1px solid var(--u-border-soft)' : 0, transition: 'background-color .15s', '&:hover': {bgcolor: 'var(--u-hover)'}}}>
+						<Box key={i} sx={{display: 'grid', gridColumn: '1 / -1', gridTemplateColumns: 'subgrid', alignItems: 'center', minHeight: 32, py: 0.25, px: 1, borderRadius: '4px', borderBottom: i < shown.length - 1 ? '1px solid var(--u-border-soft)' : 0, transition: 'background-color .15s', '&:hover': {bgcolor: 'var(--u-hover)'}}}>
 							{row.map((cell, j) => {
 	
 								const c = typeof cell === 'string' ? {} : cell
@@ -138,7 +150,7 @@ function Body({data}: {data: WidgetData})
 				{(data.status || data.note) && (
 					<Box sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 12.5, color: 'var(--u-muted)'}}>
 						{data.status && <>{data.status.label}<Badge value={data.status.badge.text} color={data.status.badge.color} /></>}
-						{data.note && <Box component="span" sx={{ml: 'auto'}}>{data.note.date ? `${data.note.prefix ?? ''} ${relativeTime(data.note.date)}`.trim() : data.note.text}</Box>}
+						{data.note && <Box component="span" title={data.note.date ? new Date(data.note.date).toLocaleString() : (data.note.day ? new Date(`${data.note.day}T00:00:00`).toLocaleDateString() : undefined)} sx={{ml: 'auto', fontSize: 11.5}}>{(data.note.date || data.note.day) ? `${data.note.prefix ?? ''} ${data.note.date ? relativeTime(data.note.date) : relativeDay(data.note.day ?? '')}`.trim() : data.note.text}</Box>}
 					</Box>
 				)}
 				<Box sx={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 1}}>

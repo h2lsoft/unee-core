@@ -76,6 +76,7 @@ class PluginController extends \Core\CrudController
 		$form->addText('url', 'Url', true)->maxLength(255)->showIf('type', 'url')->placeholder('https://');
 		$form->addBoolean('custom', 'Custom')->showIf('type', 'normal')->help('coded by a developer (own page): never opened in the Studio');
 		$form->addBoolean('versioning', 'Versioning')->help('keeps a copy of each version of the records');
+		$form->addBoolean('chatter', 'Chatter')->showIf('type', 'normal')->help('messages, internal notes, followers and activities under the records');
 		$form->addBoolean('visible', 'Visible')->defaultValue('yes')->help('shown in the menu');
 		$form->addBoolean('active', 'Active')->defaultValue('yes');
 

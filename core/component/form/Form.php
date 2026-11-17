@@ -14,6 +14,9 @@ class Form
 	// fields with an uppercase initial in every form (typing and saving)
 	public const array UCFIRST_NAMES = ['firstname', 'lastname'];
 
+	// parts of an address field, one column each (<name>_<part>), max length of the text ones (0 = coordinate)
+	public const array ADDRESS_PARTS = ['street' => 255, 'zip' => 16, 'city' => 128, 'country' => 64, 'lat' => 0, 'lng' => 0];
+
 	public array $fields = [];
 	public array $tabs = [];
 	public array $actions = [];
@@ -326,6 +329,133 @@ class Form
 
 	}
 
+	/**
+	 * postal address with its coordinates, stored in 6 columns <name>_street, _zip, _city, _country, _lat, _lng
+	 * sent and read as an object {street, zip, city, country, lat, lng}, autocomplete of the IGN Geoplateforme in the backend
+	 * lat / lng: decimal(10,7) null, the other columns varchar not null default ''
+	 *
+	 * ex: $form->addAddress('head_office', 'Head office');
+	 *
+	 * @param string $name prefix of the columns
+	 */
+	public function addAddress(string $name, string $label='', bool $required=false):static
+	{
+
+		$columns = [];
+		foreach(array_keys(self::ADDRESS_PARTS) as $part)
+			$columns[$part] = $name.'_'.$part;
+
+		return $this->add('address', $name, $label, $required, ['columns' => $columns, 'default' => self::addressEmpty(), 'geocoder' => \Core\Geocoder::url()]);
+
+	}
+
+	/**
+	 * empty value of an address field
+	 *
+	 * @return array
+	 */
+	public static function addressEmpty():array
+	{
+
+		return ['street' => '', 'zip' => '', 'city' => '', 'country' => '', 'lat' => null, 'lng' => null];
+
+	}
+
+	/**
+	 * value of an address field read from the columns of a record
+	 *
+	 * @param array $field
+	 * @param array $record
+	 *
+	 * @return array
+	 */
+	public static function addressValue(array $field, array $record):array
+	{
+
+		$value = self::addressEmpty();
+		foreach($field['columns'] as $part => $column)
+		{
+
+			$cell = $record[$column] ?? null;
+			if(self::ADDRESS_PARTS[$part])$value[$part] = (string)$cell;
+			else $value[$part] = ($cell === null || $cell === '') ? null : (float)$cell;
+
+		}
+
+		return $value;
+
+	}
+
+	/**
+	 * columns of an address field from its value (an object of the request), parts trimmed, empty coordinates = null
+	 *
+	 * @param array $field
+	 * @param mixed $value
+	 *
+	 * @return array column => value
+	 */
+	public static function addressColumns(array $field, mixed $value):array
+	{
+
+		if(!is_array($value))$value = [];
+
+		$row = [];
+		foreach($field['columns'] as $part => $column)
+		{
+
+			$cell = $value[$part] ?? '';
+			$cell = (is_scalar($cell)) ? trim((string)$cell) : '';
+
+			if(self::ADDRESS_PARTS[$part])$row[$column] = $cell;
+			else $row[$column] = ($cell === '' || !is_numeric($cell)) ? null : round((float)$cell, 7);
+
+		}
+
+		return $row;
+
+	}
+
+	/**
+	 * true when the parts of an address are valid: text lengths, coordinates in range, lat and lng together
+	 *
+	 * @param mixed $value
+	 *
+	 * @return bool
+	 */
+	public static function addressValid(mixed $value):bool
+	{
+
+		if(!is_array($value))return false;
+
+		foreach(self::ADDRESS_PARTS as $part => $max)
+		{
+
+			$cell = $value[$part] ?? '';
+			if($cell !== null && !is_scalar($cell))return false;
+			$cell = trim((string)$cell);
+
+			if($max)
+			{
+
+				if(mb_strlen($cell) > $max)return false;
+				continue;
+
+			}
+
+			if($cell === '')continue;
+			if(!is_numeric($cell))return false;
+			if(abs((float)$cell) > (($part === 'lat') ? 90 : 180))return false;
+
+		}
+
+		// a position needs both coordinates
+		$lat = trim((string)($value['lat'] ?? ''));
+		$lng = trim((string)($value['lng'] ?? ''));
+
+		return ($lat === '') === ($lng === '');
+
+	}
+
 	// layout ***********************************************************************************************************
 
 	/**
@@ -511,7 +641,7 @@ class Form
 
 			}
 
-			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern'], $field['manager'], $field['dir']);
+			unset($field['sanitize'], $field['translate'], $field['unique'], $field['pattern'], $field['manager'], $field['dir'], $field['columns']);
 			$fields[] = $field;
 
 		}
@@ -555,6 +685,14 @@ class Form
 				'tags' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => trim($f['pattern'], '/')]] + (($f['suggestions']) ? ['examples' => [$f['suggestions']]] : []),
 				'multiselect' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => array_map('strval', array_keys($f['options']))]],
 				'file' => ['type' => 'string', 'description' => 'upload:<token> of POST upload/'.$name.'/, the current path to keep the file, empty to remove it'],
+				'address' => ['type' => 'object', 'properties' => (object)[
+					'street' => ['type' => 'string', 'maxLength' => self::ADDRESS_PARTS['street']],
+					'zip' => ['type' => 'string', 'maxLength' => self::ADDRESS_PARTS['zip']],
+					'city' => ['type' => 'string', 'maxLength' => self::ADDRESS_PARTS['city']],
+					'country' => ['type' => 'string', 'maxLength' => self::ADDRESS_PARTS['country']],
+					'lat' => ['type' => ['number', 'null'], 'minimum' => -90, 'maximum' => 90],
+					'lng' => ['type' => ['number', 'null'], 'minimum' => -180, 'maximum' => 180],
+				], 'description' => 'coordinates empty: geocoded at the save when the address changed'],
 				default => ['type' => 'string'],
 			};
 
@@ -575,7 +713,7 @@ class Form
 	}
 
 	/**
-	 * default values of a new record
+	 * default values of a new record, a required select or radio with a single option and no default gets this option
 	 *
 	 * @return array
 	 */
@@ -584,7 +722,12 @@ class Form
 
 		$values = [];
 		foreach($this->fields as $name => $field)
-			$values[$name] = $field['default'] ?? '';
+		{
+
+			$single = !isset($field['default']) && $field['required'] && in_array($field['type'], ['select', 'radio'], true) && count($field['options'] ?? []) === 1;
+			$values[$name] = ($single) ? (string)array_key_first($field['options']) : ($field['default'] ?? '');
+
+		}
 
 		return $values;
 
@@ -609,6 +752,17 @@ class Form
 			if(isset($f['show_if']) && !in_array((string)$v->inputGet($f['show_if']['field']), $f['show_if']['values'], true))continue;
 
 			$v->input($name, ts($f['label']));
+
+			// address: an object checked part by part, required = a street or a city
+			if($f['type'] === 'address')
+			{
+
+				if(!is_array($v->inputGet($name, null)))$v->inputSet($name, []);
+				if($f['required'])$v->custom(fn($value) => trim((string)($value['street'] ?? '')) !== '' || trim((string)($value['city'] ?? '')) !== '', '`[FIELD]` is required');
+				$v->custom(fn($value) => self::addressValid($value), '`[FIELD]` holds an invalid value');
+				continue;
+
+			}
 
 			// password kept when empty on update
 			if($f['required'] && !($f['type'] === 'password' && $id))$v->required();
@@ -663,6 +817,15 @@ class Form
 			{
 
 				$row[$name] = json_encode(array_values(array_unique(array_map('strval', (is_array($value)) ? $value : []))));
+				continue;
+
+			}
+
+			// one column by part of the address
+			if($f['type'] === 'address')
+			{
+
+				$row += self::addressColumns($f, $value);
 				continue;
 
 			}

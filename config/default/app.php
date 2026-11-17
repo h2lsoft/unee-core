@@ -140,6 +140,29 @@ return [
 		],
 	],
 
+	// MAPS ************************************************************************************************************
+	// address fields (Form::addAddress) and map views of the grids ($grid->map())
+	'geocoder' => [
+		'url' => 'https://data.geopf.fr/geocodage/search', # ign geoplateforme (france), called by the server at the save and by the browser (autocomplete)
+		'timeout' => 5, # seconds, geocoding at the save
+	],
+	'map' => [
+		// openstreetmap tiles for a small volume only: a provider with a key (maptiler, stadia...) or self hosted otherwise
+		'tiles' => [
+			'url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+			'attribution' => '&copy; OpenStreetMap contributors',
+			'max_zoom' => 19,
+		],
+		'max_markers' => 5000, # records sent to a map view at most
+	],
+
+	// CHATTER *********************************************************************************************************
+	// attachments of the chatter under the records (option chatter of the plugins), stored in private_dir/chatter/<module>
+	'chatter' => [
+		'extensions' => ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'txt', 'csv', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'zip', 'eml', 'msg'],
+		'max_size' => 10485760, # bytes, capped by upload_max_filesize
+	],
+
 	// ERRORS **********************************************************************************************************
 	// php errors and uncaught exceptions are written in xcore_log (\Core\ErrorHandler), file fallback when the db is down
 	'error_log' => [
@@ -314,6 +337,7 @@ return [
 	// job handlers of the queue (\Core\Jobber::push(type, payload)), keyed: a project or an instance can add, override, or disable with null
 	'jobs' => [
 		'send_email' => \Job\Core\Send_Email::class,
+		'workflow_effect' => \Job\Core\Workflow_Effect::class,
 	],
 
 ];

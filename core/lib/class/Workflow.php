@@ -8,12 +8,32 @@ namespace Core;
  * transition: from a state ('' = creation of the record) to another, fired by groups (empty = edit right, add right for the creation)
  * or by the code only (system), with required fields, a required comment, several approvals of different users
  * state: groups that edit the record in it (empty = locked), the superadmin always edits and fires
+ * deadline of a state (sla_hours): due date kept on the history row of each entry, handled once by deadlines() (cron task Workflow deadlines)
+ * effects of a transition (json array): "set" fills a column with the change of state, the others run in the background (job workflow_effect, retried):
+ * {"type": "set", "field": "checked_at", "value": "@now|@today|@user|@user_id|@empty|text"}
+ * {"type": "email", "template": "mail template name", "to": recipients}, {"type": "notify", "to": recipients, "title", "message", "level"}
+ * {"type": "webhook", "url": "https://..."} (POST json, header X-Unee-Signature: sha256=hmac of the body with globals workflow.webhook.secret)
+ * {"type": "job", "job": "type of config jobs", "payload": {}}
+ * recipients: creator, actor (user who fired), followers (chatter), group:<id>, user:<id>, field:<column> (a user id or an email)
+ * texts of notify (title, message) and emails: [[column]] of the record, [[id]], [[record]], [[transition]], [[from]], [[to]], [[comment]], [[author]], [[url]]
  * errors are \DomainException with the http code (403, 404, 409, 422)
  */
 class Workflow
 {
 
 	private static array $cache = [];
+
+	/**
+	 * forgets the workflows read (after a change of their definition)
+	 *
+	 * @return void
+	 */
+	public static function reset():void
+	{
+
+		self::$cache = [];
+
+	}
 
 	/**
 	 * active workflow of a module with its states and transitions by code
@@ -33,7 +53,7 @@ class Workflow
 		if(!$wf)return self::$cache[$module] = null;
 
 		if(!preg_match('/^[a-z_][a-z0-9_]*$/', (string)$wf['state_column']))throw new \LogicException("workflow #{$wf['id']}: invalid state column");
-		[$table, $managed] = self::table($module);
+		[$table, $managed, $object_label] = self::table($module);
 		if($table === '')throw new \LogicException("workflow #{$wf['id']}: no crud controller for the module {$module}");
 		if(in_array($wf['state_column'], $managed, true))throw new \LogicException("workflow #{$wf['id']}: the column {$wf['state_column']} of the module {$module} is set by its code");
 
@@ -48,7 +68,7 @@ class Workflow
 				'code' => $rec['code'], 'label' => $rec['label'], 'color' => $rec['color'],
 				'initial' => $rec['initial'] === 'yes', 'final' => $rec['final'] === 'yes',
 				'edit_groups' => $ids($rec['edit_xcore_group_ids']),
-				'sla_hours' => (int)$rec['sla_hours'], 'sla_action' => $rec['sla_action'], 'sla_group' => (int)$rec['sla_xcore_group_id'],
+				'sla_hours' => (int)$rec['sla_hours'], 'sla_action' => $rec['sla_action'], 'sla_group' => (int)$rec['sla_xcore_group_id'], 'sla_transition' => (string)($rec['sla_transition'] ?? ''),
 			];
 
 		}
@@ -66,7 +86,7 @@ class Workflow
 
 		}
 
-		return self::$cache[$module] = ['id' => (int)$wf['id'], 'name' => $wf['name'], 'module' => $module, 'table' => $table, 'state_column' => $wf['state_column'], 'states' => $states, 'transitions' => $transitions];
+		return self::$cache[$module] = ['id' => (int)$wf['id'], 'name' => $wf['name'], 'module' => $module, 'table' => $table, 'state_column' => $wf['state_column'], 'managed' => $managed, 'object_label' => $object_label, 'states' => $states, 'transitions' => $transitions];
 
 	}
 
@@ -184,7 +204,16 @@ class Workflow
 	{
 
 		if($start['state'] === '')return;
-		self::write($wf['module'], $record_id, $start['transition'], '', $start['state'], '', \Model\User::getUID());
+
+		$user_id = \Model\User::getUID();
+		$history_id = self::write($wf, $record_id, $start['transition'], '', $start['state'], '', $user_id);
+
+		// effects of the transition from the creation
+		$t = $wf['transitions'][$start['transition']] ?? null;
+		if(!$t)return;
+
+		self::setFields($wf, $t, $record_id, $user_id);
+		self::queue($wf, $t, $record_id, $history_id, '', '', $user_id);
 
 	}
 
@@ -242,8 +271,15 @@ class Workflow
 
 			}
 
-			DB()->query("UPDATE `{$wf['table']}` SET `{$wf['state_column']}` = :state, updated_at = :now, updated_by = :author WHERE id = :id", ['state' => $t['to'], 'now' => date('Y-m-d H:i:s'), 'author' => self::author(), 'id' => $record_id]);
-			$history_id = self::write($module, $record_id, $code, $from, $t['to'], $comment, $user_id);
+			// changed only from the state read: also safe without transaction nor row lock (MyISAM), 409 when another change came first
+			DB()->query("UPDATE `{$wf['table']}` SET `{$wf['state_column']}` = :state, updated_at = :now, updated_by = :author WHERE id = :id AND `{$wf['state_column']}` = :from", ['state' => $t['to'], 'now' => date('Y-m-d H:i:s'), 'author' => self::author(), 'id' => $record_id, 'from' => $from]);
+			if((int)DB()->rowCount() !== 1)throw new \DomainException(ts('the record changed meanwhile, reload it'), 409);
+			// the deadline of the state left is closed, the state entered gets its own
+			DB()->query("UPDATE xcore_workflow_history SET sla_done_at = :now WHERE module = :module AND record_id = :record_id AND sla_due_at IS NOT NULL AND sla_done_at IS NULL", ['now' => date('Y-m-d H:i:s'), 'module' => $module, 'record_id' => $record_id]);
+			$history_id = self::write($wf, $record_id, $code, $from, $t['to'], $comment, $user_id);
+
+			// effects "set": with the change of state, in the same transaction
+			self::setFields($wf, $t, $record_id, $user_id);
 
 			// a change of state closes the pending approvals of the record (those of the other transitions too)
 			DB()->query("UPDATE xcore_workflow_approval SET xcore_workflow_history_id = :history_id WHERE module = :module AND record_id = :record_id AND xcore_workflow_history_id = 0", ['history_id' => $history_id, 'module' => $module, 'record_id' => $record_id]);
@@ -260,6 +296,8 @@ class Workflow
 		}
 
 		Log::write('workflow', ts($t['label']).': '.self::label($wf, $from).' -> '.self::label($wf, $t['to']), [$wf['state_column'] => [$from, $t['to']]], $record_id, 'info', $module);
+		self::queue($wf, $t, $record_id, $history_id, $from, $comment, $user_id);
+
 		return ['done' => true, 'state' => $t['to'], 'approvals' => $approvals, 'needed' => $t['approvals']];
 
 	}
@@ -445,10 +483,497 @@ class Workflow
 
 	}
 
-	private static function write(string $module, int $record_id, string $code, string $from, string $to, string $comment, int $user_id):int
+	/**
+	 * records without state (older than the workflow) get one, with a history row (system) and the deadline of the state
+	 *
+	 * @param array $wf
+	 * @param string $state
+	 *
+	 * @return int records initialized
+	 */
+	public static function initialize(array $wf, string $state):int
 	{
 
-		return (int)DB('xcore_workflow_history')->insert(['module' => $module, 'record_id' => $record_id, 'transition' => $code, 'from_state' => $from, 'to_state' => $to, 'xcore_user_id' => $user_id, 'comment' => $comment], self::author());
+		if(!isset($wf['states'][$state]))throw new \DomainException(ts('unknown state'), 422);
+
+		$column = $wf['state_column'];
+		$ids = array_map('intval', DB()->query("SELECT id FROM `{$wf['table']}` WHERE deleted = 'no' AND (`{$column}` = '' OR `{$column}` IS NULL) ORDER BY id")->fetchAllOne());
+		foreach(array_chunk($ids, 500) as $chunk)
+		{
+
+			DB()->beginTransaction();
+			try
+			{
+
+				$list = implode(',', $chunk);
+				DB()->query("UPDATE `{$wf['table']}` SET `{$column}` = :state WHERE id IN ({$list}) AND (`{$column}` = '' OR `{$column}` IS NULL)", ['state' => $state]);
+				foreach($chunk as $id)
+					self::write($wf, $id, '', '', $state, ts('initialization of the workflow'), 0);
+				DB()->commit();
+
+			}
+			catch(\Throwable $e)
+			{
+
+				DB()->rollBack();
+				throw $e;
+
+			}
+
+		}
+
+		return count($ids);
+
+	}
+
+	// effects ************************************************************************************************************
+
+	// columns never set by an effect
+	private const array LOCKED_COLUMNS = ['id', 'deleted', 'deleted_key', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deleted_at', 'deleted_by'];
+
+	private static array $columns = [];
+
+	/**
+	 * columns of a table: name => nullable
+	 *
+	 * @param string $table
+	 *
+	 * @return array
+	 */
+	public static function columns(string $table):array
+	{
+
+		if(!isset(self::$columns[$table]))
+		{
+
+			self::$columns[$table] = [];
+			foreach(DB()->query("SHOW COLUMNS FROM `{$table}`")->fetchAll() as $c)
+				self::$columns[$table][$c['Field']] = ($c['Null'] === 'YES');
+
+		}
+
+		return self::$columns[$table];
+
+	}
+
+	/**
+	 * error of an effect (editor of the workflows and before it runs), '' when valid
+	 *
+	 * @param array $wf workflow (table, state_column, managed)
+	 * @param array $e
+	 *
+	 * @return string
+	 */
+	public static function effectError(array $wf, array $e):string
+	{
+
+		$to = (string)($e['to'] ?? '');
+		$recipients = fn() => (preg_match('/^(creator|actor|followers|group:\d+|user:\d+|field:[a-z0-9_]+)$/', $to) && (!str_starts_with($to, 'field:') || isset(self::columns($wf['table'])[substr($to, 6)]))) ? '' : ts('invalid recipients: [TO]', ['TO' => $to]);
+
+		return match((string)($e['type'] ?? ''))
+		{
+			'set' => (!isset(self::columns($wf['table'])[$e['field'] ?? '']) || in_array($e['field'], self::LOCKED_COLUMNS, true) || $e['field'] === $wf['state_column'] || in_array($e['field'], (array)($wf['managed'] ?? []), true)) ? ts('this column can not be set: [FIELD]', ['FIELD' => (string)($e['field'] ?? '')]) : '',
+			'email' => (!DB()->query("SELECT id FROM xcore_mail_template WHERE name = :name AND deleted = 'no'", ['name' => (string)($e['template'] ?? '')])->fetchOne()) ? ts('unknown mail template: [NAME]', ['NAME' => (string)($e['template'] ?? '')]) : $recipients(),
+			'notify' => (trim((string)($e['title'] ?? '')) === '') ? ts('the notification needs a title') : $recipients(),
+			'webhook' => (!preg_match('#^https?://[^\s]+$#i', (string)($e['url'] ?? '')) || filter_var($e['url'], FILTER_VALIDATE_URL) === false) ? ts('invalid url') : '',
+			'job' => (!isset(Config::get('jobs', [])[$e['job'] ?? '']) || ($e['job'] ?? '') === 'workflow_effect') ? ts('unknown job: [JOB]', ['JOB' => (string)($e['job'] ?? '')]) : '',
+			default => ts('unknown effect'),
+		};
+
+	}
+
+	/**
+	 * effects "set" of a transition, with the change of state: columns of the record, invalid ones skipped (logged)
+	 *
+	 * @param array $wf
+	 * @param array $t
+	 * @param int $record_id
+	 * @param int $user_id 0 = system
+	 *
+	 * @return void
+	 */
+	private static function setFields(array $wf, array $t, int $record_id, int $user_id):void
+	{
+
+		$row = [];
+		foreach($t['effects'] as $e)
+		{
+
+			if(!is_array($e) || ($e['type'] ?? '') !== 'set')continue;
+			if($error = self::effectError($wf, $e))
+			{
+
+				Log::write('workflow_effect', $error, ['transition' => $t['code'], 'effect' => $e], $record_id, 'warning', $wf['module']);
+				continue;
+
+			}
+
+			$field = (string)$e['field'];
+			$row[$field] = match((string)($e['value'] ?? ''))
+			{
+				'@now' => date('Y-m-d H:i:s'),
+				'@today' => date('Y-m-d'),
+				'@user' => self::userName($user_id),
+				'@user_id' => $user_id,
+				'@empty' => (self::columns($wf['table'])[$field]) ? null : '',
+				default => (string)$e['value'],
+			};
+
+		}
+
+		if($row)DB($wf['table'])->update($row, $record_id, 1, self::author());
+
+	}
+
+	/**
+	 * the other effects of a transition, in the background (job workflow_effect, 5 attempts), the effect kept in the payload
+	 *
+	 * @return int jobs pushed
+	 */
+	private static function queue(array $wf, array $t, int $record_id, int $history_id, string $from, string $comment, int $user_id):int
+	{
+
+		$count = 0;
+		foreach($t['effects'] as $e)
+		{
+
+			if(!is_array($e) || !in_array($e['type'] ?? '', ['email', 'notify', 'webhook', 'job'], true))continue;
+
+			Jobber::push('workflow_effect', ['module' => $wf['module'], 'record_id' => $record_id, 'transition' => $t['code'], 'from' => $from, 'to' => $t['to'], 'comment' => $comment, 'user_id' => $user_id, 'history_id' => $history_id, 'effect' => $e], "{$wf['module']} #{$record_id}: {$t['code']} ({$e['type']})", 5, null, 5);
+			$count++;
+
+		}
+
+		return $count;
+
+	}
+
+	/**
+	 * runs an effect in the background (job workflow_effect): an exception makes the job retry
+	 *
+	 * @param array $p payload pushed by queue()
+	 *
+	 * @return array report of the job
+	 */
+	public static function runEffect(array $p):array
+	{
+
+		$wf = self::get((string)($p['module'] ?? '')) ?? throw new \RuntimeException('no workflow on the module '.($p['module'] ?? ''));
+		$record = DB()->query("SELECT * FROM `{$wf['table']}` WHERE id = :id", ['id' => (int)($p['record_id'] ?? 0)])->fetch() ?: throw new \RuntimeException('record not found');
+		$e = (array)($p['effect'] ?? []);
+		if($error = self::effectError($wf, $e))throw new \InvalidArgumentException($error);
+
+		$vars = self::vars($wf, $record, $p);
+
+		if($e['type'] === 'email')
+		{
+
+			// one job send_email by recipient: each one is retried alone
+			$jobs = 0;
+			foreach(self::recipients((string)$e['to'], $wf, $record, $p) as $r)
+			{
+
+				Jobber::push('send_email', ['template' => (string)$e['template'], 'to' => $r['email'], 'vars' => ['firstname' => $r['firstname']] + $vars, 'locale' => $r['language'], 'options' => ['category' => 'transactional', 'module' => $wf['module'], 'action' => 'workflow', 'record_id' => (int)$record['id'], 'xcore_user_id' => $r['id'], 'application' => 'cron']], "workflow {$wf['module']} #{$record['id']}", 5);
+				$jobs++;
+
+			}
+
+			return ['emails' => $jobs];
+
+		}
+
+		if($e['type'] === 'notify')
+		{
+
+			$ids = array_values(array_filter(array_column(self::recipients((string)$e['to'], $wf, $record, $p), 'id')));
+			$level = in_array($e['level'] ?? '', ['info', 'success', 'warning', 'error'], true) ? $e['level'] : 'info';
+			if($ids)Notification::send($ids, self::replace((string)$e['title'], $vars), self::replace((string)($e['message'] ?? ''), $vars), $vars['link'], $level, 'workflow');
+
+			return ['notified' => count($ids)];
+
+		}
+
+		if($e['type'] === 'webhook')
+		{
+
+			$body = json_encode([
+				'event' => "{$wf['module']}.{$p['transition']}",
+				'module' => $wf['module'],
+				'record_id' => (int)$record['id'],
+				'transition' => (string)$p['transition'],
+				'from' => (string)$p['from'],
+				'to' => (string)$p['to'],
+				'comment' => (string)$p['comment'],
+				'user_id' => (int)$p['user_id'],
+				'date' => date(DATE_ATOM),
+				'record' => self::publicRecord($record),
+			], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+			$headers = ['Content-Type: application/json', 'X-Unee-Event: '."{$wf['module']}.{$p['transition']}", 'X-Unee-Delivery: '.(int)($p['history_id'] ?? 0)];
+			$secret = (string)Globals::get('workflow.webhook.secret', '', true, 'text', 'secret of the signature of the workflow webhooks (header X-Unee-Signature: sha256=hmac of the body), empty = not signed');
+			if($secret !== '')$headers[] = 'X-Unee-Signature: sha256='.hash_hmac('sha256', $body, $secret);
+
+			$ch = curl_init((string)$e['url']);
+			curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 20, CURLOPT_USERAGENT => 'Unee', CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS, CURLOPT_FOLLOWLOCATION => false]);
+			$response = curl_exec($ch);
+			$code = ($response === false) ? 0 : (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+			if($code < 200 || $code >= 300)throw new \RuntimeException("webhook {$e['url']}: ".(($response === false) ? curl_error($ch) : "http {$code}"));
+
+			return ['webhook' => $code];
+
+		}
+
+		// job of a developer, with the context of the transition
+		$id = Jobber::push((string)$e['job'], (array)($e['payload'] ?? []) + ['module' => $wf['module'], 'record_id' => (int)$record['id'], 'transition' => (string)$p['transition'], 'from' => (string)$p['from'], 'to' => (string)$p['to'], 'user_id' => (int)$p['user_id']], "workflow {$wf['module']} #{$record['id']}");
+
+		return ['job' => $id];
+
+	}
+
+	/**
+	 * active users (or emails of a column) of the recipients of an effect
+	 *
+	 * @return array [{"id", "email", "firstname", "language"}], id 0 for an email of a column
+	 */
+	private static function recipients(string $to, array $wf, array $record, array $p):array
+	{
+
+		$where = '';
+		$binds = [];
+		if($to === 'creator')
+		{
+
+			$where = 'login = :login';
+			$binds['login'] = (string)($record['created_by'] ?? '');
+
+		}
+		elseif($to === 'actor')
+		{
+
+			$where = 'id = :id';
+			$binds['id'] = (int)($p['user_id'] ?? 0);
+
+		}
+		elseif($to === 'followers')$where = "id IN (SELECT xcore_user_id FROM xcore_chatter_follower WHERE plugin = :plugin AND record_id = :record_id AND deleted = 'no')";
+		elseif(str_starts_with($to, 'group:'))
+		{
+
+			$where = 'xcore_group_id = :group';
+			$binds['group'] = (int)substr($to, 6);
+
+		}
+		elseif(str_starts_with($to, 'user:'))
+		{
+
+			$where = 'id = :id';
+			$binds['id'] = (int)substr($to, 5);
+
+		}
+		elseif(str_starts_with($to, 'field:'))
+		{
+
+			$value = trim((string)($record[substr($to, 6)] ?? ''));
+			if(filter_var($value, FILTER_VALIDATE_EMAIL))return [['id' => 0, 'email' => $value, 'firstname' => '', 'language' => '']];
+
+			$where = 'id = :id';
+			$binds['id'] = (int)$value;
+
+		}
+
+		if($where === '')return [];
+		if($to === 'followers')$binds += ['plugin' => $wf['module'], 'record_id' => (int)$record['id']];
+
+		return array_map(fn($u) => ['id' => (int)$u['id'], 'email' => (string)$u['email'], 'firstname' => (string)$u['firstname'], 'language' => (string)$u['language']],
+			DB()->query("SELECT id, email, firstname, language FROM xcore_user WHERE deleted = 'no' AND active = 'yes' AND id > 1 AND ({$where})", $binds)->fetchAll());
+
+	}
+
+	/**
+	 * variables of the texts of an effect: columns of the record (secrets left out) and context of the transition
+	 */
+	private static function vars(array $wf, array $record, array $p):array
+	{
+
+		$vars = [];
+		foreach(self::publicRecord($record) as $key => $value)
+			if(is_scalar($value) || $value === null)$vars[$key] = (string)$value;
+
+		$link = "{$wf['module']}/?edit={$record['id']}";
+
+		return [
+			'id' => (string)$record['id'],
+			'record' => self::recordLabel($wf, (int)$record['id']),
+			'transition' => ts((string)($wf['transitions'][$p['transition']]['label'] ?? $p['transition'])),
+			'from' => self::label($wf, (string)$p['from']),
+			'to' => self::label($wf, (string)$p['to']),
+			'comment' => (string)($p['comment'] ?? ''),
+			'author' => self::userName((int)($p['user_id'] ?? 0)),
+			'url' => rtrim((string)Config::get('url', ''), '/').'/@backend/'.$link,
+			'link' => $link,
+		] + $vars;
+
+	}
+
+	/**
+	 * label of a record in the notifications, ex: Ticket #12
+	 *
+	 * @param array $wf
+	 * @param int $record_id
+	 *
+	 * @return string
+	 */
+	public static function recordLabel(array $wf, int $record_id):string
+	{
+
+		return mb_strtoupper(mb_substr(ts($wf['object_label'] ?? 'record'), 0, 1)).mb_substr(ts($wf['object_label'] ?? 'record'), 1).' #'.$record_id;
+
+	}
+
+	// [[name]] of a plain text replaced by the variables
+	private static function replace(string $text, array $vars):string
+	{
+
+		return preg_replace_callback('/\[\[([a-z0-9_]+)\]\]/i', fn($m) => $vars[$m[1]] ?? $m[0], $text);
+
+	}
+
+	// record without the columns named like a secret
+	private static function publicRecord(array $record):array
+	{
+
+		return array_filter($record, fn($key) => !preg_match('/password|pwd|secret|token|deleted_key/i', (string)$key), ARRAY_FILTER_USE_KEY);
+
+	}
+
+	private static function userName(int $user_id):string
+	{
+
+		if($user_id <= 0)return ts('System');
+		$u = DB()->query("SELECT firstname, lastname, login FROM xcore_user WHERE id = :id", ['id' => $user_id])->fetch();
+
+		return ($u) ? (trim("{$u['firstname']} {$u['lastname']}") ?: (string)$u['login']) : ts('System');
+
+	}
+
+	private static function write(array $wf, int $record_id, string $code, string $from, string $to, string $comment, int $user_id):int
+	{
+
+		// deadline of the state entered
+		$hours = (int)($wf['states'][$to]['sla_hours'] ?? 0);
+		$due = ($hours > 0) ? date('Y-m-d H:i:s', time() + $hours * 3600) : null;
+
+		return (int)DB('xcore_workflow_history')->insert(['module' => $wf['module'], 'record_id' => $record_id, 'transition' => $code, 'from_state' => $from, 'to_state' => $to, 'xcore_user_id' => $user_id, 'comment' => $comment, 'sla_due_at' => $due], self::author());
+
+	}
+
+	/**
+	 * deadlines passed (cron task Workflow deadlines), each handled once: notify the group of the state (superadmins when none),
+	 * remind the creator of the record (the group when he is not found), or fire the system transition of the state
+	 * a record that left the state, was deleted, or a deadline removed since: closed without action
+	 * a transition refused (ex: a required field empty) notifies the group of the state
+	 *
+	 * @param int $limit deadlines handled at most
+	 *
+	 * @return array {"notified", "reminded", "fired", "closed", "failed"}
+	 */
+	public static function deadlines(int $limit=500):array
+	{
+
+		$counts = ['notified' => 0, 'reminded' => 0, 'fired' => 0, 'closed' => 0, 'failed' => 0];
+		$limit = max(1, min(5000, $limit));
+		$recs = DB()->query("SELECT id, module, record_id, to_state FROM xcore_workflow_history
+							 WHERE sla_done_at IS NULL AND sla_due_at IS NOT NULL AND sla_due_at <= :now AND deleted = 'no'
+							 ORDER BY sla_due_at, id LIMIT {$limit}", ['now' => date('Y-m-d H:i:s')])->fetchAll();
+
+		foreach($recs as $h)
+		{
+
+			$record_id = (int)$h['record_id'];
+			// claims the deadline: false when another run handled it meanwhile
+			$done = function() use($h):bool
+			{
+
+				DB()->query("UPDATE xcore_workflow_history SET sla_done_at = :now WHERE id = :id AND sla_done_at IS NULL", ['now' => date('Y-m-d H:i:s'), 'id' => (int)$h['id']]);
+				return ((int)DB()->rowCount() === 1);
+
+			};
+
+			try
+			{
+
+				$wf = self::get((string)$h['module']);
+				$state = $wf['states'][$h['to_state']] ?? null;
+				$record = ($wf && $state) ? DB()->query("SELECT * FROM `{$wf['table']}` WHERE id = :id AND deleted = 'no'", ['id' => $record_id])->fetch() : false;
+
+				if(!$record || self::state($wf, $record) !== $h['to_state'] || $state['sla_hours'] <= 0)
+				{
+
+					$done();
+					$counts['closed']++;
+					continue;
+
+				}
+
+				if(!$done())continue;
+				$link = "{$wf['module']}/?edit={$record_id}";
+				$title = ts('Deadline passed: [STATE]', ['STATE' => self::label($wf, $state['code'])]);
+				$message = ts('[RECORD] is in the state [STATE] for [HOURS] h', ['RECORD' => self::recordLabel($wf, $record_id), 'STATE' => self::label($wf, $state['code']), 'HOURS' => $state['sla_hours']]);
+				$group = ($state['sla_group'] > 0) ? $state['sla_group'] : 1;
+
+				if($state['sla_action'] === 'transition')
+				{
+
+					try
+					{
+
+						self::fire($wf['module'], $record_id, $state['sla_transition'], ts('deadline passed'), true);
+						$counts['fired']++;
+
+					}
+					catch(\DomainException $e)
+					{
+
+						Notification::sendGroup($group, ts('Deadline passed, transition refused: [STATE]', ['STATE' => self::label($wf, $state['code'])]), "{$message} - {$e->getMessage()}", $link, 'error', 'workflow');
+						Log::write('workflow_deadline', $e->getMessage(), ['transition' => $state['sla_transition']], $record_id, 'warning', $wf['module'], 'system', 'cron');
+						$counts['failed']++;
+
+					}
+
+					continue;
+
+				}
+
+				if($state['sla_action'] === 'remind')
+				{
+
+					$creator = (int)DB()->query("SELECT id FROM xcore_user WHERE login = :login AND deleted = 'no' AND active = 'yes' AND id > 1 LIMIT 1", ['login' => (string)($record['created_by'] ?? '')])->fetchOne();
+					if($creator)
+					{
+
+						Notification::send($creator, $title, $message, $link, 'warning', 'workflow');
+						$counts['reminded']++;
+						continue;
+
+					}
+
+				}
+
+				Notification::sendGroup($group, $title, $message, $link, 'warning', 'workflow');
+				$counts['notified']++;
+
+			}
+			catch(\Throwable $e)
+			{
+
+				$done();
+				Log::write('workflow_deadline', $e->getMessage(), ['history' => (int)$h['id']], $record_id, 'error', (string)$h['module'], 'system', 'cron');
+				$counts['failed']++;
+
+			}
+
+		}
+
+		return $counts;
 
 	}
 
@@ -457,9 +982,9 @@ class Workflow
 	 *
 	 * @param string $module
 	 *
-	 * @return array [table, managed columns], table '' when the module has no crud controller
+	 * @return array [table, managed columns, object label], table '' when the module has no crud controller
 	 */
-	private static function table(string $module):array
+	public static function table(string $module):array
 	{
 
 		foreach(Controller::getAll() as $path)
@@ -471,11 +996,11 @@ class Workflow
 			if(!class_exists($class) || !is_subclass_of($class, CrudController::class))continue;
 
 			$defaults = (new \ReflectionClass($class))->getDefaultProperties();
-			return [(string)($defaults['table'] ?? ''), (array)($defaults['managed_columns'] ?? [])];
+			return [(string)($defaults['table'] ?? ''), (array)($defaults['managed_columns'] ?? []), (string)($defaults['object_label'] ?? 'record')];
 
 		}
 
-		return ['', []];
+		return ['', [], 'record'];
 
 	}
 

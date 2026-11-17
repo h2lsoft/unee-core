@@ -90,6 +90,37 @@ abstract class CrudController extends Controller
 	}
 
 	/**
+	 * markers of the map view ($grid->map()), same query as the list (search, filters, chip), config map/max_markers at most
+	 *
+	 * @param Request $request
+	 *
+	 * @return JsonResponse {"markers", "total", "truncated", "colors": {value: badge color}, "tiles": {"url", "attribution", "max_zoom"}}
+	 */
+	#[Route('/map/', name: 'map', methods: ['GET'])]
+	public function apiMap(Request $request):JsonResponse
+	{
+
+		if($denied = $this->deny('list'))return $denied;
+
+		$grid = $this->buildGrid();
+		if(!$grid->map)return JsonResponse::error(404, 'no map view');
+
+		// colors of the markers: badge colors of the column, or the states of the workflow
+		$color = $grid->map['color'];
+		$colors = (array)($grid->columns[$color]['colors'] ?? []);
+		$workflow = Workflow::get($this->module);
+		if($workflow && $color !== '' && $color === $workflow['state_column'])$colors = array_map(fn($s) => $s['color'], Workflow::states($workflow));
+
+		$tiles = (array)Config::get('map/tiles', []);
+
+		return new JsonResponse($grid->render($request, 0, true) + [
+			'colors' => (object)$colors,
+			'tiles' => ['url' => (string)($tiles['url'] ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'), 'attribution' => (string)($tiles['attribution'] ?? '&copy; OpenStreetMap contributors'), 'max_zoom' => (int)($tiles['max_zoom'] ?? 19)],
+		]);
+
+	}
+
+	/**
 	 * csv of the grid with its search, filters and sort ($grid->allowExport() and right export), utf-8 with bom and ; for excel
 	 *
 	 * @param Request $request same query as the list
@@ -181,6 +212,7 @@ abstract class CrudController extends Controller
 			$values[$name] = match($field['type'])
 			{
 				'password' => '',
+				'address' => Form::addressValue($field, $record),
 				'tags', 'multiselect' => (!empty($field['manager'])) ? \Core\Tag::get($field['manager'], $id) : ((is_array($words = json_decode((string)($record[$name] ?? ''), true))) ? array_values(array_map('strval', $words)) : []),
 				default => $record[$name] ?? '',
 			};
@@ -189,6 +221,7 @@ abstract class CrudController extends Controller
 
 		$payload = ['form' => $this->definition($form, $id), 'record' => $this->getRecord($values, $record)];
 		if($workflow = Workflow::get($this->module))$payload['workflow'] = Workflow::summary($workflow, $record);
+		if(Chatter::enabled($this->module))$payload['chatter'] = true;
 		if($this->versioning())$payload['versions'] = (int)DB()->query("SELECT COUNT(*) FROM xcore_versioning WHERE deleted = 'no' AND `table` = :table AND record_id = :id", ['table' => $this->table, 'id' => $id])->fetchOne();
 
 		return new JsonResponse($payload);
@@ -254,6 +287,21 @@ abstract class CrudController extends Controller
 		if(!$this->versioning())return JsonResponse::error(404, 'versioning is not enabled');
 		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
 
+		return new JsonResponse(['versions' => array_reverse($this->versionList($id, $record))]);
+
+	}
+
+	/**
+	 * versions of a record, oldest first, each with its changes from the previous version (history and chatter)
+	 *
+	 * @param int $id
+	 * @param array $record
+	 *
+	 * @return array [{"id", "date", "author", "created", "changes": [{"field", "label", "before", "after"}]}]
+	 */
+	protected function versionList(int $id, array $record):array
+	{
+
 		$recs = DB()->query("SELECT v.id, v.date, v.data_json, v.created_by, u.firstname, u.lastname FROM xcore_versioning v LEFT JOIN xcore_user u ON u.id = v.xcore_user_id WHERE v.deleted = 'no' AND v.`table` = :table AND v.record_id = :id ORDER BY v.id", ['table' => $this->table, 'id' => $id])->fetchAll();
 		$fields = $this->buildForm($record)->definition()['fields'];
 
@@ -283,7 +331,7 @@ abstract class CrudController extends Controller
 
 		}
 
-		return new JsonResponse(['versions' => array_reverse($versions)]);
+		return $versions;
 
 	}
 
@@ -322,6 +370,24 @@ abstract class CrudController extends Controller
 
 			// masked values (password, secret, token) are never written back
 			if(!array_key_exists($name, $data) || $field['type'] === 'password' || $field['type'] === 'file' || !empty($field['readonly']) || !empty($field['manager']) || $data[$name] === '********' || $name === $this->stateColumn() || str_starts_with($name, '_'))continue;
+
+			// address: one column by part
+			if($field['type'] === 'address')
+			{
+
+				foreach(Form::addressColumns($field, $data[$name]) as $column => $value)
+				{
+
+					if(self::sameValue($record[$column] ?? null, $value))continue;
+
+					$row[$column] = $value;
+					$changed[$column] = [$record[$column] ?? null, $value];
+
+				}
+
+				continue;
+
+			}
 
 			$value = is_array($data[$name]) ? json_encode(array_values($data[$name]), JSON_UNESCAPED_UNICODE) : $data[$name];
 			if((string)($record[$name] ?? '') === (string)$value)continue;
@@ -857,6 +923,341 @@ abstract class CrudController extends Controller
 
 	}
 
+	// chatter ***********************************************************************************************************
+
+	/**
+	 * chatter of a record (plugin with the option chatter, list right): thread with the changes of the record (versions, workflow),
+	 * followers, open activities, active users (mentions, followers, responsible)
+	 *
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"thread", "reads", "unread", "followers", "following", "activities", "activity_types", "users", "can_write", "can_delete"}
+	 */
+	#[Route('/{id}/chatter/', name: 'chatter', methods: ['GET'])]
+	public function apiChatter(int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'list');
+		if($record instanceof JsonResponse)return $record;
+
+		$me = \Model\User::getUID();
+
+		return new JsonResponse([
+			'thread' => Chatter::thread($this->module, $id, $this->chatterEvents($id, $record)),
+			'reads' => Chatter::reads($this->module, $id),
+			'unread' => Chatter::unread($this->module, $id, $me),
+			'followers' => Chatter::followers($this->module, $id),
+			'following' => Chatter::isFollower($this->module, $id, $me),
+			'activities' => Chatter::activities($this->module, $id),
+			'activity_types' => array_map(fn($l) => ts($l), Chatter::ACTIVITIES),
+			'users' => Chatter::users(),
+			'me' => $me,
+			'can_write' => \Model\User::hasRight($this->module, 'edit'),
+			'can_delete' => \Model\User::isSuperAdmin(),
+		]);
+
+	}
+
+	/**
+	 * the logged user read the thread now (list right): double checks of the others, unread count of the button Thread
+	 *
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"unread": 0}
+	 */
+	#[Route('/{id}/chatter/read/', name: 'chatter.read', methods: ['POST'])]
+	public function apiChatterRead(int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'list');
+		if($record instanceof JsonResponse)return $record;
+
+		Chatter::read($this->module, $id, \Model\User::getUID());
+		return new JsonResponse(['unread' => 0]);
+
+	}
+
+	/**
+	 * new message or internal note (edit right), json body: {"type": "message|note", "body": html, "email": bool, "uploads": ["upload:<token>"], "mentions": [user ids]}
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 *
+	 * @return JsonResponse 201 {"id"}, 422 {"message"}
+	 */
+	#[Route('/{id}/chatter/', name: 'chatter.post', methods: ['POST'])]
+	public function apiChatterPost(Request $request, int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		$r = $request->request;
+		$result = Chatter::post($this->module, $id, (string)$r->get('type', 'message'), (string)$r->get('body', ''), (bool)$r->get('email', false), (array)$r->all('uploads'), (array)$r->all('mentions'), $this->chatterLabel($id));
+		if(is_string($result))return JsonResponse::error(422, $result);
+
+		return new JsonResponse(['id' => $result], 201);
+
+	}
+
+	/**
+	 * upload of an attachment (edit right), multipart field file, extensions and size of config chatter
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 *
+	 * @return JsonResponse 201 {"token", "name", "size"}
+	 */
+	#[Route('/{id}/chatter/upload/', name: 'chatter.upload', methods: ['POST'])]
+	public function apiChatterUpload(Request $request, int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		$max = (int)Config::get('chatter/max_size', 10485760);
+		$php = size_to_bytes((string)ini_get('upload_max_filesize'));
+		if($php > 0)$max = ($max > 0) ? min($max, $php) : $php;
+		$result = File::uploadStore($request->files->get('file'), (array)Config::get('chatter/extensions', []), $max);
+		if(is_string($result))return JsonResponse::error(422, $result);
+
+		return new JsonResponse($result, 201);
+
+	}
+
+	/**
+	 * attachment of the chatter (list right), images and pdf shown inline
+	 *
+	 * @param int $id
+	 * @param int $attachment
+	 *
+	 * @return mixed
+	 */
+	#[Route('/{id}/chatter/attachments/{attachment}/', name: 'chatter.attachment', methods: ['GET'], requirements: ['attachment' => '\d+'])]
+	public function apiChatterAttachment(int $id, int $attachment):mixed
+	{
+
+		$record = $this->chatterRecord($id, 'list');
+		if($record instanceof JsonResponse)return $record;
+
+		$file = Chatter::attachment($this->module, $id, $attachment);
+		if(!$file)return JsonResponse::error(404, 'file not found');
+
+		return File::serve((string)$file['path']);
+
+	}
+
+	/**
+	 * deletes a message (superadmin only, logged): a message is never modified
+	 *
+	 * @param int $id
+	 * @param int $message
+	 *
+	 * @return JsonResponse 204
+	 */
+	#[Route('/{id}/chatter/{message}/', name: 'chatter.delete', methods: ['DELETE'], requirements: ['message' => '\d+'])]
+	public function apiChatterDelete(int $id, int $message):JsonResponse
+	{
+
+		if(!\Model\User::isSuperAdmin())return JsonResponse::error(403, 'access denied');
+
+		$record = $this->chatterRecord($id, 'list');
+		if($record instanceof JsonResponse)return $record;
+		if(!Chatter::remove($this->module, $id, $message))return JsonResponse::error(404, 'message not found');
+
+		return new JsonResponse(null, 204);
+
+	}
+
+	/**
+	 * the logged user follows the record or stops (list right), json body: {"follow": bool}
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"following"}
+	 */
+	#[Route('/{id}/chatter/follow/', name: 'chatter.follow', methods: ['POST'])]
+	public function apiChatterFollow(Request $request, int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'list');
+		if($record instanceof JsonResponse)return $record;
+
+		$me = \Model\User::getUID();
+		if($request->request->get('follow', true))Chatter::follow($this->module, $id, $me);
+		else Chatter::unfollow($this->module, $id, $me);
+
+		return new JsonResponse(['following' => Chatter::isFollower($this->module, $id, $me)]);
+
+	}
+
+	/**
+	 * adds a follower by hand (edit right), json body: {"xcore_user_id"}
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 *
+	 * @return JsonResponse {"followers"}
+	 */
+	#[Route('/{id}/chatter/followers/', name: 'chatter.followers.add', methods: ['POST'])]
+	public function apiChatterFollowerAdd(Request $request, int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		if(!Chatter::follow($this->module, $id, (int)$request->request->get('xcore_user_id', 0)))return JsonResponse::error(422, ts('choose an active user'));
+
+		return new JsonResponse(['followers' => Chatter::followers($this->module, $id)]);
+
+	}
+
+	/**
+	 * removes a follower (edit right)
+	 *
+	 * @param int $id
+	 * @param int $user
+	 *
+	 * @return JsonResponse {"followers"}
+	 */
+	#[Route('/{id}/chatter/followers/{user}/', name: 'chatter.followers.delete', methods: ['DELETE'], requirements: ['user' => '\d+'])]
+	public function apiChatterFollowerDelete(int $id, int $user):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		Chatter::unfollow($this->module, $id, $user);
+
+		return new JsonResponse(['followers' => Chatter::followers($this->module, $id)]);
+
+	}
+
+	/**
+	 * schedules an activity (edit right), json body: {"activity", "responsible_id", "due_date", "title", "note", "email"}
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 *
+	 * @return JsonResponse 201 {"id"}, 422 {"message"}
+	 */
+	#[Route('/{id}/chatter/activities/', name: 'chatter.activities.add', methods: ['POST'])]
+	public function apiChatterActivity(Request $request, int $id):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		$result = Chatter::schedule($this->module, $id, $request->request->all(), $this->chatterLabel($id));
+		if(is_string($result))return JsonResponse::error(422, $result);
+
+		return new JsonResponse(['id' => $result], 201);
+
+	}
+
+	/**
+	 * activity done (edit right), json body: {"comment"}, a line is added to the thread
+	 *
+	 * @param Request $request
+	 * @param int $id
+	 * @param int $task
+	 *
+	 * @return JsonResponse 204, 422 {"message"}
+	 */
+	#[Route('/{id}/chatter/activities/{task}/done/', name: 'chatter.activities.done', methods: ['POST'], requirements: ['task' => '\d+'])]
+	public function apiChatterActivityDone(Request $request, int $id, int $task):JsonResponse
+	{
+
+		$record = $this->chatterRecord($id, 'edit');
+		if($record instanceof JsonResponse)return $record;
+
+		if($error = Chatter::done($this->module, $id, $task, (string)$request->request->get('comment', '')))return JsonResponse::error(422, $error);
+
+		return new JsonResponse(null, 204);
+
+	}
+
+	/**
+	 * record of a chatter route: plugin with the chatter, right of the user, record found by the module (its own restrictions)
+	 *
+	 * @param int $id
+	 * @param string $right list (read) or edit (write)
+	 *
+	 * @return array|JsonResponse the record or the error
+	 */
+	protected function chatterRecord(int $id, string $right):array|JsonResponse
+	{
+
+		if(!Chatter::enabled($this->module))return JsonResponse::error(404, 'no chatter');
+		if($denied = $this->deny($right))return $denied;
+		if(!$record = $this->findRecord($id))return JsonResponse::error(404, 'record not found');
+
+		return $record;
+
+	}
+
+	/**
+	 * label of a record in the notifications of the chatter, ex: Ticket #12
+	 *
+	 * @param int $id
+	 *
+	 * @return string
+	 */
+	protected function chatterLabel(int $id):string
+	{
+
+		return ucfirst(ts($this->object_label)).' #'.$id;
+
+	}
+
+	/**
+	 * grey lines of the thread: changes of the versions (versioning) and transitions of the workflow, never stored twice
+	 *
+	 * @param int $id
+	 * @param array $record
+	 *
+	 * @return array [{"date", "user", "text"}]
+	 */
+	protected function chatterEvents(int $id, array $record):array
+	{
+
+		$events = [];
+		$workflow = Workflow::get($this->module);
+		if($this->versioning())
+		{
+
+			foreach($this->versionList($id, $record) as $version)
+			{
+
+				if($version['created'])
+				{
+
+					$events[] = ['date' => $version['date'], 'user' => $version['author'], 'text' => ts('Record created')];
+					continue;
+
+				}
+
+				foreach($version['changes'] as $change)
+					if(!$workflow || $change['field'] !== $workflow['state_column'])$events[] = ['date' => $version['date'], 'user' => $version['author'], 'text' => "{$change['label']}: ".(($change['before'] === '') ? '-' : mb_strimwidth($change['before'], 0, 120, '...')).' → '.(($change['after'] === '') ? '-' : mb_strimwidth($change['after'], 0, 120, '...'))];
+
+			}
+
+		}
+
+		if($workflow)
+		{
+
+			// the state changes come from the history of the workflow (never twice with the versions)
+			foreach(Workflow::history($workflow, $id) as $h)
+				$events[] = ['date' => $h['date'], 'user' => $h['user'], 'text' => (($h['from_state'] !== '') ? "{$h['transition']}: {$h['from']} → {$h['to']}" : "{$h['transition']}: {$h['to']}").(($h['comment'] !== '') ? " - {$h['comment']}" : '')];
+
+		}
+
+		return $events;
+
+	}
+
 	/**
 	 * read only view of a record, ex: ['title' => 'Log #12', 'fields' => [['label' => 'Date', 'value' => '...'], ['label' => 'Values', 'value' => '{}', 'type' => 'code', 'language' => 'json', 'wide' => true]]]
 	 *
@@ -868,8 +1269,17 @@ abstract class CrudController extends Controller
 	{
 
 		$fields = [];
+		$workflow = Workflow::get($this->module);
 		foreach($this->buildForm($record)->fields as $name => $f)
-			if($f['type'] !== 'password')$fields[] = ['label' => ts($f['label']), 'value' => (string)($record[$name] ?? '')];
+		{
+
+			if($f['type'] === 'password')continue;
+			$value = ($f['type'] === 'address') ? self::addressText(Form::addressValue($f, $record)) : (string)($record[$name] ?? '');
+			// the state column shows the label of its state
+			if($workflow && $name === $workflow['state_column'])$value = ($value === '') ? '' : Workflow::label($workflow, $value);
+			$fields[] = ['label' => ts($f['label']), 'value' => $value];
+
+		}
 
 		return ['title' => ts($this->object_label).' #'.$record['id'], 'fields' => $fields];
 
@@ -981,7 +1391,7 @@ abstract class CrudController extends Controller
 		$grid->module = $this->module;
 		$this->grid($grid);
 
-		// workflow: the state column as a badge of the states, chips by state when the grid has none
+		// workflow: the state column as a badge of the states, chips by state when the grid has none or has them on the state column
 		$workflow = Workflow::get($this->module);
 		if($workflow && $workflow['states'])
 		{
@@ -991,7 +1401,7 @@ abstract class CrudController extends Controller
 			$colors = array_map(fn($s) => $s['color'], $workflow['states']);
 			if(isset($grid->columns[$column]))$grid->columns[$column] = array_merge($grid->columns[$column], ['type' => 'badge', 'colors' => (object)$colors, 'labels' => $labels]);
 			else $grid->addColBadge($column, 'State', true, $colors)->labels($labels);
-			if(!$grid->chips)$grid->addFilterChips($column, $labels)->chipColors($colors);
+			if(!$grid->chips || $grid->chips['name'] === $column)$grid->addFilterChips($column, $labels, $grid->chips['all'] ?? true, $grid->chips['hide_empty'] ?? true, $grid->chips['sql'] ?? '')->chipColors($colors);
 
 		}
 
@@ -1074,9 +1484,15 @@ abstract class CrudController extends Controller
 		foreach(array_intersect_key($form->fields, array_flip($this->ucfirst)) as $name => $field)
 			$form->fields[$name]['ucfirst'] = true;
 
-		// workflow: its state column is shown read only (changed by the transitions), so it leaves the mass edit too
+		// workflow: its state column is changed by the transitions only, hidden in the form (its state band shows it), read only so it leaves the mass edit too
 		$state = $this->stateColumn();
-		if($state !== '' && isset($form->fields[$state]))$form->fields[$state]['readonly'] = true;
+		if($state !== '' && isset($form->fields[$state]))
+		{
+
+			$form->fields[$state]['readonly'] = true;
+			$form->fields[$state]['hidden'] = true;
+
+		}
 
 		return $form;
 
@@ -1092,7 +1508,7 @@ abstract class CrudController extends Controller
 
 		$form = $this->buildForm([]);
 		$names = array_flip($this->buildGrid()->batch_edit);
-		$form->fields = array_filter(array_intersect_key($form->fields, $names), fn($f) => empty($f['unique']) && empty($f['readonly']) && $f['type'] !== 'password');
+		$form->fields = array_filter(array_intersect_key($form->fields, $names), fn($f) => empty($f['unique']) && empty($f['readonly']) && !in_array($f['type'], ['password', 'address'], true));
 
 		return $form;
 
@@ -1205,6 +1621,9 @@ abstract class CrudController extends Controller
 
 		$row = $this->ucfirst($form->hydrate($request->request->all(), $id > 0));
 
+		// address fields: coordinates geocoded when the address changed and lat / lng did not
+		$warnings = $this->addressGeocode($form, $row, $record);
+
 		// workflow: state of a new record (creation transition: its groups and required fields), checked before the files move
 		$workflow = Workflow::get($this->module);
 		$start = null;
@@ -1255,11 +1674,12 @@ abstract class CrudController extends Controller
 			$id = (int)DB($this->table)->insert($row, $this->author());
 			if($workflow)Workflow::created($workflow, $id, $start);
 			if($form->tagManager() !== '')\Core\Tag::set($form->tagManager(), $id, (array)$request->request->all('_tags'), $this->author());
+			if(Chatter::enabled($this->module))Chatter::follow($this->module, $id, \Model\User::getUID());
 			\Core\Log::write('add', $this->object_label, $this->masked($row), $id, 'info', $this->module);
 			$this->versionSave($id);
 			$this->onSaveAfterCreate($id, $row);
 
-			return new JsonResponse(['id' => $id], 201);
+			return new JsonResponse(['id' => $id] + (($warnings) ? ['warning' => implode("\n", $warnings)] : []), 201);
 
 		}
 
@@ -1297,7 +1717,7 @@ abstract class CrudController extends Controller
 
 		$this->onSaveAfterEdit($id, $row, $changed);
 
-		return new JsonResponse(['id' => $id]);
+		return new JsonResponse(['id' => $id] + (($warnings) ? ['warning' => implode("\n", $warnings)] : []));
 
 	}
 
@@ -1401,6 +1821,7 @@ abstract class CrudController extends Controller
 
 			if($field['type'] === 'password')continue;
 			if(!empty($field['manager']))$data[$name] = \Core\Tag::get($field['manager'], $id);
+			elseif($field['type'] === 'address')$data[$name] = Form::addressValue($field, $record);
 			elseif(array_key_exists($name, $record))$data[$name] = $record[$name];
 
 		}
@@ -1420,6 +1841,7 @@ abstract class CrudController extends Controller
 	protected function versionText(array $field, mixed $value):string
 	{
 
+		if($field['type'] === 'address')return (is_array($value)) ? self::addressText($value) : '';
 		if(is_array($value))return implode(', ', $value);
 		$value = (string)$value;
 
@@ -1431,6 +1853,98 @@ abstract class CrudController extends Controller
 			if((string)$option['value'] === $value)return (string)$option['label'];
 
 		return mb_strimwidth($value, 0, 500, '...');
+
+	}
+
+	/**
+	 * coordinates of the address fields of a save (\Core\Geocoder): kept when the user typed them,
+	 * geocoded when the address changed and lat / lng did not, removed when the address is emptied
+	 * the record is saved even when the address is not found (warning)
+	 *
+	 * @param Form $form
+	 * @param array $row values written
+	 * @param array $record current record, [] on create
+	 *
+	 * @return array warnings
+	 */
+	protected function addressGeocode(Form $form, array &$row, array $record):array
+	{
+
+		$warnings = [];
+		foreach($form->fields as $f)
+		{
+
+			if($f['type'] !== 'address' || !array_key_exists($f['columns']['lat'], $row))continue;
+			$c = $f['columns'];
+
+			// same coordinates as stored: the stored value is kept (no false change of a decimal column)
+			foreach(['lat', 'lng'] as $part)
+				if(self::sameValue($record[$c[$part]] ?? null, $row[$c[$part]]))$row[$c[$part]] = $record[$c[$part]] ?? null;
+
+			$text = fn(array $source) => implode('|', array_map(fn($part) => mb_strtolower(trim((string)($source[$c[$part]] ?? ''))), ['street', 'zip', 'city', 'country']));
+			$moved = !self::sameValue($record[$c['lat']] ?? null, $row[$c['lat']]) || !self::sameValue($record[$c['lng']] ?? null, $row[$c['lng']]);
+			if($moved || $text($row) === $text($record))continue;
+
+			// address emptied: no position
+			if(trim($row[$c['street']].$row[$c['zip']].$row[$c['city']]) === '')
+			{
+
+				$row[$c['lat']] = $row[$c['lng']] = null;
+				continue;
+
+			}
+
+			// outside france: coordinates typed by hand or empty
+			if(!Geocoder::france((string)$row[$c['country']]))continue;
+
+			if($position = Geocoder::locate((string)$row[$c['street']], (string)$row[$c['zip']], (string)$row[$c['city']]))
+			{
+
+				$row[$c['lat']] = $position['lat'];
+				$row[$c['lng']] = $position['lng'];
+				continue;
+
+			}
+
+			$warnings[] = ts('[FIELD]: address not found, coordinates unchanged', ['FIELD' => ts($f['label'])]);
+
+		}
+
+		return $warnings;
+
+	}
+
+	/**
+	 * one line of an address object: street, zip city, country (lat, lng)
+	 *
+	 * @param array $value
+	 *
+	 * @return string
+	 */
+	protected static function addressText(array $value):string
+	{
+
+		$city = trim(($value['zip'] ?? '').' '.($value['city'] ?? ''));
+		$text = implode(', ', array_filter([trim((string)($value['street'] ?? '')), $city, trim((string)($value['country'] ?? ''))], 'strlen'));
+		if(is_numeric($value['lat'] ?? null) && is_numeric($value['lng'] ?? null))$text .= " ({$value['lat']}, {$value['lng']})";
+
+		return trim($text);
+
+	}
+
+	/**
+	 * same value of a column: numbers compared as numbers (decimal columns), null and '' alike
+	 *
+	 * @param mixed $a
+	 * @param mixed $b
+	 *
+	 * @return bool
+	 */
+	protected static function sameValue(mixed $a, mixed $b):bool
+	{
+
+		if(is_numeric($a) && is_numeric($b))return abs((float)$a - (float)$b) < 0.0000001;
+		return (string)$a === (string)$b;
 
 	}
 

@@ -186,6 +186,8 @@ export type Grid = {
 	grid_actions: GridAction[]
 	mobile: {title: string, subtitle: string}
 	position: string | null
+	// map view declared ($grid->map()): GET /api/<module>/map/ with the same query
+	map?: boolean
 	// transitions of the user (\Core\Workflow): row menu by the state of the row, selection menu
 	workflow: {column: string, states: Record<string, WorkflowState>, transitions: WorkflowTransition[]} | null
 }
@@ -203,7 +205,7 @@ export type SavedFilter = {
 // form of a module (GET /api/<module>/form/ and /api/<module>/<id>/), see \Component\Form
 export type FormField = {
 	name: string
-	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'time' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio' | 'multiselect' | 'file'
+	type: 'text' | 'email' | 'password' | 'textarea' | 'html' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'time' | 'select' | 'icon' | 'color' | 'tags' | 'code' | 'radio' | 'multiselect' | 'file' | 'address'
 	label: string
 	required: boolean
 	width: number
@@ -213,6 +215,7 @@ export type FormField = {
 	rows?: number
 	options?: Option[]
 	readonly?: boolean
+	hidden?: boolean
 	autocomplete?: boolean
 	free?: boolean
 	suggestions?: string[]
@@ -246,6 +249,8 @@ export type FormField = {
 	generate?: boolean
 	// counter under a textarea: sms = characters and parts (\Core\Sms::measure), extra characters when the field `field` is yes (STOP mention)
 	counter?: {type: 'sms', field?: string, extra?: number}
+	// address (\Component\Form::addAddress): search url of the ign geoplateforme, value {street, zip, city, country, lat, lng}
+	geocoder?: string
 }
 
 // tab of a form (flag: country code) and button of the form on a record (POST /api/<module>/<id>/action/<name>/)
@@ -254,9 +259,11 @@ export type FormAction = {name: string, label: string, icon: string, right: stri
 
 export type FormPayload = {
 	form: {fields: FormField[], tabs: FormTab[], actions: FormAction[]}
-	record: Record<string, string | string[]>
+	record: Record<string, unknown>
 	versions?: number
 	workflow?: WorkflowSummary
+	// chatter under the form (option chatter of the plugin): GET /api/<module>/<id>/chatter/
+	chatter?: boolean
 }
 
 // workflow of a module (\Core\Workflow): state colors, transitions of the user, summary of a record, history

@@ -40,7 +40,8 @@ const theme = createTheme({
 		},
 		MuiOutlinedInput: {
 			styleOverrides: {
-				root: {height: 40, fontSize: 14},
+				// a multiline input grows with its rows
+				root: {height: 40, fontSize: 14, '&.MuiInputBase-multiline': {height: 'auto'}},
 				notchedOutline: {borderColor: 'var(--u-border-strong)'},
 			},
 		},
@@ -51,7 +52,8 @@ const theme = createTheme({
 		MuiDialog: {
 			styleOverrides: {
 				container: {alignItems: 'flex-start'},
-				paper: {'&:not(.MuiDialog-paperFullScreen)': {marginTop: 48}},
+				// top of the screen: 24 px above and below the dialogs (fullscreen ones excepted)
+				paper: {'&:not(.MuiDialog-paperFullScreen)': {marginTop: 24, marginBottom: 24, maxHeight: 'calc(100% - 48px)'}},
 			},
 		},
 	},

@@ -30,6 +30,14 @@
 	--u-blue-bg: #e6f0fd; --u-blue: #1d4f91;
 	--u-yellow-bg: #fff6d6; --u-yellow: #7a5b00;
 	--u-shadow: rgba(16, 20, 40, 0.06);
+	/* thread of the chatter, messaging style */
+	--u-chat-bg: #efeae2; --u-chat-dots: rgba(60, 50, 30, 0.07);
+	--u-chat-mine: #d9fdd3; --u-chat-other: #fff; --u-chat-time: #667781;
+	--u-chat-note: #fff4c2; --u-chat-note-border: #d9b23a; --u-chat-note-text: #8a6a00;
+	--u-chat-info: #e1f2fb; --u-chat-info-text: #3a5566;
+	--u-chat-done: #ddf4dd; --u-chat-done-text: #2b6a35;
+	--u-chat-bar: #f0f2f5; --u-chat-read: #53bdeb;
+	--u-pill-green: #25d366; --u-pill-red: #d93025; --u-pill-orange: #e8710a;
 }
 
 .dark {
@@ -63,4 +71,11 @@
 	--u-blue-bg: #1a2a44; --u-blue: #8fb8f5;
 	--u-yellow-bg: #3a3216; --u-yellow: #f0cf6a;
 	--u-shadow: rgba(0, 0, 0, 0.4);
+	--u-chat-bg: #0b141a; --u-chat-dots: rgba(255, 255, 255, 0.04);
+	--u-chat-mine: #005c4b; --u-chat-other: #202c33; --u-chat-time: #8696a0;
+	--u-chat-note: #3a3216; --u-chat-note-border: #a88a2a; --u-chat-note-text: #f0cf6a;
+	--u-chat-info: #182229; --u-chat-info-text: #8fb8d0;
+	--u-chat-done: #17332b; --u-chat-done-text: #6fd6b5;
+	--u-chat-bar: #1b1e29; --u-chat-read: #53bdeb;
+	--u-pill-green: #25d366; --u-pill-red: #e5484d; --u-pill-orange: #e8710a;
 }
