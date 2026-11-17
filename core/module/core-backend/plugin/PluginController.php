@@ -40,7 +40,7 @@ class PluginController extends \Core\CrudController
 		$grid->addFilter('active', 'Active', 'boolean');
 		$grid->addFilter('id', 'ID', 'number');
 		$grid->setMobile('name', 'target');
-		$grid->batchEdit(['xcore_menu_id', 'versioning', 'visible', 'active']);
+		$grid->batchEdit(['xcore_menu_id', 'versioning', 'chatter', 'visible', 'active']);
 
 		$grid->addColPosition();
 		$grid->addCol('id', 'ID', true)->width(72);
@@ -49,6 +49,7 @@ class PluginController extends \Core\CrudController
 		$grid->addColBadge('type', 'Type', true, ['normal' => 'grey', 'url' => 'blue'])->width(90);
 		$grid->addColBoolean('custom', 'Custom', false, false, true)->width(90);
 		$grid->addColBoolean('versioning', 'Versioning', false, false, true)->width(110);
+		$grid->addColBoolean('chatter', 'Chatter', false, true)->width(90);
 		$grid->addColBoolean('visible', 'Visible', false, true)->width(90);
 		$grid->addColBoolean('active', 'Active', false, true)->width(90);
 
