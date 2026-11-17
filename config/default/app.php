@@ -146,6 +146,10 @@ return [
 		'url' => 'https://data.geopf.fr/geocodage/search', # ign geoplateforme (france), called by the server at the save and by the browser (autocomplete)
 		'timeout' => 5, # seconds, geocoding at the save
 	],
+	// weather widget: cities out of france found by nominatim (openstreetmap, 1 request per second at most, results cached)
+	'weather' => [
+		'nominatim_url' => 'https://nominatim.openstreetmap.org/search',
+	],
 	'map' => [
 		// openstreetmap tiles for a small volume only: a provider with a key (maptiler, stadia...) or self hosted otherwise
 		'tiles' => [

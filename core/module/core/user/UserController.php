@@ -400,15 +400,20 @@ class UserController extends \Core\CrudController
 	}
 
 	/**
-	 * widget of the dashboard: the 20 last connected users of the backend and the 20 of the frontend in one list, filtered by toggleable chips
+	 * widget of the dashboard: the 20 last connected users of the backend and / or the 20 of the frontend in one list (setting application), filtered by toggleable chips when both
+	 *
+	 * @param array $config settings of the placed widget: application (both, backend or frontend)
 	 *
 	 * @return array see \Core\Widget
 	 */
-	public static function widgetLastActive():array
+	public static function widgetLastActive(array $config=[]):array
 	{
 
+		// setting application: backend, frontend or both
+		$applications = in_array($config['application'] ?? '', ['backend', 'frontend'], true) ? [$config['application']] : ['backend', 'frontend'];
+
 		$recs = [];
-		foreach(['backend', 'frontend'] as $application)
+		foreach($applications as $application)
 		{
 
 			$recs = array_merge($recs, DB()->query("SELECT u.id, u.firstname, u.lastname, u.login, u.avatar, u.last_connection_date, u.last_connection_ip, u.last_connection_application, u.last_connection_plugin, g.name AS group_name, p.name AS plugin_name FROM xcore_user u LEFT JOIN xcore_group g ON g.id = u.xcore_group_id LEFT JOIN xcore_plugin p ON p.route_prefix_name = u.last_connection_plugin AND p.deleted = 'no' WHERE u.deleted = 'no' AND u.last_connection_application = :app AND u.last_connection_date IS NOT NULL ORDER BY u.last_connection_date DESC LIMIT 20", ['app' => $application])->fetchAll());
@@ -426,7 +431,7 @@ class UserController extends \Core\CrudController
 			$rows[] = [
 				\Core\Widget::avatar($rec),
 				['text' => trim("{$rec['firstname']} {$rec['lastname']}") ?: $rec['login'], 'strong' => true, 'link' => 'user/?search[]='.rawurlencode("q||{$rec['login']}")],
-				['text' => $labels[$rec['last_connection_application']], 'badge' => ($rec['last_connection_application'] === 'backend') ? 'blue' : 'purple'],
+				['text' => $labels[$rec['last_connection_application']], 'badge' => ($rec['last_connection_application'] === 'backend') ? 'blue' : 'green'],
 				['text' => ts((string)$rec['group_name']), 'muted' => true],
 				['text' => ($rec['last_connection_plugin'] === 'dashboard') ? ts('Dashboard') : ts((string)$rec['plugin_name']), 'muted' => true],
 				['text' => (string)$rec['last_connection_ip'], 'mono' => true, 'muted' => true],
@@ -435,7 +440,11 @@ class UserController extends \Core\CrudController
 
 		}
 
-		return ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No connection'), 'filter' => ['column' => 2, 'options' => array_values($labels)], 'max_rows' => 4];
+		// chips of the applications when both are shown
+		$data = ['type' => 'rows', 'rows' => $rows, 'empty' => ts('No connection'), 'max_rows' => 4];
+		if(count($applications) > 1)$data['filter'] = ['column' => 2, 'options' => array_values($labels)];
+
+		return $data;
 
 	}
 

@@ -5,7 +5,7 @@ import { api, ApiException } from '../api'
 import { t } from '../i18n'
 import { relativeDay } from './time'
 import { useToast } from './Toast'
-import { LABEL_SX, type WidgetInfo } from './Widgets'
+import { CARD_SX, HEADER_SX, LABEL_SX, type WidgetInfo, type WidgetSlots } from './Widgets'
 
 type Note = {id: number, text: string, color: string, date: string}
 
@@ -90,7 +90,7 @@ function Editor({note, onSave, onCancel}: {note: {text: string, color: string}, 
 /**
  * personal notes of the logged user (post-it), added and changed in place, placed by its widget (\Core\Widget::NOTES)
  */
-export default function Notes({widget}: {widget: WidgetInfo})
+export default function Notes({widget, handle, tools}: {widget: WidgetInfo} & WidgetSlots)
 {
 
 	const toast = useToast()
@@ -153,11 +153,12 @@ export default function Notes({widget}: {widget: WidgetInfo})
 	}
 
 	return (
-		<Box component="section" aria-label={widget.name} sx={{gridColumn: {xs: 'span 2', md: widget.size === 'half' ? 'span 1' : 'span 2'}, minWidth: 0, display: 'flex', flexDirection: 'column', bgcolor: 'var(--u-widget)', borderRadius: '12px'}}>
-			<Box sx={{display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 1.25}}>
-				<StickyNote2Outlined sx={{fontSize: 18, color: 'var(--u-muted)'}} />
-				<Typography component="h2" sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
-				<ButtonBase onClick={() => setEditing('new')} sx={{display: 'flex', alignItems: 'center', gap: 0.25, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500, lineHeight: 'inherit', color: 'var(--u-accent-text)', '&:hover': {textDecoration: 'underline'}}}><AddOutlined sx={{fontSize: 16}} />{t('Add note')}</ButtonBase>
+		<Box component="section" aria-label={widget.name} sx={CARD_SX}>
+			<Box sx={HEADER_SX}>
+				{handle ?? <StickyNote2Outlined sx={{fontSize: 18, color: 'var(--u-muted)'}} />}
+				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
+				<ButtonBase onClick={() => setEditing('new')} sx={{display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500, lineHeight: 'inherit', color: 'var(--u-accent-text)', '&:hover': {textDecoration: 'underline'}}}><AddOutlined sx={{fontSize: 16}} />{t('Add note')}</ButtonBase>
+				{tools}
 			</Box>
 			<Box sx={{px: 1.75, py: 0.75, flexGrow: 1}}>
 				{notes?.length === 0 && editing !== 'new'

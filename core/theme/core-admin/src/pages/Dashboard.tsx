@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router'
 import { Box, CircularProgress, InputAdornment, OutlinedInput, Tab, Tabs, Typography } from '@mui/material'
 import { SearchOutlined, WavingHandOutlined } from '@mui/icons-material'
-import { api, type MenuCategory, type MenuItem } from '../api'
+import { api, ApiException, type MenuCategory, type MenuItem } from '../api'
 import { useDocumentTitle } from '../components/AuthLayout'
 import { MenuIcon } from '../components/icons'
-import Notes from '../components/Notes'
-import { WidgetCard, WidgetGrid, type WidgetInfo } from '../components/Widgets'
+import { AddWidgetButton, AddWidgetDialog, addToRows, DashboardGrid, toRows, type Rows } from '../components/DashboardWidgets'
+import { useToast } from '../components/Toast'
+import { type Placed, type WidgetInfo } from '../components/Widgets'
 import { useAuth } from '../auth'
-import { getLanguage, t } from '../i18n'
+import { t } from '../i18n'
 
 const TABS = ['dashboard', 'menu'] as const
 type DashboardTab = typeof TABS[number]
@@ -51,31 +52,6 @@ function writeTab(tab: DashboardTab)
 
 }
 
-// digital clock (short day, date dd/mm/yyyy, hh:mm), refreshed every second
-function Clock()
-{
-
-	const [now, setNow] = useState(() => new Date())
-
-	useEffect(() => {
-
-		const timer = setInterval(() => setNow(new Date()), 1000)
-		return () => clearInterval(timer)
-
-	}, [])
-
-	const day = now.toLocaleDateString(getLanguage(), {weekday: 'short'}).replace('.', '')
-	const pad = (n: number) => String(n).padStart(2, '0')
-
-	return (
-		<Box component="time" dateTime={now.toISOString()} sx={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums', color: 'var(--u-muted)'}}>
-			<Box component="span" sx={{fontSize: 12.5}}>{day.charAt(0).toUpperCase() + day.slice(1)} {pad(now.getDate())}/{pad(now.getMonth() + 1)}/{now.getFullYear()}</Box>
-			<Box component="span" sx={{fontSize: {xs: 18, md: 20}, fontWeight: 500}}>{pad(now.getHours())}:{pad(now.getMinutes())}</Box>
-		</Box>
-	)
-
-}
-
 // lower case without accents, for the search
 const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
@@ -95,14 +71,17 @@ function PluginTile({item}: {item: MenuItem})
 }
 
 /**
- * home page of the backend (module core-backend/dashboard): tab dashboard (widgets, personal notes), tab plugins (plugins allowed, by category)
+ * home page of the backend (module core-backend/dashboard): tab dashboard (widgets placed by the user, personal notes), tab plugins (plugins allowed, by category)
  */
 export default function Dashboard()
 {
 
 	const [tab, setTab] = useState<DashboardTab>(readTab)
 	const [menu, setMenu] = useState<MenuCategory[] | null>(null)
-	const [widgets, setWidgets] = useState<WidgetInfo[] | null>(null)
+	const [widgets, setWidgets] = useState<Rows | null>(null)
+	const [catalog, setCatalog] = useState<WidgetInfo[]>([])
+	const [adding, setAdding] = useState(false)
+	const toast = useToast()
 	const [search, setSearch] = useState('')
 	const {user} = useAuth()
 	const navigate = useNavigate()
@@ -110,7 +89,7 @@ export default function Dashboard()
 
 	useEffect(() => {
 
-		api<{menu: MenuCategory[], widgets: WidgetInfo[]}>('dashboard/').then((data) => { setMenu(data.menu); setWidgets(data.widgets) }).catch(() => { setMenu([]); setWidgets([]) })
+		api<{menu: MenuCategory[], widgets: (Placed & {row: number})[], catalog: WidgetInfo[]}>('dashboard/').then((data) => { setMenu(data.menu); setWidgets(toRows(data.widgets)); setCatalog(data.catalog) }).catch(() => { setMenu([]); setWidgets([]) })
 
 	}, [])
 
@@ -128,26 +107,46 @@ export default function Dashboard()
 
 	}
 
+	// dashboard of the user (rows) saved at each change (PUT /api/dashboard/layout/), the previous one back on error
+	const save = (rows: Rows) => {
+
+		const previous = widgets
+		setWidgets(rows)
+		api<{widgets: (Placed & {row: number})[]}>('dashboard/layout/', {method: 'PUT', body: {rows: rows.map((row) => row.map((w) => ({key: Math.max(0, w.key), widget: w.id, config: w.config})))}})
+			.then((data) => setWidgets(toRows(data.widgets)))
+			.catch((e) => { setWidgets(previous); toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error') })
+
+	}
+
+	// the dialog stays open: several widgets added in a row
+	const add = (widget: WidgetInfo) => {
+
+		if(!widgets || (!widget.multiple && widgets.flat().some((w) => w.id === widget.id)))return
+
+		// key < 0 until saved, settings at their defaults
+		const config = Object.fromEntries((widget.fields ?? []).map((f) => [f.name, f.default]))
+		save(addToRows(widgets, {...widget, key: -Date.now(), config}))
+		toast(t('[NAME] added to the dashboard', {NAME: widget.name}), 'success')
+
+	}
+
 	return (
 		<>
-			<Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2}}>
+			<Box sx={{display: 'flex', alignItems: 'center', gap: 2}}>
 				<Typography component="h1" sx={{m: 0, fontSize: {xs: 21, md: 24}, fontWeight: 600, letterSpacing: '-0.01em'}}>
 					<WavingHandOutlined aria-hidden sx={{fontSize: '0.9em', mr: 1, verticalAlign: '-0.1em', color: 'var(--u-accent-text)'}} />{before}<Box component="span" sx={{color: 'var(--u-accent-text)'}}>{user?.firstname || user?.login || ''}</Box>{after}
 				</Typography>
-				<Clock />
 			</Box>
 
 			<Tabs value={tab} onChange={(_, value) => change(value)} sx={{minHeight: 40, mt: -2, borderBottom: '1px solid var(--u-border)', '& .MuiTab-root': {minHeight: 40, px: 1.75, textTransform: 'uppercase', fontSize: 13, fontWeight: 600, letterSpacing: '.04em'}}}>
 				<Tab value="dashboard" label={t('Dashboard')} />
+				<AddWidgetButton hidden={tab !== 'dashboard' || !widgets} onAdd={() => setAdding(true)} />
 				<Tab value="menu" label={t('Plugins')} />
 			</Tabs>
 
 			{tab === 'dashboard' && !widgets && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
-			{tab === 'dashboard' && widgets && (
-				<WidgetGrid>
-					{widgets.map((w) => w.type === 'notes' ? <Notes key={w.id} widget={w} /> : <WidgetCard key={w.id} widget={w} version={0} />)}
-				</WidgetGrid>
-			)}
+			{tab === 'dashboard' && widgets && <DashboardGrid rows={widgets} version={0} onChange={save} />}
+			<AddWidgetDialog open={adding} catalog={catalog} placed={widgets?.flat() ?? []} onAdd={add} onClose={() => setAdding(false)} />
 
 			{tab === 'menu' && !menu && <Box sx={{display: 'flex', justifyContent: 'center', py: 6}}><CircularProgress /></Box>}
 			{tab === 'menu' && menu && (

@@ -6,31 +6,110 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * home page of the backend: tab dashboard (widgets of xcore_widget, personal notes) and tab plugins (plugins allowed to the user, by category)
+ * home page of the backend: tab dashboard (widgets of xcore_widget placed by the user in xcore_user_widget, personal notes) and tab plugins (plugins allowed to the user, by category)
  */
 #[Route('/api/dashboard', name: 'api.dashboard.')]
 class DashboardController extends \Core\Controller
 {
 
 	public const array NOTE_COLORS = ['yellow', 'green', 'primary'];
+	public const int WIDGETS_MAX = 50;
 
 	/**
 	 * content of the home page for the logged user
 	 *
-	 * @return \Core\JsonResponse {"menu": [{"name", "icon", "color", "items": [...]}], "widgets": [{"id", "name", "icon", "route", "size", "position", "refresh"}]}
+	 * @return \Core\JsonResponse {"menu": [{"name", "icon", "color", "items": [...]}], "widgets": dashboard of the user in his order with their "key", "row", "config", "catalog": widgets he can add, both [{"id", "type", "name", "icon", "route", "size", "position", "refresh", "url", "height"}]}
 	 */
 	#[Route('/', name: 'index', methods: ['GET'])]
 	public function index():\Core\JsonResponse
 	{
 
-		return new \Core\JsonResponse(['menu' => \Model\Menu::forCurrentUser(), 'widgets' => \Core\Widget::forCurrentUser()]);
+		$catalog = \Core\Widget::forCurrentUser();
+
+		return new \Core\JsonResponse(['menu' => \Model\Menu::forCurrentUser(), 'widgets' => \Core\Widget::layoutForCurrentUser($catalog), 'catalog' => $catalog]);
 
 	}
 
 	/**
-	 * data of a widget (list right on its plugin)
+	 * saves the dashboard of the logged user, json body {"rows": [[{"key", "widget", "config"}, ...], ...]} rows from the top, widgets from the left (empty = empty dashboard)
+	 * key: id of a widget he placed (0 = added), widget: id of xcore_widget, config: settings of a configurable widget {name: value}
+	 * each widget allowed, placed once unless multiple, a row holds 4 columns at most (sizes of the widgets)
 	 *
-	 * @param int $id
+	 * @param Request $request
+	 *
+	 * @return \Core\JsonResponse {"widgets"} the dashboard saved (keys of the added widgets)
+	 */
+	#[Route('/layout/', name: 'layout', methods: ['PUT'])]
+	public function layout(Request $request):\Core\JsonResponse
+	{
+
+		$rows = $request->request->all()['rows'] ?? null;
+		if(!is_array($rows) || !array_is_list($rows))return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+
+		$catalog = array_column(\Core\Widget::forCurrentUser(), null, 'id');
+		$mine = array_column(DB()->query("SELECT id, xcore_widget_id FROM xcore_user_widget WHERE deleted = 'no' AND xcore_user_id = :me", ['me' => \Model\User::getUID()])->fetchAll() ?: [], 'xcore_widget_id', 'id');
+
+		$list = [];
+		$placed = [];
+		$keys = [];
+		$count = 0;
+		foreach($rows as $row)
+		{
+
+			if(!is_array($row) || !$row || !array_is_list($row))return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+
+			$items = [];
+			$width = 0;
+			foreach($row as $item)
+			{
+
+				$id = is_array($item) ? ($item['widget'] ?? null) : null;
+				$key = is_array($item) ? ($item['key'] ?? 0) : null;
+				if(!is_int($id) || !is_int($key) || $key < 0)return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+				if(!isset($catalog[$id]))return \Core\JsonResponse::error(422, ts('widget not allowed'));
+				if(isset($placed[$id]) && !$catalog[$id]['multiple'])return \Core\JsonResponse::error(422, ts('a widget is placed once'));
+
+				// a key of the user, for this widget, once
+				if($key && ((int)($mine[$key] ?? 0) !== $id || isset($keys[$key])))return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+
+				// settings: the fields of the widget only
+				$config = [];
+				$values = $item['config'] ?? [];
+				if(!is_array($values))return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+				foreach($catalog[$id]['fields'] as $f)
+				{
+
+					if(!array_key_exists($f['name'], $values))continue;
+					if($error = \Core\Widget::configError($f, $values[$f['name']]))return \Core\JsonResponse::error(422, $error);
+					$config[$f['name']] = $values[$f['name']];
+
+				}
+
+				$placed[$id] = true;
+				if($key)$keys[$key] = true;
+				$width += \Core\Widget::SPANS[$catalog[$id]['size']] ?? \Core\Widget::COLUMNS;
+				$items[] = ['key' => $key, 'widget' => $id, 'config' => \Core\Widget::config($catalog[$id]['fields'], $config)];
+				$count++;
+
+			}
+
+			if($width > \Core\Widget::COLUMNS)return \Core\JsonResponse::error(422, ts('a row holds 4 columns at most'));
+			$list[] = $items;
+
+		}
+
+		if($count > self::WIDGETS_MAX)return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+
+		\Core\Widget::saveLayout($list);
+
+		return new \Core\JsonResponse(['widgets' => \Core\Widget::layoutForCurrentUser(array_values($catalog))]);
+
+	}
+
+	/**
+	 * data of a widget placed by the user (widget right on its plugin, or access all)
+	 *
+	 * @param int $id id of the placed widget (xcore_user_widget)
 	 *
 	 * @return \Core\JsonResponse see \Core\Widget
 	 */
@@ -54,6 +133,32 @@ class DashboardController extends \Core\Controller
 	{
 
 		return ['type' => 'notes'];
+
+	}
+
+	/**
+	 * widget Clock (\Core\Widget::CLOCK): date and time of the browser, drawn by the dashboard itself
+	 *
+	 * @return array
+	 */
+	public static function widgetClock():array
+	{
+
+		return ['type' => 'clock'];
+
+	}
+
+	/**
+	 * widget Weather: forecast of the place of its settings (city, latitude, longitude), else of the globals widget.weather.* (see \Core\Weather)
+	 *
+	 * @param array $config settings of the placed widget
+	 *
+	 * @return array
+	 */
+	public static function widgetWeather(array $config=[]):array
+	{
+
+		return \Core\Weather::widget($config);
 
 	}
 

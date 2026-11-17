@@ -33,7 +33,7 @@ class Geocoder
 		$timeout = max(1, (int)Config::get('geocoder/timeout', 5));
 
 		$ch = curl_init($url);
-		curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => $timeout, CURLOPT_TIMEOUT => $timeout, CURLOPT_USERAGENT => 'Unee', CURLOPT_HTTPHEADER => ['Accept: application/json']]);
+		curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => $timeout, CURLOPT_TIMEOUT => $timeout, CURLOPT_USERAGENT => 'Unee', CURLOPT_HTTPHEADER => ['Accept: application/json']] + Weather::nativeCa());
 		$response = curl_exec($ch);
 		$code = ($response === false) ? 0 : (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 
