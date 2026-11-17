@@ -9,6 +9,8 @@ import '@fontsource/ibm-plex-sans/latin-500.css'
 import '@fontsource/ibm-plex-sans/latin-ext-500.css'
 import '@fontsource/ibm-plex-sans/latin-600.css'
 import '@fontsource/ibm-plex-sans/latin-ext-600.css'
+// font of the name in the logo
+import '@fontsource/hind-siliguri/latin-400.css'
 import './colors.css'
 import { AuthProvider, useAuth } from './auth'
 import Login from './pages/Login'

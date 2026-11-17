@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="115 52 125 125">
+	<title>Unee</title>
+	<defs>
+		<linearGradient id="unee-logo-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="241" y2="241">
+			<stop offset="0" stop-color="#0099ff"/>
+			<stop offset="0.0822" stop-color="#008dff"/>
+			<stop offset="1" stop-color="#fa04ff"/>
+		</linearGradient>
+	</defs>
+	<g transform="matrix(.481,0,0,.481,119,56)">
+		<circle cx="120.5" cy="120.5" r="120" fill="url(#unee-logo-gradient)"/>
+		<g fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" transform="rotate(-45 120.5 120.5) translate(120.5 120.5)"><path d="M16 -32H32A32 32 0 0 1 32 32H16M-16 -32H-32A32 32 0 0 0 -32 32H-16M-24 0H24"/></g>
+	</g>
+</svg>

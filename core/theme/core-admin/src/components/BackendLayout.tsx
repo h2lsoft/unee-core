@@ -6,7 +6,7 @@ import { BookmarkBorderOutlined, BookmarkOutlined, CalendarMonthOutlined, Search
 import { api, DATA_CHANGED_EVENT, type Bookmark, type MenuCategory, type MenuItem as MenuEntry } from '../api'
 import { useAuth } from '../auth'
 import { t } from '../i18n'
-import { useLoginConfig, useLogo } from './AuthLayout'
+import { Logo, useLoginConfig } from './AuthLayout'
 import { MenuIcon } from './icons'
 import FormDialog from './FormDialog'
 import NotificationBell from './NotificationBell'
@@ -448,7 +448,6 @@ export default function BackendLayout()
 	const find = (route: string) => menu?.flatMap((c) => c.items).find((i) => i.route === route) ?? null
 	// hidden plugins (ex: my tasks) open by their page, they are not listed
 	const visible_menu = menu?.map((c) => ({...c, items: c.items.filter((i) => !i.hidden)})).filter((c) => c.items.length > 0) ?? null
-	const logo = useLogo(config)
 
 	return (
 		<MenuContext.Provider value={{menu, find, bookmarks, toggleBookmark}}>
@@ -479,7 +478,7 @@ export default function BackendLayout()
 						<ImpersonationBanner />
 						<Box component="header" sx={{height: {xs: 56, md: 60}, flexShrink: 0, display: 'flex', alignItems: 'center', gap: {xs: 0.5, md: 2}, px: {xs: 1, md: 2.5}, bgcolor: config?.header_background || 'var(--u-page)', borderBottom: '1px solid var(--u-border-soft)'}}>
 							{is_mobile && <IconButton aria-label={t('Open menu')} onClick={() => setDrawer(true)}><MenuOutlined /></IconButton>}
-							<Box component={NavLink} to="/" sx={{display: 'flex'}}><Box component="img" src={logo} alt="logo" sx={{height: {xs: 26, md: 36}, width: 'auto', ml: {md: '-5px'}}} /></Box>
+							<Box component={NavLink} to="/" sx={{display: 'flex', textDecoration: 'none'}}><Logo config={config} height={{xs: 26, md: 36}} compact={is_mobile} sx={{ml: {md: '-5px'}}} /></Box>
 							<Box sx={{flexGrow: 1}} />
 							{/* calendar: module calendar (hidden from the menus), shown with its list right */}
 							<Box sx={{display: 'flex', alignItems: 'center', gap: {xs: 0, md: 0.5}}}>
@@ -497,7 +496,6 @@ export default function BackendLayout()
 
 					{is_mobile && (
 						<Drawer open={drawer} onClose={() => setDrawer(false)} slotProps={{paper: {sx: {width: 280, p: 1.5, display: 'flex', flexDirection: 'column'}}}}>
-							<Box sx={{px: 1, pb: 1.5, pt: 0.5}}><Box component="img" src={logo} alt="logo" sx={{height: 26, width: 'auto'}} /></Box>
 							<Sidebar menu={visible_menu} collapsed={false} onNavigate={() => setDrawer(false)} />
 							<Box sx={{display: 'flex', flexDirection: 'column', mt: 'auto', pt: 1.5}}><ThemeButton collapsed={false} /></Box>
 						</Drawer>

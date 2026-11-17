@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router'
-import { Alert, Box, Link, Typography } from '@mui/material'
+import { Alert, Box, Link, Typography, type Breakpoint, type SxProps, type Theme } from '@mui/material'
 import { useColorScheme } from '@mui/material/styles'
 import { ArrowBack } from '@mui/icons-material'
 import { api, type LoginConfig } from '../api'
@@ -9,13 +9,32 @@ import { t } from '../i18n'
 import { BASE } from '../base'
 
 /**
- * logo of the global backend.logo, otherwise the unee logo (white text in dark mode)
+ * logo of the global backend.logo (image), otherwise the unee icon followed by the name in html text:
+ * the browser hints real text, a name drawn as svg paths cracks at header sizes
+ * height is the logo height (px or responsive object), the proportions come from logo.svg, compact shows the icon only
+ * text, color and font size of the name come from the globals backend.logo.text / color / size
  */
-export function useLogo(config: LoginConfig | null):string
+export function Logo({config, height, compact = false, sx}: {config: LoginConfig | null, height: number | Partial<Record<Breakpoint, number>>, compact?: boolean, sx?: SxProps<Theme>})
 {
 
 	const {colorScheme} = useColorScheme()
-	return config?.logo || `${BASE}${(colorScheme === 'dark') ? 'logo-dark.svg' : 'logo.svg'}`
+	const extra_sx = Array.isArray(sx) ? sx : [sx]
+	const text = config?.logo_text || 'Unee'
+
+	if(config?.logo)
+	{
+
+		return <Box component="img" src={config.logo} alt="logo" sx={[{height, width: 'auto'}, ...extra_sx]} />
+
+	}
+
+	// 1em = logo height: icon 1em, gap 0.121em, name in hind siliguri at 0.731em, nudged to sit on the svg baseline
+	return (
+		<Box role="img" aria-label={text} sx={[{display: 'flex', alignItems: 'center', gap: '0.121em', height: '1em', fontSize: height}, ...extra_sx]}>
+			<Box component="img" src={`${BASE}logo-icon.svg`} alt="" sx={{height: '1em', width: 'auto'}} />
+			{!compact && <Box component="span" sx={{position: 'relative', top: '0.015em', fontFamily: "'Hind Siliguri', sans-serif", fontWeight: 400, fontSize: config?.logo_size ? `${config.logo_size}px` : '0.731em', lineHeight: 1, whiteSpace: 'nowrap', color: config?.logo_color || ((colorScheme === 'dark') ? '#fff' : '#000')}}>{text}</Box>}
+		</Box>
+	)
 
 }
 
@@ -90,7 +109,6 @@ export function useDocumentTitle(page: string, name?: string | null)
 export default function AuthLayout({config, title, subtitle, documentTitle, children}: {config: LoginConfig | null, title: string, subtitle: ReactNode, documentTitle: string, children: ReactNode})
 {
 
-	const logo = useLogo(config)
 	useDocumentTitle(documentTitle, config?.name)
 
 	return (
@@ -98,13 +116,13 @@ export default function AuthLayout({config, title, subtitle, documentTitle, chil
 
 			<Box sx={{flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', px: {xs: 4, md: 3}, py: {xs: 3, md: 2.5}}}>
 				{/* desktop: logo in the corner */}
-				<Box component="img" src={logo} alt="logo" sx={{display: {xs: 'none', md: 'block'}, height: 34, width: 'auto', alignSelf: 'flex-start'}} />
+				<Logo config={config} height={34} sx={{display: {xs: 'none', md: 'flex'}, alignSelf: 'flex-start'}} />
 
 				<Box sx={{flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', py: {md: 6}}}>
 					<Box sx={{width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: {xs: 3, md: 3.5}}}>
 						{/* mobile: logo centered above the title */}
 						<Box sx={{display: {xs: 'flex', md: 'none'}, justifyContent: 'center', pb: 1}}>
-							<Box component="img" src={logo} alt="logo" sx={{height: 40, width: 'auto'}} />
+							<Logo config={config} height={40} />
 						</Box>
 
 						<Box sx={{display: 'flex', flexDirection: 'column', gap: 0.75}}>

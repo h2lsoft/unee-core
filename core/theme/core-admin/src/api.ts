@@ -87,6 +87,10 @@ export type LoginConfig = {
 	name: string
 	login_key: 'email' | 'login'
 	logo: string | null
+	// name next to the unee icon (globals backend.logo.*), null = default
+	logo_text: string | null
+	logo_color: string | null
+	logo_size: number | null
 	header_background: string | null
 	stylesheets: string[]
 	login: {

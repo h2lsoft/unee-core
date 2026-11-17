@@ -241,7 +241,7 @@ class AuthController extends \Core\Controller
 	/**
 	 * public settings of the login page: whitelist of globals, the other globals are never exposed
 	 *
-	 * @return \Core\JsonResponse {"name", "login_key", "logo", "header_background", "stylesheets": [url], "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
+	 * @return \Core\JsonResponse {"name", "login_key", "logo", "logo_text", "logo_color", "logo_size", "header_background", "stylesheets": [url], "login": {"image", "title", "subtitle"}, "maintenance_message", "languages": {"en": "English"}}, null = default of the backend
 	 */
 	#[Route('/config/', name: 'config', methods: ['GET'])]
 	public function config():\Core\JsonResponse
@@ -251,8 +251,17 @@ class AuthController extends \Core\Controller
 		$get = fn(string $name) => (isset($globals[$name]) && trim((string)$globals[$name]) !== '') ? (string)$globals[$name] : null;
 
 		// css color only: the value goes into a stylesheet
-		$header_background = $get('backend.header.background');
-		if($header_background !== null && !preg_match('/^(#[0-9a-f]{3,8}|[a-z]{3,30}|(rgb|hsl)a?\([0-9a-z\s.,%\/-]{1,60}\))$/i', trim($header_background)))$header_background = null;
+		$color = function(string $name) use ($get):?string
+		{
+
+			$value = $get($name);
+			return ($value !== null && preg_match('/^(#[0-9a-f]{3,8}|[a-z]{3,30}|(rgb|hsl)a?\([0-9a-z\s.,%\/-]{1,60}\))$/i', trim($value))) ? trim($value) : null;
+
+		};
+
+		// font size of the name of the logo in px, out of range = proportional
+		$logo_size = (int)$get('backend.logo.size');
+		$logo_size = ($logo_size >= 8 && $logo_size <= 80) ? $logo_size : null;
 
 		// stylesheets overriding the backend: absolute path or http(s) url only
 		$stylesheets = array_values(array_filter(array_map('trim', (array)($globals['backend.stylesheets'] ?? [])), fn($url) => preg_match('#^(/[^/]|https?://)#i', $url)));
@@ -261,7 +270,10 @@ class AuthController extends \Core\Controller
 			'name' => (string)\Core\Config::get('name'),
 			'login_key' => (\Core\Config::get('auth/backend/key') === 'login') ? 'login' : 'email',
 			'logo' => $get('backend.logo'),
-			'header_background' => ($header_background !== null) ? trim($header_background) : null,
+			'logo_text' => ($get('backend.logo.text') !== null) ? trim($get('backend.logo.text')) : null,
+			'logo_color' => $color('backend.logo.color'),
+			'logo_size' => $logo_size,
+			'header_background' => $color('backend.header.background'),
 			'stylesheets' => $stylesheets,
 			'login' => [
 				'image' => $get('backend.login.image'),
