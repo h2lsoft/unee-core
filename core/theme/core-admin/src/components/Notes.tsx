@@ -5,7 +5,7 @@ import { api, ApiException } from '../api'
 import { t } from '../i18n'
 import { relativeDay } from './time'
 import { useToast } from './Toast'
-import { CARD_SX, HEADER_SX, LABEL_SX, type WidgetInfo, type WidgetSlots } from './Widgets'
+import { CARD_SX, HEADER_SX, LABEL_SX, widgetTitle, type WidgetInfo, type WidgetSlots } from './Widgets'
 
 type Note = {id: number, text: string, color: string, date: string}
 
@@ -153,10 +153,10 @@ export default function Notes({widget, handle, tools}: {widget: WidgetInfo} & Wi
 	}
 
 	return (
-		<Box component="section" aria-label={widget.name} sx={CARD_SX}>
+		<Box component="section" aria-label={widgetTitle(widget)} sx={CARD_SX}>
 			<Box sx={HEADER_SX}>
 				{handle ?? <StickyNote2Outlined sx={{fontSize: 18, color: 'var(--u-muted)'}} />}
-				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
+				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widgetTitle(widget)}</Typography>
 				<ButtonBase onClick={() => setEditing('new')} sx={{display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 500, lineHeight: 'inherit', color: 'var(--u-accent-text)', '&:hover': {textDecoration: 'underline'}}}><AddOutlined sx={{fontSize: 16}} />{t('Add note')}</ButtonBase>
 				{tools}
 			</Box>

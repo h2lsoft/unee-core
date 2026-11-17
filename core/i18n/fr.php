@@ -427,6 +427,7 @@ return [
 	'invalid list of widgets' => 'liste de widgets invalide',
 	'widget not allowed' => 'widget non autorisé',
 	'a widget is placed once' => 'un widget ne peut être placé qu\'une fois',
+	'the title of a widget holds 60 characters at most' => 'le titre d\'un widget contient 60 caractères au maximum',
 	'a row holds 4 columns at most' => 'une ligne contient 4 colonnes au maximum',
 	'geocoding service unreachable: [ERROR]' => 'service de géolocalisation injoignable : [ERROR]',
 	'weather service unreachable: [ERROR]' => 'service météo injoignable : [ERROR]',

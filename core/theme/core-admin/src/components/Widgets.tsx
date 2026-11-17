@@ -13,13 +13,16 @@ import UserAvatar, { type AvatarData } from './UserAvatar'
 export type WidgetSize = 'quarter' | 'half' | 'three_quarters' | 'full'
 
 // widget of the dashboard (GET /api/dashboard/), its data comes from GET /api/dashboard/widgets/{id}/ (see \Core\Widget), a url widget is a https page in an iframe
-export type WidgetInfo = {id: number, type: 'notes' | 'clock' | 'data' | 'url', name: string, icon: string, route: string, size: WidgetSize, position: number, refresh: number, multiple?: boolean, fields?: WidgetField[], url?: string, height?: number, key?: number, config?: Record<string, string>}
+export type WidgetInfo = {id: number, type: 'notes' | 'clock' | 'data' | 'url', name: string, icon: string, route: string, size: WidgetSize, position: number, refresh: number, multiple?: boolean, fields?: WidgetField[], url?: string, height?: number, key?: number, config?: Record<string, string>, title?: string}
 
 // setting of a configurable widget (\Core\Widget::fields), set by the user on each widget he placed
 export type WidgetField = {name: string, label: string, type: 'text' | 'number' | 'select' | 'boolean', default: string, options: {value: string, label: string}[]}
 
 // widget placed on the dashboard: key = its id (xcore_user_widget, < 0 until saved), config = its settings
 export type Placed = WidgetInfo & {key: number, config: Record<string, string>}
+
+// title of a widget: the one set by the user, else its name
+export const widgetTitle = (w: WidgetInfo) => w.title || w.name
 
 // icon of a widget, generic one when empty
 export const widgetIcon = (w: WidgetInfo) => w.icon || ({notes: 'sticky_note_2', clock: 'schedule', url: 'language'} as Record<string, string>)[w.type] || 'widgets'
@@ -291,10 +294,10 @@ export function WidgetCard({widget, version, handle, tools}: {widget: WidgetInfo
 	}, [widget.key, widget.refresh, version, config])
 
 	return (
-		<Box component="section" aria-label={widget.name} sx={CARD_SX}>
+		<Box component="section" aria-label={widgetTitle(widget)} sx={CARD_SX}>
 			<Box sx={HEADER_SX}>
 				{handle ?? <MenuIcon name={widgetIcon(widget)} fontSize={18} color="var(--u-muted)" />}
-				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
+				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widgetTitle(widget)}</Typography>
 				{widget.route && <Box component={RouterLink} to={`/${widget.route}/`} sx={{display: 'flex', alignItems: 'center', flexShrink: 0, fontSize: 12.5, fontWeight: 500, color: 'var(--u-accent-text)', textDecoration: 'none', '&:hover': {textDecoration: 'underline'}}}>{t('View all')}<ChevronRightOutlined sx={{fontSize: 16}} /></Box>}
 				{tools}
 			</Box>
@@ -316,16 +319,16 @@ export function UrlWidget({widget, handle, tools}: {widget: WidgetInfo} & Widget
 	const url = (widget.url ?? '').toLowerCase().startsWith('https://') ? widget.url ?? '' : ''
 
 	return (
-		<Box component="section" aria-label={widget.name} sx={CARD_SX}>
+		<Box component="section" aria-label={widgetTitle(widget)} sx={CARD_SX}>
 			<Box sx={HEADER_SX}>
 				{handle ?? <MenuIcon name={widgetIcon(widget)} fontSize={18} color="var(--u-muted)" />}
-				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
+				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widgetTitle(widget)}</Typography>
 				{url && <Box component="a" href={url} target="_blank" rel="noopener noreferrer" sx={{display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, fontSize: 12.5, fontWeight: 500, color: 'var(--u-accent-text)', textDecoration: 'none', '&:hover': {textDecoration: 'underline'}}}>{t('Open')}<OpenInNewOutlined sx={{fontSize: 14}} /></Box>}
 				{tools}
 			</Box>
 			<Box sx={{px: 1.75, pb: 1.75, pt: 0.25, flexGrow: 1, display: 'flex', flexDirection: 'column'}}>
 				{url
-					? <Box component="iframe" src={url} title={widget.name} loading="lazy" referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" sx={{display: 'block', width: '100%', height: widget.height ?? 300, border: 0, borderRadius: '8px', bgcolor: 'var(--u-widget-inner)'}} />
+					? <Box component="iframe" src={url} title={widgetTitle(widget)} loading="lazy" referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox" sx={{display: 'block', width: '100%', height: widget.height ?? 300, border: 0, borderRadius: '8px', bgcolor: 'var(--u-widget-inner)'}} />
 					: <Body data={{type: 'error', message: t('invalid url')}} />}
 			</Box>
 		</Box>
@@ -396,10 +399,10 @@ export function ClockWidget({widget, handle, tools}: {widget: WidgetInfo} & Widg
 	const date = clockDate(now, zone)
 
 	return (
-		<Box component="section" aria-label={widget.name} sx={CARD_SX}>
+		<Box component="section" aria-label={widgetTitle(widget)} sx={CARD_SX}>
 			<Box sx={HEADER_SX}>
 				{handle ?? <MenuIcon name={widgetIcon(widget)} fontSize={18} color="var(--u-muted)" />}
-				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widget.name}</Typography>
+				<Typography component="h2" noWrap sx={{...LABEL_SX, flexGrow: 1}}>{widgetTitle(widget)}</Typography>
 				{tools}
 			</Box>
 			<Box component="time" dateTime={now.toISOString()} sx={{px: 1.75, pb: 2, pt: 0.5, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontVariantNumeric: 'tabular-nums'}}>

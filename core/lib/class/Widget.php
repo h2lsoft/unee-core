@@ -75,13 +75,13 @@ class Widget
 	 *
 	 * @param array|null $catalog widgets allowed (forCurrentUser()), read when null
 	 *
-	 * @return array same items as forCurrentUser() with "key" (id of the placed widget), "row", "config" (its settings, defaults included)
+	 * @return array same items as forCurrentUser() with "key" (id of the placed widget), "row", "config" (its settings, defaults included), "title" (set by the user, '' = name)
 	 */
 	public static function layoutForCurrentUser(?array $catalog=null):array
 	{
 
 		$allowed = array_column($catalog ?? self::forCurrentUser(), null, 'id');
-		$recs = DB()->query("SELECT id, xcore_widget_id, `row`, config FROM xcore_user_widget WHERE deleted = 'no' AND xcore_user_id = :me ORDER BY `row`, position, id", ['me' => \Model\User::getUID()])->fetchAll() ?: [];
+		$recs = DB()->query("SELECT id, xcore_widget_id, `row`, config, title FROM xcore_user_widget WHERE deleted = 'no' AND xcore_user_id = :me ORDER BY `row`, position, id", ['me' => \Model\User::getUID()])->fetchAll() ?: [];
 
 		$widgets = [];
 		$seen = [];
@@ -107,7 +107,7 @@ class Widget
 
 			$stored = (int)$rec['row'];
 			$width += $span;
-			$widgets[] = $allowed[$id] + ['key' => (int)$rec['id'], 'row' => $row, 'config' => self::config($allowed[$id]['fields'], json_decode((string)$rec['config'], true))];
+			$widgets[] = $allowed[$id] + ['key' => (int)$rec['id'], 'row' => $row, 'config' => self::config($allowed[$id]['fields'], json_decode((string)$rec['config'], true)), 'title' => (string)$rec['title']];
 
 		}
 
@@ -118,7 +118,7 @@ class Widget
 	/**
 	 * saves the dashboard of the logged user: his placed widgets updated (key), added (key 0) or removed (not given)
 	 *
-	 * @param array $rows [[{"key", "widget", "config"}, ...], ...] checked by the caller (keys of the user, widgets allowed, config valid)
+	 * @param array $rows [[{"key", "widget", "config", "title"}, ...], ...] checked by the caller (keys of the user, widgets allowed, config and title valid)
 	 *
 	 * @return void
 	 */
@@ -135,7 +135,7 @@ class Widget
 			foreach(array_values($items) as $i => $item)
 			{
 
-				$data = ['row' => $r, 'position' => $i + 1, 'config' => $item['config'] ? json_encode($item['config'], JSON_UNESCAPED_UNICODE) : null];
+				$data = ['row' => $r, 'position' => $i + 1, 'config' => $item['config'] ? json_encode($item['config'], JSON_UNESCAPED_UNICODE) : null, 'title' => (string)($item['title'] ?? '')];
 				if($item['key'])
 				{
 

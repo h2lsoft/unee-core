@@ -6,7 +6,7 @@ import { t } from '../i18n'
 import { FIELDS_SX, Input } from './FormDialog'
 import { MenuIcon } from './icons'
 import Notes from './Notes'
-import { ClockWidget, GRID_SX, SPANS, UrlWidget, WidgetCard, widgetIcon, widgetSpan, type Placed, type WidgetField, type WidgetInfo, type WidgetSize } from './Widgets'
+import { ClockWidget, GRID_SX, SPANS, UrlWidget, WidgetCard, widgetIcon, widgetSpan, widgetTitle, type Placed, type WidgetField, type WidgetInfo, type WidgetSize } from './Widgets'
 
 const SIZE_LABELS: Record<WidgetSize, string> = {quarter: '1 column', half: '2 columns', three_quarters: '3 columns', full: '4 columns'}
 const COLUMNS = 4
@@ -27,7 +27,7 @@ const fits = (row: Placed[], item: Placed) => width(row, item.key) + span(item) 
 // lower case without accents, for the search (meteo finds Météo)
 const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-const sameRows = (a: Rows, b: Rows) => a.length === b.length && a.every((row, r) => row.length === b[r].length && row.every((w, i) => w.key === b[r][i].key && JSON.stringify(w.config) === JSON.stringify(b[r][i].config)))
+const sameRows = (a: Rows, b: Rows) => a.length === b.length && a.every((row, r) => row.length === b[r].length && row.every((w, i) => w.key === b[r][i].key && (w.title ?? '') === (b[r][i].title ?? '') && JSON.stringify(w.config) === JSON.stringify(b[r][i].config)))
 
 /**
  * rows of the widgets of the api (field row)
@@ -164,18 +164,25 @@ export function AddWidgetDialog({open, catalog, placed, onAdd, onClose}: {open: 
 }
 
 /**
- * settings of a placed widget (fields of the module Widgets): small dialog centered, icon and name of the widget in the title, laid out like the forms (label on the left, compact controls); Save, close cross only
+ * settings of a placed widget, every widget: its title for this user (empty = name of the widget), then the fields of the module Widgets when configurable
+ * small dialog centered, icon and title of the widget in the title, laid out like the forms (label on the left, compact controls); Save, close cross only
  */
-export function WidgetSettingsDialog({widget, onSave, onClose}: {widget: Placed | null, onSave: (config: Record<string, string>) => void, onClose: () => void})
+export function WidgetSettingsDialog({widget, onSave, onClose}: {widget: Placed | null, onSave: (config: Record<string, string>, title: string) => void, onClose: () => void})
 {
 
 	const [values, setValues] = useState<Record<string, string>>({})
+	const [title, setTitle] = useState('')
 
 	useEffect(() => {
 
-		if(widget)setValues({...widget.config})
+		if(!widget)return
+		setValues({...widget.config})
+		setTitle(widget.title ?? '')
 
 	}, [widget])
+
+	// title field first (name of the widget as placeholder), apart from the settings so it never meets a field named title
+	const title_field: FormField = {name: 'widget_title', label: t('Title'), type: 'text', required: false, width: 0, placeholder: widget?.name, max_length: 60}
 
 	// fields of the widget as form fields (same inputs as the forms)
 	const fields: FormField[] = (widget?.fields ?? []).map((f: WidgetField) => ({name: f.name, label: f.label, type: f.type, required: true, width: 0, options: f.options, max_length: f.type === 'text' ? 255 : undefined}))
@@ -185,12 +192,16 @@ export function WidgetSettingsDialog({widget, onSave, onClose}: {widget: Placed 
 		<Dialog open={widget !== null} onClose={(_, reason) => reason !== 'backdropClick' && onClose()} maxWidth="xs" fullWidth sx={{'& .MuiDialog-container': {alignItems: 'center'}}}>
 			<DialogTitle sx={{display: 'flex', alignItems: 'center', gap: 1, fontSize: 18, fontWeight: 600, pr: 1.5}}>
 				{widget && <MenuIcon name={widgetIcon(widget)} fontSize={20} color="var(--u-muted)" />}
-				<Box component="span" sx={{flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{widget?.name}</Box>
+				<Box component="span" sx={{flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{widget && widgetTitle(widget)}</Box>
 				<IconButton aria-label={t('Close')} onClick={onClose}><CloseOutlined /></IconButton>
 			</DialogTitle>
-			<Box component="form" noValidate onSubmit={(e) => { e.preventDefault(); if(!invalid)onSave(values) }}>
+			<Box component="form" noValidate onSubmit={(e) => { e.preventDefault(); if(!invalid)onSave(values, title.trim()) }}>
 				<DialogContent sx={{pt: 1}}>
 					<Box sx={{display: 'flex', flexDirection: 'column', gap: '9px', py: 0.5, ...FIELDS_SX}}>
+						<Box sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '90px 1fr'}, columnGap: 2, rowGap: 0.5, alignItems: 'start'}}>
+							<InputLabel id="field-widget_title-label" htmlFor="field-widget_title" sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', whiteSpace: 'normal', textAlign: {xs: 'left', sm: 'right'}, lineHeight: {sm: '34px'}}}>{title_field.label}</InputLabel>
+							<Box sx={{minWidth: 0}}><Input field={title_field} value={title} error={false} onChange={setTitle} /></Box>
+						</Box>
 						{fields.map((f) => (
 							<Box key={f.name} sx={{display: 'grid', gridTemplateColumns: {xs: '1fr', sm: '90px 1fr'}, columnGap: 2, rowGap: 0.5, alignItems: 'start'}}>
 								<InputLabel id={`field-${f.name}-label`} htmlFor={`field-${f.name}`} sx={{fontSize: 14, fontWeight: 500, color: 'var(--u-text2)', whiteSpace: 'normal', textAlign: {xs: 'left', sm: 'right'}, lineHeight: {sm: '34px'}}}>{f.label}</InputLabel>
@@ -355,7 +366,7 @@ export function DashboardGrid({rows, version, onChange}: {rows: Rows, version: n
 					// icon of the widget, replaced by the grip on hover (no empty space before the icon)
 					const handle = (
 						<Tooltip title={t('Move')} disableInteractive>
-							<Box component="span" role="button" tabIndex={0} aria-label={`${t('Move')} ${w.name}`} className="u-widget-handle"
+							<Box component="span" role="button" tabIndex={0} aria-label={`${t('Move')} ${widgetTitle(w)}`} className="u-widget-handle"
 								onPointerDown={() => setArmed(w.key)} onKeyDown={(e) => key(e, w)}
 								sx={{display: 'grid', placeItems: 'center', width: 20, height: 22, mx: -0.125, flexShrink: 0, borderRadius: '4px', color: 'var(--u-muted)', cursor: 'grab', '& .u-grip': {display: 'none'}, '&:hover': {bgcolor: 'var(--u-hover)', color: 'var(--u-text)'}, '&:focus-visible': {outline: '2px solid', outlineColor: 'primary.main'}}}>
 								<Box component="span" className="u-icon" sx={{display: 'grid'}}><MenuIcon name={widgetIcon(w)} fontSize={18} color="currentColor" /></Box>
@@ -365,16 +376,14 @@ export function DashboardGrid({rows, version, onChange}: {rows: Rows, version: n
 					)
 					const tools = (
 						<>
-							{!!w.fields?.length && (
-								<Tooltip title={t('Settings')}>
-									<IconButton className="u-widget-tools" aria-label={`${t('Settings')} ${w.name}`} onClick={() => setSettings(w)}
-										sx={{p: 0.25, flexShrink: 0, color: 'var(--u-muted)', '&:hover': {color: 'primary.main'}}}>
-										<TuneOutlined sx={{fontSize: 17}} />
-									</IconButton>
-								</Tooltip>
-							)}
+							<Tooltip title={t('Settings')}>
+								<IconButton className="u-widget-tools" aria-label={`${t('Settings')} ${widgetTitle(w)}`} onClick={() => setSettings(w)}
+									sx={{p: 0.25, flexShrink: 0, color: 'var(--u-muted)', '&:hover': {color: 'primary.main'}}}>
+									<TuneOutlined sx={{fontSize: 17}} />
+								</IconButton>
+							</Tooltip>
 							<Tooltip title={t('Remove')}>
-								<IconButton className="u-widget-tools" aria-label={`${t('Remove')} ${w.name}`} onClick={() => remove(w)}
+								<IconButton className="u-widget-tools" aria-label={`${t('Remove')} ${widgetTitle(w)}`} onClick={() => remove(w)}
 									sx={{p: 0.25, mr: -0.5, flexShrink: 0, color: 'var(--u-muted)', '&:hover': {color: 'var(--u-error)'}}}>
 									<DeleteOutlineOutlined sx={{fontSize: 17}} />
 								</IconButton>
@@ -406,7 +415,7 @@ export function DashboardGrid({rows, version, onChange}: {rows: Rows, version: n
 
 				})}
 			</Box>
-			<WidgetSettingsDialog widget={settings} onClose={() => setSettings(null)} onSave={(config) => { const key = settings?.key; setSettings(null); change(rows.map((row) => row.map((x) => x.key === key ? {...x, config} : x))) }} />
+			<WidgetSettingsDialog widget={settings} onClose={() => setSettings(null)} onSave={(config, title) => { const key = settings?.key; setSettings(null); change(rows.map((row) => row.map((x) => x.key === key ? {...x, config, title} : x))) }} />
 			{dragging && (
 				<Box onDragOver={(e) => accept(e, {side: 'last'})} sx={{height: 64, borderRadius: '12px', border: '2px dashed', borderColor: zone?.side === 'last' ? 'primary.main' : 'var(--u-border)', bgcolor: zone?.side === 'last' ? 'var(--u-accent-bg)' : 'transparent', display: 'grid', placeItems: 'center', fontSize: 12.5, color: 'var(--u-muted)'}}>
 					{t('New row')}

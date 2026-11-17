@@ -112,7 +112,7 @@ export default function Dashboard()
 
 		const previous = widgets
 		setWidgets(rows)
-		api<{widgets: (Placed & {row: number})[]}>('dashboard/layout/', {method: 'PUT', body: {rows: rows.map((row) => row.map((w) => ({key: Math.max(0, w.key), widget: w.id, config: w.config})))}})
+		api<{widgets: (Placed & {row: number})[]}>('dashboard/layout/', {method: 'PUT', body: {rows: rows.map((row) => row.map((w) => ({key: Math.max(0, w.key), widget: w.id, config: w.config, title: w.title ?? ''})))}})
 			.then((data) => setWidgets(toRows(data.widgets)))
 			.catch((e) => { setWidgets(previous); toast(e instanceof ApiException ? e.error.message : t('network error, please retry'), 'error') })
 

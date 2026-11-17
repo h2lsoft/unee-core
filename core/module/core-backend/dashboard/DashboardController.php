@@ -31,8 +31,8 @@ class DashboardController extends \Core\Controller
 	}
 
 	/**
-	 * saves the dashboard of the logged user, json body {"rows": [[{"key", "widget", "config"}, ...], ...]} rows from the top, widgets from the left (empty = empty dashboard)
-	 * key: id of a widget he placed (0 = added), widget: id of xcore_widget, config: settings of a configurable widget {name: value}
+	 * saves the dashboard of the logged user, json body {"rows": [[{"key", "widget", "config", "title"}, ...], ...]} rows from the top, widgets from the left (empty = empty dashboard)
+	 * key: id of a widget he placed (0 = added), widget: id of xcore_widget, config: settings of a configurable widget {name: value}, title: his title of the widget (plain text, 60 characters at most, '' = name)
 	 * each widget allowed, placed once unless multiple, a row holds 4 columns at most (sizes of the widgets)
 	 *
 	 * @param Request $request
@@ -85,10 +85,16 @@ class DashboardController extends \Core\Controller
 
 				}
 
+				// title of the user: plain text on one line
+				$title = $item['title'] ?? '';
+				if(!is_string($title))return \Core\JsonResponse::error(422, ts('invalid list of widgets'));
+				$title = trim(preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $title) ?? '');
+				if(mb_strlen($title) > 60)return \Core\JsonResponse::error(422, ts('the title of a widget holds 60 characters at most'));
+
 				$placed[$id] = true;
 				if($key)$keys[$key] = true;
 				$width += \Core\Widget::SPANS[$catalog[$id]['size']] ?? \Core\Widget::COLUMNS;
-				$items[] = ['key' => $key, 'widget' => $id, 'config' => \Core\Widget::config($catalog[$id]['fields'], $config)];
+				$items[] = ['key' => $key, 'widget' => $id, 'config' => \Core\Widget::config($catalog[$id]['fields'], $config), 'title' => $title];
 				$count++;
 
 			}
