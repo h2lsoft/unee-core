@@ -13,6 +13,7 @@ import { MenuIcon } from './icons'
 import TimeInput from './TimeInput'
 import FileInput from './FileInput'
 import AddressInput from './AddressInput'
+import CheckboxesSelect from './CheckboxesSelect'
 import { useChatterTarget } from './ChatterDock'
 import UserAvatar from './UserAvatar'
 import { useToast } from './Toast'
@@ -215,7 +216,10 @@ export function Input({field, value, error, onChange, from = ''}: {field: FormFi
 
 	}
 
-	// several values of a list, as chips
+	// several values of a list, as chips; display checkboxes = checkboxes in columns in a popup (long lists of short values)
+	if(field.type === 'multiselect' && field.display === 'checkboxes')
+		return <CheckboxesSelect id={id} options={field.options ?? []} value={words(value)} columns={field.columns} error={error} readonly={field.readonly} placeholder={field.placeholder} onChange={(list) => onChange(JSON.stringify(list))} />
+
 	if(field.type === 'multiselect')
 	{
 

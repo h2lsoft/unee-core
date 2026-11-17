@@ -1,0 +1,1 @@
+import{B as e,Lt as t}from"./i18n-D3JYb9IU.js";var n=t(),r=e((0,n.jsx)(`path`,{d:`M22 3.41 16.71 8.7 20 12h-8V4l3.29 3.29L20.59 2zM3.41 22l5.29-5.29L12 20v-8H4l3.29 3.29L2 20.59z`}),`CloseFullscreenOutlined`),i=e((0,n.jsx)(`path`,{d:`M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10z`}),`OpenInFullOutlined`);export{r as n,i as t};

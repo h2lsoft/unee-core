@@ -167,6 +167,19 @@ return [
 		'max_size' => 10485760, # bytes, capped by upload_max_filesize
 	],
 
+	// STORAGE *********************************************************************************************************
+	// quota of the instance (files of upload_dir and private_dir + database), set by the offer in the config of the instance (\Core\Storage)
+	'storage' => [
+		'quota' => 0, # MB, 0 = unlimited
+	],
+
+	// DRIVE ***********************************************************************************************************
+	// documents of the module Drive, stored in private_dir/drive under random names (\Core\Drive)
+	// file types, max size and filters by type: globals drive.* (module Globals)
+	'drive' => [
+		'chunk_size' => 5242880, # bytes by upload request (5 MB), capped by upload_max_filesize and post_max_size
+	],
+
 	// ERRORS **********************************************************************************************************
 	// php errors and uncaught exceptions are written in xcore_log (\Core\ErrorHandler), file fallback when the db is down
 	'error_log' => [

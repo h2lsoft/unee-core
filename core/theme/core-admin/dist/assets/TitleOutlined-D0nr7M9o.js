@@ -1,0 +1,1 @@
+import{B as e,Lt as t}from"./i18n-D3JYb9IU.js";var n=t(),r=e((0,n.jsx)(`path`,{d:`M5 4v3h5.5v12h3V7H19V4z`}),`TitleOutlined`);export{r as t};

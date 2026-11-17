@@ -14,7 +14,7 @@ export function FileIcon({name, size = 20}: {name: string, size?: number})
 	const ext = name.split('.').pop()?.toLowerCase() ?? ''
 	const sx = {fontSize: size, color: 'var(--u-text3)', flexShrink: 0}
 	if(ext === 'pdf')return <PictureAsPdfOutlined sx={{...sx, color: 'error.main'}} />
-	if(['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext))return <ImageOutlined sx={sx} />
+	if(['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'bmp'].includes(ext))return <ImageOutlined sx={sx} />
 	if(['xls', 'xlsx', 'ods', 'csv'].includes(ext))return <TableChartOutlined sx={{...sx, color: 'success.main'}} />
 	if(['ppt', 'pptx', 'odp'].includes(ext))return <SlideshowOutlined sx={{...sx, color: 'warning.main'}} />
 	if(['doc', 'docx', 'odt', 'txt'].includes(ext))return <DescriptionOutlined sx={{...sx, color: 'info.main'}} />

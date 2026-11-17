@@ -14,9 +14,9 @@ class Globals
 	 * @param bool $register_value (default=true) register default value
 	 * @param string $register_type (text, url, boolean, list, json-array, json-object)
 	 * @param string $register_description
-	 * @return string|bool|array
+	 * @return string|bool|array|object (object for json-object)
 	 */
-	public static function get(string $name, mixed $default=false, bool $register_value=true, string $register_type='text', string $register_description=''):bool|string|array
+	public static function get(string $name, mixed $default=false, bool $register_value=true, string $register_type='text', string $register_description=''):bool|string|array|object
 	{
 		global $app;
 

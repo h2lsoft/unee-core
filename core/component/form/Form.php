@@ -254,6 +254,7 @@ class Form
 
 	/**
 	 * several values of a list, stored as a json array of the values (ex: ids of groups)
+	 * ->set('display', 'checkboxes')->set('columns', 3): checkboxes in columns in a popup (long lists of short values, ex: file types)
 	 *
 	 * @param array $options value => label (labels translated)
 	 */

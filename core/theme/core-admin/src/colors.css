@@ -28,6 +28,7 @@
 	--u-red-bg: #fde4e8; --u-red: #b0164e;
 	--u-green-bg: #e3f4ef; --u-green: #0f6a55;
 	--u-blue-bg: #e6f0fd; --u-blue: #1d4f91;
+	--u-toolbar: #fafafb;
 	--u-yellow-bg: #fff6d6; --u-yellow: #7a5b00;
 	--u-shadow: rgba(16, 20, 40, 0.06);
 	/* thread of the chatter, messaging style */
@@ -69,6 +70,7 @@
 	--u-red-bg: #3d1c27; --u-red: #ff8fb0;
 	--u-green-bg: #17332b; --u-green: #6fd6b5;
 	--u-blue-bg: #1a2a44; --u-blue: #8fb8f5;
+	--u-toolbar: #1d202b;
 	--u-yellow-bg: #3a3216; --u-yellow: #f0cf6a;
 	--u-shadow: rgba(0, 0, 0, 0.4);
 	--u-chat-bg: #0b141a; --u-chat-dots: rgba(255, 255, 255, 0.04);

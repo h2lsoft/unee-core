@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { Box, CircularProgress, CssBaseline, ThemeProvider, createTheme } from '@mui/material'
@@ -21,6 +22,9 @@ import ModulePage from './pages/ModulePage'
 import NotFound from './pages/NotFound'
 import BackendLayout from './components/BackendLayout'
 import { ToastProvider } from './components/Toast'
+
+// picker mode of the drive (iframe or popup, no layout), in its own chunk
+const DrivePicker = lazy(() => import('./pages/DrivePicker'))
 
 // corporate theme: primary color royal blue (same in light and dark), compact controls (40px), ibm plex sans
 // light and dark schemes (class on <html>, mode kept by mui in localStorage), the other colors are the --u-* variables of colors.css
@@ -77,6 +81,7 @@ const router = createBrowserRouter([
 	{path: '/login/', element: <Login />},
 	{path: '/password/forgot/', element: <ForgotPassword />},
 	{path: '/password/reset/', element: <ResetPassword />},
+	{path: '/drive-picker/', element: <RequireAuth><Suspense fallback={<Box sx={{display: 'flex', justifyContent: 'center', mt: 10}}><CircularProgress /></Box>}><DrivePicker /></Suspense></RequireAuth>},
 	{
 		element: <RequireAuth><BackendLayout /></RequireAuth>,
 		children: [

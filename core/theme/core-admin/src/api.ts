@@ -231,6 +231,9 @@ export type FormField = {
 	open_link?: boolean | 'backend'
 	mask?: string
 	align?: 'left' | 'center' | 'right'
+	// multiselect shown as checkboxes in columns in a popup (->set('display', 'checkboxes')->set('columns', 3))
+	display?: 'checkboxes'
+	columns?: number
 	hide_label?: boolean
 	inline?: boolean
 	size?: number
