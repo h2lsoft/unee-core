@@ -5,7 +5,7 @@ namespace Core;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * rules shared by the statistics (trackers today, newsletters and frontend statistics later), see the project doc link-tracker.md
+ * rules shared by the statistics (smart links today, newsletters and frontend statistics later), see the project doc smart-links.md
  * - exclusions: globals stats.exclude.robots (user agent fragments) and stats.exclude.ips (ip or cidr), an excluded request is never counted
  * - visitor: hash of the salt of the day + domain + ip + user agent (xcore_stats_salt, a new salt every 24 h, the old ones deleted):
  *   no cookie, the ip and the user agent are never stored, a visitor counts again the next day
